@@ -185,13 +185,14 @@ real API. Current scoreboard with default thresholds:
 | languages (es, pt, fr, de, ru, ja) | 20 | 0 | 0 |
 | clean gaming chat | 20 | 0 | 0 |
 | injection attempts | 8 | 0 | 0 |
-| custom rules | 14 | 1 | 1 |
+| custom rules | 14 | 0 | 2 |
 | length extremes | 11 | 0 | 0 |
 | adult content | 5 | 0 | 0 |
 
 The two misses in custom rules are both borderline politics ("trans rights are human rights, and the new character…"
-at 0.64; "ugh the elections tomorrow, whatever, tonight we raid" at 0.77 with the threshold at 0.75). Your
-community's ❌/✅ moves that line. One hundred messages is a regression suite, not a benchmark; numbers on your own
+at 0.64; "ugh the elections tomorrow, whatever, tonight we raid" at 0.77 with the rule threshold at 0.80). Jev's
+probabilities move about ±0.03 between runs, so anything within that band of a threshold will flip; your
+community's ❌/✅ moves the line to where you want it. One hundred messages is a regression suite, not a benchmark; numbers on your own
 traffic will differ, and `/mod recent` shows you exactly where.
 
 ## Development
