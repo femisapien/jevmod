@@ -41,7 +41,7 @@ phase's findings.** Each phase ends with something a stranger can run.
 ## Phase 2. Judgment quality
 
 - [x] Red team round 1 (2026-09-17, 98 messages): batch cross-talk fixed (dict state), NFKC + zalgo + enclosed letters,
-      character pre-filter for CJK, criteria on every question, scam 0.70 / nsfw 0.80. Scoreboard: 0 FP / 0 FN in every
+      character pre-filter for CJK, criteria on every question, scam 0.75 / nsfw 0.80. Scoreboard: 0 FP / 0 FN in every
       block except custom rules (1/1, borderline politics). Regression suite in `tests/test_redteam.py`.
 - [ ] Round 2 backlog from the red team: a `selfharm` category that notifies moderators without punishing; mass-mention /
       raid detection in code (count @mentions, no Jev call); spam and scam overlap (9 of 11 scams also score spam);
