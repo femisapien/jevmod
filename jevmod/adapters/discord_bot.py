@@ -16,7 +16,7 @@ from datetime import timedelta
 import discord
 from discord import app_commands
 
-from ..core import FREE_MONTHLY, Batcher, Decision, ModerationService, Store
+from ..core import FREE_MONTHLY, RULE_THRESHOLD, Batcher, Decision, ModerationService, Store
 from ..judge import CATEGORIES, Message
 
 log = logging.getLogger("jevmod.discord")
@@ -229,20 +229,28 @@ async def set_cmd(itx: discord.Interaction, category: str, action: str, threshol
 
 @mod.command(name="rule", description="Add or remove a rule in plain language")
 @app_commands.describe(
-    name="short name", text="the rule as you would tell a member; empty to remove", action="flag, delete, timeout"
+    name="short name",
+    text="the rule as you would tell a member, exceptions included; empty to remove",
+    action="flag, delete, timeout",
+    threshold="0.5 to 0.99 (default 0.75)",
 )
-async def rule_cmd(itx: discord.Interaction, name: str, text: str | None = None, action: str = "flag") -> None:
+async def rule_cmd(
+    itx: discord.Interaction, name: str, text: str | None = None, action: str = "flag", threshold: float | None = None
+) -> None:
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     try:
-        p.set_rule(name, text, action)
+        p.set_rule(name, text, action, threshold)
     except ValueError as exc:
         await itx.response.send_message(str(exc), ephemeral=True)
         return
     service.save_policy(tenant, p)
     key = name.strip().lower().replace(" ", "_")[:30]
     if key in p.rules:
-        await itx.response.send_message(f'rule **{key}** → {p.rule_actions[key]}: "{p.rules[key]}"', ephemeral=True)
+        th = p.rule_thresholds.get(key, RULE_THRESHOLD)
+        await itx.response.send_message(
+            f'rule **{key}** → {p.rule_actions[key]} at p ≥ {th:.2f}: "{p.rules[key]}"', ephemeral=True
+        )
     else:
         await itx.response.send_message(f"rule **{key}** removed", ephemeral=True)
 

@@ -1,0 +1,8 @@
+{
+  "app": "python app.py",
+  "context": {
+    "roles": "api",
+    "secret": "jevmod",
+    "@aws-cdk/core:newStyleStackSynthesis": true
+  }
+}
