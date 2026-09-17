@@ -10,7 +10,7 @@ from ..judge import CATEGORIES, Verdict
 ACTIONS = ("off", "flag", "delete", "timeout")  # ordered by severity
 DEFAULT_THRESHOLDS = {"spam": 0.85, "scam": 0.75, "harassment": 0.75, "nsfw": 0.8, "offtopic": 0.9}
 DEFAULT_ACTIONS = {"spam": "flag", "scam": "flag", "harassment": "flag", "nsfw": "flag", "offtopic": "off"}
-RULE_THRESHOLD = 0.75
+RULE_THRESHOLD = 0.8
 POLICY_VERSION = 1
 
 

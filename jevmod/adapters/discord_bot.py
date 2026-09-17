@@ -232,7 +232,7 @@ async def set_cmd(itx: discord.Interaction, category: str, action: str, threshol
     name="short name",
     text="the rule as you would tell a member, exceptions included; empty to remove",
     action="flag, delete, timeout",
-    threshold="0.5 to 0.99 (default 0.75)",
+    threshold="0.5 to 0.99 (default 0.80)",
 )
 async def rule_cmd(
     itx: discord.Interaction, name: str, text: str | None = None, action: str = "flag", threshold: float | None = None
