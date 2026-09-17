@@ -1,3 +1,38 @@
+Metadata-Version: 2.4
+Name: jevmod
+Version: 0.2.0
+Summary: Moderation for communities and apps, powered by Jev: spam, scams, harassment, adult, off-topic and your own plain-language rules, with a probability per category and thresholds you own.
+Author: Omar Hernandez
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/ohernandezdev/jevmod
+Keywords: moderation,discord,telegram,reddit,content-moderation,typesafe,jev
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Communications :: Chat
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: typesafe-sdk>=0.6
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn[standard]>=0.29
+Requires-Dist: pydantic>=2
+Provides-Extra: discord
+Requires-Dist: discord.py>=2.3; extra == "discord"
+Provides-Extra: telegram
+Requires-Dist: python-telegram-bot>=21; extra == "telegram"
+Provides-Extra: reddit
+Requires-Dist: praw>=7.7; extra == "reddit"
+Provides-Extra: all
+Requires-Dist: discord.py>=2.3; extra == "all"
+Requires-Dist: python-telegram-bot>=21; extra == "all"
+Requires-Dist: praw>=7.7; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Dynamic: license-file
+
 # jevmod
 
 Moderation for communities and apps, powered by [Jev](https://typesafe.ai) (TypeSafe's System One model).

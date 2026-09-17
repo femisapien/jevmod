@@ -1,0 +1,2 @@
+[console_scripts]
+jevmod = jevmod.__main__:main
