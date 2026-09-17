@@ -2,7 +2,6 @@
 """cdk deploy -c roles=api,discord   (default: api)"""
 
 import aws_cdk as cdk
-
 from jevmod_stack import JevmodStack
 
 app = cdk.App()

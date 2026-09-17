@@ -6,7 +6,7 @@
 Secrets are read from one Secrets Manager secret named `jevmod` with JSON keys matching .env.example
 (TYPESAFE_API_KEY, JEVMOD_ADMIN_TOKEN, DISCORD_TOKEN, TELEGRAM_TOKEN, REDDIT_*). Create it once:
 
-    aws secretsmanager create-secret --name jevmod --secret-string '{"TYPESAFE_API_KEY":"...","JEVMOD_ADMIN_TOKEN":"..."}'
+    aws secretsmanager create-secret --name jevmod --secret-string '{"TYPESAFE_API_KEY":"...", ...}'
 
 Sizing: 0.25 vCPU / 512 MB per role is plenty; the judge is I/O bound and batches per tenant.
 Cost: about 10 $/month per role for Fargate plus EFS and, for the api role, an ALB (~18 $/month). A single small VM
