@@ -8,8 +8,8 @@ Three users, three surfaces:
 | user | surface | how they start |
 |---|---|---|
 | Community owner, not technical | Discord bot, Telegram bot, Reddit app | one invite link, works in flag-only mode, tune with commands |
-| Developer with user content | `pip install jevmod`, HTTP API (`POST /v1/moderate`), webhooks | one function call or one HTTP request with an API key |
-| Team that must self-host | Docker image, docker-compose, AWS CDK stack | `docker compose up`, or `cdk deploy` |
+| Developer with user content | `pip install jevmod`: CLI (`jevmod check`), Python API, HTTP API (`POST /v1/moderate`) | one command, one function call or one HTTP request |
+| Team that must self-host | Docker image, docker-compose | `docker compose up` |
 
 Rule of the plan: **a phase is done when its checklist is green and a fresh red team cannot reproduce the previous
 phase's findings.** Each phase ends with something a stranger can run.
@@ -32,7 +32,8 @@ phase's findings.** Each phase ends with something a stranger can run.
       Any chatbot uses `POST /v1/moderate` directly; a push webhook is not needed for a request/response decision.
 - [x] One config surface: environment variables (`.env.example`); policy lives in the store, not in files. `jevmod.yaml` dropped: one less place for state.
 - [x] Docker image and `docker-compose.yml` (bot + API), health checks.
-- [x] AWS CDK stack (Python) in `deploy/cdk`: Fargate per role, EFS for SQLite, Secrets Manager, CloudWatch, ALB for api. Optional. Open: `cdk synth` not yet run on this machine (no CDK CLI); CI does not cover it.
+- [x] CLI `jevmod check` (argument or stdin batch, `--json`, `--rule`, exit codes) with real-API tests. The AWS CDK
+      stack written earlier was removed 2026-09-17: Omar meant CLI, not CDK, and nobody deploys this to AWS today.
 - [x] Tests: offline for `Policy` and store; real Jev for `Judge`; the red team's adversarial CSV as a regression set
       with a floor on precision/recall per category; CI on GitHub Actions.
 - [x] Observability: structured JSON logs, request ids, per-tenant counters, `/metrics` (Prometheus text).
@@ -89,4 +90,4 @@ phase's findings.** Each phase ends with something a stranger can run.
 - 2026-09-17: state sent to Jev is a dict keyed by position, never a list (cross-talk between neighbours measured).
 - 2026-09-17: Reddit adapter stays non-commercial and bring-your-own-credentials (Reddit API terms); Telegram payments,
   if ever, only through Telegram Stars; Discord monetisation through native subscriptions.
-- 2026-09-17: never run `cdk deploy` or start Docker Desktop from an agent session without Omar present.
+- 2026-09-17: never start Docker Desktop or deploy anywhere from an agent session without Omar present.

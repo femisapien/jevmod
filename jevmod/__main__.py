@@ -1,4 +1,5 @@
-"""`python -m jevmod` starts the role named by JEVMOD_ROLE: api (default), discord, telegram or reddit."""
+"""`python -m jevmod` / `jevmod`: `check` judges text from the terminal; `api`, `discord`, `telegram`, `reddit`
+start that role (default role from JEVMOD_ROLE, then `api`)."""
 
 from __future__ import annotations
 
@@ -6,8 +7,8 @@ import os
 import sys
 
 
-def main() -> None:
-    role = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("JEVMOD_ROLE", "api")).lower()
+def run_role(role: str) -> None:
+    role = role.lower()
     if role == "api":
         import uvicorn
 
@@ -25,7 +26,15 @@ def main() -> None:
 
         run()
     else:
-        raise SystemExit(f"unknown role {role!r}; use api | discord | telegram | reddit")
+        raise SystemExit(f"unknown role {role!r}; use check | api | discord | telegram | reddit")
+
+
+def main() -> None:
+    if len(sys.argv) > 1:
+        from .cli import main as cli
+
+        sys.exit(cli(sys.argv[1:]))
+    run_role(os.environ.get("JEVMOD_ROLE", "api"))
 
 
 if __name__ == "__main__":
