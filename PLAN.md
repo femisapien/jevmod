@@ -22,26 +22,30 @@ phase's findings.** Each phase ends with something a stranger can run.
 - Discord bot with flag-only default, `/mod` commands, private log channel, ❌ feedback.
 - Measured: 0.0012 cents per judged message.
 
-## Phase 1. Architecture for the three users (this session)
+## Phase 1. Architecture for the three users (done 2026-09-17, except the two items marked open)
 
-- [ ] `jevmod.core`: `Judge` (unchanged), `Policy` (thresholds, actions, rules → `Decision`), `ModerationService`
+- [x] `jevmod.core`: `Judge` (unchanged), `Policy` (thresholds, actions, rules → `Decision`), `ModerationService`
       (tenant config + quota + audit in one call), `Batcher` (2 s window, per tenant, async).
-- [ ] Public Python API: `from jevmod import Moderator; Moderator().check(text)` and `.check_many([...])`.
-- [ ] HTTP API (FastAPI): `POST /v1/moderate`, `GET /v1/health`, API keys per tenant, usage counters, OpenAPI docs.
-- [ ] Adapters sharing the core: Discord (moved), Telegram (`python-telegram-bot`), Reddit (`praw`, official API),
-      generic webhook (any chatbot posts a message, gets a decision).
-- [ ] One config surface: environment variables + optional `jevmod.yaml`; secrets never in files.
-- [ ] Docker image and `docker-compose.yml` (bot + API), health checks.
-- [ ] AWS CDK stack (Python): Fargate service, secrets in Secrets Manager, logs in CloudWatch. Marked optional.
-- [ ] Tests: offline for `Policy` and store; real Jev for `Judge`; the red team's adversarial CSV as a regression set
+- [x] Public Python API: `from jevmod import Moderator; Moderator().check(text)` and `.check_many([...])`.
+- [x] HTTP API (FastAPI): `POST /v1/moderate`, `GET /v1/health`, API keys per tenant, usage counters, OpenAPI docs.
+- [x] Adapters sharing the core: Discord (moved), Telegram (`python-telegram-bot`), Reddit (`praw`, official API).
+      Any chatbot uses `POST /v1/moderate` directly; a push webhook is not needed for a request/response decision.
+- [x] One config surface: environment variables (`.env.example`); policy lives in the store, not in files. `jevmod.yaml` dropped: one less place for state.
+- [x] Docker image and `docker-compose.yml` (bot + API), health checks.
+- [x] AWS CDK stack (Python) in `deploy/cdk`: Fargate per role, EFS for SQLite, Secrets Manager, CloudWatch, ALB for api. Optional. Open: `cdk synth` not yet run on this machine (no CDK CLI); CI does not cover it.
+- [x] Tests: offline for `Policy` and store; real Jev for `Judge`; the red team's adversarial CSV as a regression set
       with a floor on precision/recall per category; CI on GitHub Actions.
-- [ ] Observability: structured JSON logs, request ids, per-tenant counters, `/metrics` (Prometheus text).
-- [ ] Failure policy written and tested: Jev down → fail open + log; quota exceeded → skip + notify owner once.
+- [x] Observability: structured JSON logs, request ids, per-tenant counters, `/metrics` (Prometheus text).
+- [x] Failure policy written (README) and tested for quota and fail-open in the offline suite. Open: live runtime test of the Telegram and Reddit adapters needs real tokens.: Jev down → fail open + log; quota exceeded → skip + notify owner once.
 
 ## Phase 2. Judgment quality
 
-- [ ] Fix every red-team finding on the judge: evasions (leetspeak, homoglyphs, split links), multilingual, injection
-      attempts, false positives on gaming slang, quoted spam, legitimate links, mental-health messages.
+- [x] Red team round 1 (2026-09-17, 98 messages): batch cross-talk fixed (dict state), NFKC + zalgo + enclosed letters,
+      character pre-filter for CJK, criteria on every question, scam 0.70 / nsfw 0.80. Scoreboard: 0 FP / 0 FN in every
+      block except custom rules (1/1, borderline politics). Regression suite in `tests/test_redteam.py`.
+- [ ] Round 2 backlog from the red team: a `selfharm` category that notifies moderators without punishing; mass-mention /
+      raid detection in code (count @mentions, no Jev call); spam and scam overlap (9 of 11 scams also score spam);
+      Japanese labelled set (the three CJK messages are judged now but unlabelled).
 - [ ] Per-community calibration: ❌ feedback moves thresholds; `/mod recent` shows drift; export decisions as CSV.
 - [ ] Context: judge with the previous 2 messages of the channel when the text alone is ambiguous (sarcasm, replies).
 - [ ] Evaluation harness with a labeled set per language; publish precision/recall in the README, honestly.
@@ -82,3 +86,7 @@ phase's findings.** Each phase ends with something a stranger can run.
 - 2026-09-17: name `jevmod`, MIT, repo private until Phase 1 is green and the judgment red team is clean.
 - 2026-09-17: flag-only by default; deletion and timeouts are opt-in per category.
 - 2026-09-17: batching per tenant with a 2 s window; the judgment core stays synchronous, adapters are async.
+- 2026-09-17: state sent to Jev is a dict keyed by position, never a list (cross-talk between neighbours measured).
+- 2026-09-17: Reddit adapter stays non-commercial and bring-your-own-credentials (Reddit API terms); Telegram payments,
+  if ever, only through Telegram Stars; Discord monetisation through native subscriptions.
+- 2026-09-17: never run `cdk deploy` or start Docker Desktop from an agent session without Omar present.

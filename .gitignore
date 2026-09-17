@@ -2,3 +2,5 @@
 __pycache__/
 *.sqlite
 .env
+deploy/cdk/.venv/
+deploy/cdk/cdk.out/
