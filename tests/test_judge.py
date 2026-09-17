@@ -42,7 +42,6 @@ def test_categories_on_realistic_messages():
             assert not v.judged and v.reason == "too short"
             continue
         assert v.judged, (i, v.reason)
-        top = v.top()
         if expected is None:
             assert all(p < 0.5 for p in v.scores.values()), (text, v.scores)
         else:
@@ -53,8 +52,10 @@ def test_categories_on_realistic_messages():
 def test_cache_reuses_verdicts_and_custom_rules_work():
     j = Judge()
     rules = {"no_politics": "No political discussion in this server."}
-    m = [Message("p1", "Who are you all voting for in the election next month? The left is destroying this country."),
-         Message("p2", "Which GPU should I get for 1440p, the 5070 or wait for the 5080?")]
+    m = [
+        Message("p1", "Who are you all voting for in the election next month? The left is destroying this country."),
+        Message("p2", "Which GPU should I get for 1440p, the 5070 or wait for the 5080?"),
+    ]
     v1 = j.judge(m, ["spam"], rules)
     assert v1[0].custom["no_politics"] >= 0.7 and v1[1].custom["no_politics"] < 0.4, [x.custom for x in v1]
     v2 = j.judge(m, ["spam"], rules)

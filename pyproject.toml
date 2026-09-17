@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jevmod"
+version = "0.2.0"
+description = "Moderation for communities and apps, powered by Jev: spam, scams, harassment, adult, off-topic and your own plain-language rules, with a probability per category and thresholds you own."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Omar Hernandez" }]
+dependencies = ["typesafe-sdk>=0.6", "fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2"]
+keywords = ["moderation", "discord", "telegram", "reddit", "content-moderation", "typesafe", "jev"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Topic :: Communications :: Chat"]
+
+[project.optional-dependencies]
+discord = ["discord.py>=2.3"]
+telegram = ["python-telegram-bot>=21"]
+reddit = ["praw>=7.7"]
+all = ["discord.py>=2.3", "python-telegram-bot>=21", "praw>=7.7"]
+dev = ["pytest", "ruff", "mypy", "httpx"]
+
+[project.scripts]
+jevmod = "jevmod.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/ohernandezdev/jevmod"
+
+[tool.setuptools.packages.find]
+include = ["jevmod*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
