@@ -1,61 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="jevmod architecture: channels, ModerationService, Judge, Jev, and the local store">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="jevmod architecture: channels, ModerationService, Judge, Jev, and the local store">
 <title>jevmod architecture: channels, ModerationService, Judge, Jev, and the local store</title>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a9099"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf83"/></marker></defs>
-<rect width="1000" height="560" fill="#131416"/>
-<text x="32" y="40" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">architecture</text>
-<text x="32" y="68" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#a3a8b1" text-anchor="start">Every surface is an adapter over one service. Only the text and the channel topic reach Jev.</text>
-<text x="32" y="118" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">channels</text>
-<rect x="32" y="132" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="44" y="153" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">Discord</text>
-<text x="44" y="171" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">bot</text>
-<rect x="32" y="194" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="44" y="215" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">Telegram</text>
-<text x="44" y="233" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">bot</text>
-<rect x="32" y="256" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="44" y="277" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">Reddit</text>
-<text x="44" y="295" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">bot</text>
-<rect x="32" y="318" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="44" y="339" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">CLI</text>
-<text x="44" y="357" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">jevmod check</text>
-<rect x="182" y="132" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="194" y="153" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">Python</text>
-<text x="194" y="171" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">Moderator</text>
-<rect x="182" y="194" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="194" y="215" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">npm</text>
-<text x="194" y="233" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">check()</text>
-<rect x="182" y="256" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="194" y="277" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">HTTP</text>
-<text x="194" y="295" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">POST /v1/moderate</text>
-<rect x="182" y="318" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="194" y="339" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">MCP</text>
-<text x="194" y="357" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">moderate, categories</text>
-<line x1="322" y1="254" x2="376" y2="254" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="380" y="176" width="230" height="156" rx="6" fill="#191b1e" stroke="#2fbf83" stroke-width="1.5"/>
-<text x="396" y="200" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">jevmod.core</text>
-<text x="396" y="222" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#e8eaed" text-anchor="start">ModerationService</text>
-<text x="396" y="246" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">policy per server or tenant</text>
-<text x="396" y="265" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">thresholds, actions, rules</text>
-<text x="396" y="284" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">trusted roles, channel topic</text>
-<text x="396" y="303" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">usage and quota</text>
-<line x1="614" y1="254" x2="668" y2="254" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="672" y="176" width="150" height="156" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="688" y="200" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">jevmod.judge</text>
-<text x="688" y="222" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#e8eaed" text-anchor="start">Judge</text>
-<text x="688" y="246" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">normalise text</text>
-<text x="688" y="265" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">prefilter, cache</text>
-<text x="688" y="284" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">batch of messages</text>
-<text x="688" y="303" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">one request</text>
-<line x1="826" y1="254" x2="880" y2="254" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="884" y="200" width="92" height="108" rx="6" fill="#191b1e" stroke="#2fbf83" stroke-width="1.5"/>
-<text x="900" y="224" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">TypeSafe</text>
-<text x="900" y="246" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#e8eaed" text-anchor="start">Jev</text>
-<text x="900" y="270" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">System One</text>
-<text x="900" y="289" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">model, HTTP</text>
-<path d="M495,336 L495,372" fill="none" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="380" y="376" width="230" height="96" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
-<text x="396" y="400" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">SQLite on a volume</text>
-<text x="396" y="422" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#e8eaed" text-anchor="start">Store</text>
-<text x="396" y="446" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">policy, usage, audit log</text>
-<text x="396" y="465" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="start">300 chars of text, 30 days</text>
-<text x="32" y="520" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">categories.json holds the questions asked of Jev, so Python, npm and MCP ask exactly the same thing.</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#71717A"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0A0A0A"/></marker></defs>
+<rect width="1000" height="560" fill="#FAFAFA"/>
+<text x="32" y="40" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#71717A" text-anchor="start">architecture</text>
+<text x="32" y="68" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#3F3F46" text-anchor="start">Every surface is an adapter over one service. Only the text and the channel topic reach Jev.</text>
+<text x="32" y="118" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#71717A" text-anchor="start">channels</text>
+<rect x="32" y="132" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="44" y="153" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">Discord</text>
+<text x="44" y="171" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">bot</text>
+<rect x="32" y="194" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="44" y="215" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">Telegram</text>
+<text x="44" y="233" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">bot</text>
+<rect x="32" y="256" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="44" y="277" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">Reddit</text>
+<text x="44" y="295" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">bot</text>
+<rect x="32" y="318" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="44" y="339" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">CLI</text>
+<text x="44" y="357" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">jevmod check</text>
+<rect x="182" y="132" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="194" y="153" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">Python</text>
+<text x="194" y="171" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">Moderator</text>
+<rect x="182" y="194" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="194" y="215" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">npm</text>
+<text x="194" y="233" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">check()</text>
+<rect x="182" y="256" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="194" y="277" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">HTTP</text>
+<text x="194" y="295" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">POST /v1/moderate</text>
+<rect x="182" y="318" width="136" height="50" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1.5"/>
+<text x="194" y="339" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#0A0A0A" text-anchor="start">MCP</text>
+<text x="194" y="357" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#71717A" text-anchor="start">moderate, categories</text>
+<line x1="322" y1="254" x2="376" y2="254" stroke="#71717A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="380" y="176" width="230" height="156" rx="0" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="2"/>
+<text x="396" y="200" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#71717A" text-anchor="start">jevmod.core</text>
+<text x="396" y="222" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#0A0A0A" text-anchor="start">ModerationService</text>
+<text x="396" y="246" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">policy per server or tenant</text>
+<text x="396" y="265" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">thresholds, actions, rules</text>
+<text x="396" y="284" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">trusted roles, channel topic</text>
+<text x="396" y="303" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">usage and quota</text>
+<line x1="614" y1="254" x2="668" y2="254" stroke="#71717A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="672" y="176" width="150" height="156" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1"/>
+<text x="688" y="200" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#71717A" text-anchor="start">jevmod.judge</text>
+<text x="688" y="222" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#0A0A0A" text-anchor="start">Judge</text>
+<text x="688" y="246" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">normalise text</text>
+<text x="688" y="265" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">prefilter, cache</text>
+<text x="688" y="284" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">batch of messages</text>
+<text x="688" y="303" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">one request</text>
+<line x1="826" y1="254" x2="880" y2="254" stroke="#71717A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="884" y="200" width="92" height="108" rx="0" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="2"/>
+<text x="900" y="224" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#71717A" text-anchor="start">TypeSafe</text>
+<text x="900" y="246" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#0A0A0A" text-anchor="start">Jev</text>
+<text x="900" y="270" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">System One</text>
+<text x="900" y="289" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">model, HTTP</text>
+<path d="M495,336 L495,372" fill="none" stroke="#71717A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="380" y="376" width="230" height="96" rx="0" fill="#FFFFFF" stroke="#D4D4D8" stroke-width="1"/>
+<text x="396" y="400" font-family="'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#71717A" text-anchor="start">SQLite on a volume</text>
+<text x="396" y="422" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#0A0A0A" text-anchor="start">Store</text>
+<text x="396" y="446" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">policy, usage, audit log</text>
+<text x="396" y="465" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#3F3F46" text-anchor="start">300 chars of text, 30 days</text>
+<text x="32" y="520" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#71717A" text-anchor="start">categories.json holds the questions asked of Jev, so Python, npm and MCP ask exactly the same thing.</text>
 </svg>

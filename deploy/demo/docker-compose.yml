@@ -1,0 +1,30 @@
+# Public demo on a small VPS: Caddy (HTTPS) -> jevmod demo (budget-capped). Run from this directory:
+#   cp ../../.env.example .env   (fill TYPESAFE_API_KEY, JEVMOD_ADMIN_TOKEN, JEVMOD_DEMO_*)
+#   DEMO_HOST=1-2-3-4.sslip.io docker compose up -d --build
+services:
+  demo:
+    build: ../..
+    environment:
+      JEVMOD_ROLE: demo
+      JEVMOD_DEMO_DB: /data/jevmod-demo.sqlite
+    env_file: .env
+    volumes: ["demo-data:/data"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 512m }
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      DEMO_HOST: ${DEMO_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    depends_on: [demo]
+volumes:
+  demo-data: {}
+  caddy-data: {}
+  caddy-config: {}

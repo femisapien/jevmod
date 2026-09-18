@@ -29,5 +29,13 @@ services:
     volumes: ["jevmod-data:/data"]
     restart: unless-stopped
     profiles: ["reddit"]
+  # Public demo behind Caddy (HTTPS via Let's Encrypt on a sslip.io hostname or your domain). See deploy/demo/.
+  demo:
+    build: .
+    environment: { JEVMOD_ROLE: demo, JEVMOD_DEMO_DB: /data/jevmod-demo.sqlite }
+    env_file: .env
+    volumes: ["jevmod-data:/data"]
+    restart: unless-stopped
+    profiles: ["demo"]
 volumes:
   jevmod-data: {}

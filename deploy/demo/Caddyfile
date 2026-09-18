@@ -1,0 +1,19 @@
+# HTTPS in front of the demo. Replace the host with your domain, or keep the sslip.io form
+# (<your-ip-with-dashes>.sslip.io resolves to your IP; Let's Encrypt issues for it).
+{$DEMO_HOST}
+
+encode zstd gzip
+header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    -Server
+}
+# Only the demo paths are exposed; everything else is 404.
+@demo path /demo/*
+handle @demo {
+    reverse_proxy demo:8080
+}
+handle {
+    respond 404
+}

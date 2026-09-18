@@ -224,6 +224,13 @@ A $4/month VM, Fly.io or Railway with a volume is enough. Failure policy: Jev un
 `reason="error_open"` and nothing is acted on. There is no quota by default; `JEVMOD_MONTHLY_QUOTA=5000` pauses
 judging for a tenant after 5,000 judged messages in a month as a cost guard, tells the owner once, deletes nothing.
 
+## Public demo
+
+The landing page's live check talks to `jevmod demo`, a separate role that keeps the key on the server and stops
+at a monthly budget (`JEVMOD_DEMO_BUDGET_USD`, default $0.50), with per-visitor limits and a CORS allow-list. It
+logs what visitors try (text, scores, hashed IP) for the operator. `deploy/demo/` has a Caddy + Docker compose
+for a small VPS with HTTPS in two commands.
+
 ## Development
 
 ```bash

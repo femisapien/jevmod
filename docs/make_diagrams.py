@@ -1,4 +1,4 @@
-"""Write the four SVG diagrams in docs/diagrams/ (dark background, emerald accent, readable at 800 px wide).
+"""Write the four SVG diagrams in docs/diagrams/ (light background, monochrome, readable at 800 px wide).
 
 python docs/make_diagrams.py     # no dependencies: the SVG is written as text
 
@@ -13,10 +13,10 @@ from __future__ import annotations
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "diagrams"
-BG, BG2, LINE, LINE2 = "#131416", "#191b1e", "#2a2d32", "#34383e"
-FG, FG2, FG3, ACCENT, ACCENT_DIM = "#e8eaed", "#a3a8b1", "#8a9099", "#2fbf83", "#1d5a40"
-SANS = "Geist, 'Segoe UI', Helvetica, Arial, sans-serif"
-MONO = "'Geist Mono', Consolas, 'SF Mono', Menlo, monospace"
+BG, BG2, LINE, LINE2 = "#FAFAFA", "#FFFFFF", "#E5E5E5", "#D4D4D8"
+FG, FG2, FG3, ACCENT, ACCENT_DIM = "#0A0A0A", "#3F3F46", "#71717A", "#0A0A0A", "#A1A1AA"
+SANS = "Inter, 'Segoe UI', Helvetica, Arial, sans-serif"
+MONO = "'IBM Plex Mono', Consolas, 'SF Mono', Menlo, monospace"
 
 
 class Svg:
@@ -69,7 +69,7 @@ class Svg:
         stroke = ACCENT if hot else LINE2
         dash = ' stroke-dasharray="6 5"' if dashed else ""
         self.parts.append(
-            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{BG2}" stroke="{stroke}" stroke-width="1.5"{dash}/>'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="0" fill="{BG2}" stroke="{stroke}" stroke-width="{2 if hot else 1}"{dash}/>'
         )
         ty = y + 24
         if sub:
@@ -84,7 +84,7 @@ class Svg:
     def pill(self, x: float, y: float, w: float, label: str, hot: bool = False) -> None:
         stroke = ACCENT if hot else LINE2
         self.parts.append(
-            f'<rect x="{x}" y="{y}" width="{w}" height="34" rx="6" fill="{BG2}" stroke="{stroke}" stroke-width="1.5"/>'
+            f'<rect x="{x}" y="{y}" width="{w}" height="34" rx="0" fill="{BG2}" stroke="{stroke}" stroke-width="{2 if hot else 1}"/>'
         )
         self.text(x + w / 2, y + 22, label, 14, FG, mono=True, anchor="middle")
 
@@ -148,7 +148,7 @@ def architecture() -> None:
         col, row = i // 4, i % 4
         x, y = 32 + col * 150, 132 + row * 62
         s.parts.append(
-            f'<rect x="{x}" y="{y}" width="136" height="50" rx="6" fill="{BG2}" stroke="{LINE2}" stroke-width="1.5"/>'
+            f'<rect x="{x}" y="{y}" width="136" height="50" rx="0" fill="{BG2}" stroke="{LINE2}" stroke-width="1.5"/>'
         )
         s.text(x + 12, y + 21, name, 14, FG, weight="600")
         s.text(x + 12, y + 39, how, 11, FG3, mono=True)
@@ -231,7 +231,7 @@ def flow() -> None:
         dash = ' stroke-dasharray="6 5"' if dashed else ""
         fill = BG if dashed else BG2
         s.parts.append(
-            f'<rect x="{x}" y="{y}" width="{w}" height="64" rx="6" fill="{fill}" stroke="{ACCENT if hot else LINE2}" stroke-width="1.5"{dash}/>'
+            f'<rect x="{x}" y="{y}" width="{w}" height="64" rx="0" fill="{fill}" stroke="{ACCENT if hot else LINE2}" stroke-width="{2 if hot else 1}"{dash}/>'
         )
         s.text(x + 14, y + 26, title, 15, FG, weight="600")
         s.text(x + 14, y + 47, sub, 11.5, FG3, mono=True)
@@ -257,7 +257,7 @@ def flow() -> None:
     node(32, y2, 440, "not sent to Jev", "under 8 letters and no link, trusted author, repeat", dashed=True)
     s.path(f"M841,{y1 + 64} L841,{y2 - 4}", dashed=True, accent=True)
     s.parts.append(
-        f'<rect x="500" y="{y2}" width="436" height="64" rx="6" fill="{BG}" stroke="{ACCENT}" stroke-width="1.5" stroke-dasharray="6 5"/>'
+        f'<rect x="500" y="{y2}" width="436" height="64" rx="0" fill="{BG}" stroke="{ACCENT}" stroke-width="1.5" stroke-dasharray="6 5"/>'
     )
     s.text(514, y2 + 26, "Jev unreachable: fail open", 15, FG, weight="600")
     s.text(514, y2 + 47, 'action none, reason "error_open", one warning per batch', 11.5, FG3, mono=True)
@@ -323,16 +323,16 @@ def coverage() -> None:
             cx = x0 + j * cw + cw / 2
             if cat == "offtopic":
                 s.parts.append(
-                    f'<rect x="{cx - 6}" y="{y + 11}" width="12" height="12" rx="2" fill="none" stroke="{ACCENT}" stroke-width="1.5"/>'
+                    f'<rect x="{cx - 6}" y="{y + 11}" width="12" height="12" rx="0" fill="none" stroke="{ACCENT}" stroke-width="1.5"/>'
                 )
             else:
-                s.parts.append(f'<rect x="{cx - 6}" y="{y + 11}" width="12" height="12" rx="2" fill="{ACCENT}"/>')
+                s.parts.append(f'<rect x="{cx - 6}" y="{y + 11}" width="12" height="12" rx="0" fill="{ACCENT}"/>')
     s.hline(32, w - 32, y0 + rh * len(cats))
     ly = y0 + rh * len(cats) + 34
-    s.parts.append(f'<rect x="32" y="{ly - 10}" width="12" height="12" rx="2" fill="{ACCENT}"/>')
+    s.parts.append(f'<rect x="32" y="{ly - 10}" width="12" height="12" rx="0" fill="{ACCENT}"/>')
     s.text(52, ly, "on by default", 12, FG3)
     s.parts.append(
-        f'<rect x="160" y="{ly - 10}" width="12" height="12" rx="2" fill="none" stroke="{ACCENT}" stroke-width="1.5"/>'
+        f'<rect x="160" y="{ly - 10}" width="12" height="12" rx="0" fill="none" stroke="{ACCENT}" stroke-width="1.5"/>'
     )
     s.text(180, ly, "available, off until a channel topic is set", 12, FG3)
     s.write("coverage.svg")
@@ -347,7 +347,7 @@ def failure() -> None:
 
     def lane(y: int, trigger: str, tsub: str, steps: list[tuple[str, str]]) -> None:
         s.parts.append(
-            f'<rect x="32" y="{y}" width="200" height="64" rx="6" fill="{BG2}" stroke="{ACCENT}" stroke-width="1.5"/>'
+            f'<rect x="32" y="{y}" width="200" height="64" rx="0" fill="{BG2}" stroke="{ACCENT}" stroke-width="1.5"/>'
         )
         s.text(46, y + 26, trigger, 15, FG, weight="600")
         s.text(46, y + 47, tsub, 11.5, FG3, mono=True)
@@ -356,7 +356,7 @@ def failure() -> None:
             s.arrow(x + 4, y + 32, x + 36, y + 32)
             x += 40
             s.parts.append(
-                f'<rect x="{x}" y="{y}" width="200" height="64" rx="6" fill="{BG2}" stroke="{LINE2}" stroke-width="1.5"/>'
+                f'<rect x="{x}" y="{y}" width="200" height="64" rx="0" fill="{BG2}" stroke="{LINE2}" stroke-width="1.5"/>'
             )
             s.text(x + 14, y + 26, title, 15, FG, weight="600")
             s.text(x + 14, y + 47, sub, 11.5, FG3, mono=True)

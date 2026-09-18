@@ -51,10 +51,13 @@ blocked, it is marked blocked with the reason.
 - Never write a key into any file. Never touch another owner's directory. Do not commit; the coordinator commits.
 - English in code and docs. Plain sentences, no marketing adjectives, no emoji walls, no "🚀". Numbers only when measured.
 
+- [x] Public demo endpoint `jevmod demo` (budget cap, per-IP limits, CORS allow-list, visitor log with admin stats) + `deploy/demo/` (Caddy HTTPS on a VPS) 2026-09-18
+- [ ] Landing redesign: light theme, StudioBlank design system, value-first hero, cost calculator, live try-it box [C, in progress]
+
 ## Launch gate (do these the day of the launch, in this order)
 
 1. `npm publish` from `packages/jevmod-js` and `python -m build && twine upload` from the root, so `pip install jevmod` and `npm install jevmod` work before anyone reads them.
-2. Make the repo public; enable Pages (Settings → Pages → main, /docs); replace LINK in launch/*.md with the repo URL.
+2. Deploy the demo on the Hetzner VPS (deploy/demo/README.md), put its URL in `data-demo` on the landing. Make the repo public; enable Pages (Settings → Pages → main, /docs); replace LINK in launch/*.md with the repo URL.
 3. Rotate the TypeSafe key if it was ever pasted anywhere; update `gh secret set TYPESAFE_API_KEY`.
 4. Post the Twitter thread with docs/jevmod.gif, then r/Discord_Bots; the other subreddits on later days.
 
