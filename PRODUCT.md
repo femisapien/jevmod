@@ -80,3 +80,33 @@ blocked, it is marked blocked with the reason.
   `https://discord.com/oauth2/authorize?client_id=1550544449199800410&scope=bot%20applications.commands&permissions=1099511721040`, set on `#hosted[data-invite]` 2026-09-18).
 - Open: Discord verification is required above 100 servers; Stripe tax settings (VAT for EU customers) are Omar's to
   configure in the Stripe dashboard; refunds are manual.
+
+## Blocked on Omar, verified against the live VPS on 2026-09-18
+
+I checked `clawd@65.108.95.94` directly. Two things the site wanted to promise cannot happen yet.
+
+**The hosted Discord bot is not running.** Only `jevmod-demo` and `jevmod-site` are up. There is no
+`DISCORD_TOKEN` on the host, and the `bot` service in `deploy/demo/docker-compose.traefik.yml` sits behind
+`profiles: ["bot"]`, so `docker compose up` does not start it. Until it runs, an invite link on the site adds an
+application that never comes online, so the site now shows the invite as not open yet.
+
+To turn it on: Developer Portal, Bot, Reset Token, enable the Message Content Intent, put `DISCORD_TOKEN` in the
+VPS `.env`, then `docker compose -f docker-compose.traefik.yml --profile bot up -d`. Never paste the token into a
+chat; set it on the host.
+
+**Stripe is not configured.** `STRIPE_PRICE_ID`, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are all absent
+from the running container, so `_billing_enabled()` is false and `/mod upgrade` answers "This copy of jevmod is
+self-hosted: there is nothing to pay." The plans table therefore says Pro is not open yet.
+
+To open it: create the monthly product in Stripe, add the three values to the VPS `.env`, and point a webhook at
+`https://jevmod.dev/billing/stripe/webhook` for `checkout.session.completed`, `customer.subscription.updated`
+and `customer.subscription.deleted`. `JEVMOD_ADMIN_TOKEN` is already set, which billing links now require.
+
+**What is correct on the host:** `JEVMOD_MONTHLY_QUOTA=5000`, `JEVMOD_PRO_MONTHLY_QUOTA=50000`,
+`JEVMOD_PUBLIC_URL=https://jevmod.dev`, role `hosted`.
+
+**The live site is an older build.** `/developers/` and `/img/*` return 404 there, so nothing on this branch is
+true of jevmod.dev until `docs/` is copied to the VPS.
+
+**Screenshots are still drawings.** `docs/img/*.svg` are placeholders and the captions now say so.
+`scripts/site/shoot.py` produces real captures once the bot is running in a test server.
