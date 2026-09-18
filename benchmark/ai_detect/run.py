@@ -473,21 +473,29 @@ def report() -> None:
         hi = sum(1 for i in sub if sc[i]["A"] >= 0.85) / len(sub)
         print(f"| {prov} | {len(sub)} | {lo:.3f} | {hi:.3f} |")
 
-    print("\n### Precision if AI messages are rare (A on chat-shaped text; TPR/FPR measured here)\n")
-    chat = subsets["chat-shaped only (AI vs real chat)"]
-    print("| threshold | TPR | FPR | P @50% AI | P @10% | P @5% | P @2% | P @1% |")
-    print("|---|---|---|---|---|---|---|---|")
-    for th in (0.5, 0.85, 0.95):
-        tpr = sum(1 for i in chat if items[i]["label"] and sc[i]["A"] >= th) / max(
-            sum(1 for i in chat if items[i]["label"]), 1
-        )
-        neg = [i for i in chat if not items[i]["label"]]
-        fpr = sum(1 for i in neg if sc[i]["A"] >= th) / max(len(neg), 1)
-        cells = []
-        for pi in (0.5, 0.10, 0.05, 0.02, 0.01):
-            denom = pi * tpr + (1 - pi) * fpr
-            cells.append(f"{pi * tpr / denom:.3f}" if denom else "n/a")
-        print(f"| {th:.2f} | {tpr:.3f} | {fpr:.3f} | " + " | ".join(cells) + " |")
+    print("\n### Precision if AI messages are rare (A, TPR/FPR measured here)\n")
+    print("FPR* is the 95% upper bound (rule of three, 3/n, when no false positive was observed): a zero on")
+    print("90 messages only means the rate is below ~3%. Precision is projected with FPR*.\n")
+    print("| human side | threshold | TPR | FPR obs | FPR* | P @50% AI | P @10% | P @5% | P @2% | P @1% |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    for label, sub in (
+        ("chat only", subsets["chat-shaped only (AI vs real chat)"]),
+        ("all human", ids),
+    ):
+        for th in (0.5, 0.85, 0.95):
+            pos = [i for i in sub if items[i]["label"]]
+            neg = [i for i in sub if not items[i]["label"]]
+            tpr = sum(1 for i in pos if sc[i]["A"] >= th) / max(len(pos), 1)
+            k = sum(1 for i in neg if sc[i]["A"] >= th)
+            fpr = k / max(len(neg), 1)
+            fpr_ub = max(fpr, 3.0 / len(neg))
+            cells = []
+            for pi in (0.5, 0.10, 0.05, 0.02, 0.01):
+                denom = pi * tpr + (1 - pi) * fpr_ub
+                cells.append(f"{pi * tpr / denom:.3f}" if denom else "n/a")
+            print(
+                f"| {label} | {th:.2f} | {tpr:.3f} | {fpr:.3f} | {fpr_ub:.3f} | " + " | ".join(cells) + " |"
+            )
 
     for v in ["A"]:
         for kind, rev, want in (("false positives", True, 0), ("false negatives", False, 1)):

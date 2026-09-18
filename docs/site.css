@@ -130,25 +130,44 @@ h3 { font-size: var(--fs-h3); font-weight: 500; line-height: 1.25; letter-spacin
 .prose ul, .prose ol { padding-left: 22px; }
 .prose li + li { margin-top: 8px; }
 
-/* a whole page of running text: a document, not a landing section */
-main.prose { font-size: 17px; line-height: 1.65; }
-main.prose .section { padding-top: 48px; padding-bottom: 48px; }
-@media (min-width: 768px) { main.prose .section { padding-top: 56px; padding-bottom: 56px; } }
-main.prose h1 {
+/* text pages (privacy, terms): a document column, not a landing section.
+   `.textpage` is the shape agent C uses; `main.prose` is supported for the same job. */
+main.textpage, main.prose { max-width: 62ch; font-size: 17px; line-height: 1.65; }
+.textpage .section, main.prose .section { padding-top: 40px; padding-bottom: 40px; }
+@media (min-width: 768px) { .textpage .section, main.prose .section { padding-top: 48px; padding-bottom: 48px; } }
+.textpage h1, main.prose h1 {
   font-size: 32px;
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--ink);
-  max-width: 20ch;
+  max-width: none;
 }
-main.prose h2 { font-size: 28px; line-height: 1.2; max-width: 28ch; }
-main.prose h3 { font-size: 20px; }
-main.prose h2 + *, main.prose h1 + *, main.prose h3 + * { margin-top: 16px; }
+.textpage h2, main.prose h2 { font-size: 26px; line-height: 1.25; max-width: none; }
+.textpage h3, main.prose h3 { font-size: 19px; }
 @media (min-width: 768px) {
-  main.prose h1 { font-size: 40px; }
-  main.prose h2 { font-size: 32px; }
+  .textpage h1, main.prose h1 { font-size: 40px; }
+  .textpage h2, main.prose h2 { font-size: 30px; }
+  .textpage h3, main.prose h3 { font-size: 20px; }
 }
+.textpage p, .textpage li { font-size: 17px; line-height: 1.65; color: var(--body); }
+/* rhythm: space under every heading, between every pair of paragraphs */
+.textpage .section > * + *, .textpage p + p, .textpage p + ul, .textpage ul + p { margin-top: 16px; }
+.textpage h1 + *, .textpage h2 + *, .textpage h3 + * { margin-top: 12px; }
+.textpage ul, .textpage ol { margin-top: 16px; padding-left: 22px; }
+.textpage li + li { margin-top: 8px; }
+.textpage .lead { max-width: none; }
+.textpage .small { font-size: 15px; }
+/* links in running text: visible, with a 44px hit area */
+.textpage p a, .textpage li a, .textpage dd a, .textpage td a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+.textpage p a:hover, .textpage li a:hover, .textpage dd a:hover, .textpage td a:hover { text-decoration-color: var(--ink); }
 .small { font-size: 14px; line-height: 1.55; }
 .muted { color: var(--muted); }
 .num {
@@ -436,15 +455,4 @@ main.plain { padding-top: 64px; padding-bottom: var(--section); min-height: calc
   *, *::before, *::after { transition: none !important; }
 }
 
-/* text pages (privacy, terms): a reading measure, a calmer heading scale and real paragraph rhythm */
-.textpage { max-width: 68ch; }
-.textpage .section { padding-block: clamp(32px, 5vw, 48px); }
-.textpage .section + .section { border-top: 1px solid var(--line); }
-.textpage h1 { font-size: clamp(32px, 5vw, 44px); max-width: none; }
-.textpage h2 { font-size: clamp(22px, 2.6vw, 28px); max-width: none; margin-bottom: 16px; }
-.textpage h3 { font-size: 18px; margin-bottom: 8px; }
-.textpage p, .textpage li { font-size: 17px; line-height: 1.65; color: var(--body); }
-.textpage p + p, .textpage p + ul, .textpage ul + p, .textpage h2 + p, .textpage h3 + p { margin-top: 14px; }
-.textpage ul { padding-left: 20px; }
-.textpage li + li { margin-top: 8px; }
-.textpage .small { font-size: 15px; }
+/* text page rules live in one place, further up: search "text pages (privacy, terms)" */

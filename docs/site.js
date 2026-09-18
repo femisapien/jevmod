@@ -82,7 +82,7 @@
 
   /* ---- live demo ---- */
   var demo = $("demo");
-  if (!demo) return;
+  if (!demo || !$("liveForm") || !$("bars")) return;
   var qs = new URLSearchParams(location.search);
   var DEMO_URL = (qs.get("demo") || demo.dataset.demo || "").replace(/\/$/, "");
   var TH = { spam: 0.85, scam: 0.75, harassment: 0.75, nsfw: 0.80, selfharm: 0.80, doxxing: 0.80, minors: 0.70 };
