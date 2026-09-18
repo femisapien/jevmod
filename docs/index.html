@@ -516,13 +516,13 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
 
 
   // ---- live demo: one health check on load, then only what the visitor submits ----------------------------------
-  const DEMO_URL = (document.getElementById("demo").dataset.demo || "").replace(/\/$/, "");
+  const DEMO_URL = (new URLSearchParams(location.search).get("demo") || document.getElementById("demo").dataset.demo || "").replace(/\/$/, "");
   const live = document.getElementById("live"), liveClosed = document.getElementById("liveClosed"),
         liveForm = document.getElementById("liveForm"), liveText = document.getElementById("liveText"),
         liveCount = document.getElementById("liveCount"), liveBtn = document.getElementById("liveBtn"), liveMsg = document.getElementById("liveMsg");
-  function closeLive() { live.hidden = true; liveClosed.hidden = false; }
-  if (!DEMO_URL) closeLive();
-  else fetch(DEMO_URL + "/demo/health", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(h => { if (!h.open) closeLive(); }).catch(closeLive);
+  function closeLive(why) { live.hidden = true; liveClosed.hidden = false; if (why) liveClosed.firstChild.textContent = why + " "; }
+  if (!DEMO_URL) closeLive("This copy of the page is not connected to a demo server.");
+  else fetch(DEMO_URL + "/demo/health", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(h => { if (!h.open) closeLive("Live demo is closed for this month (budget cap reached)."); }).catch(() => closeLive("The demo server is not reachable right now."));
   liveText.addEventListener("input", () => { liveCount.textContent = `${liveText.value.length} / 300`; });
   function tailFor(d) {
     if (d.reason === "cache") return "cached, cost $0";
