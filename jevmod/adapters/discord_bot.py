@@ -155,6 +155,13 @@ async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel 
                 read_message_history=True,
             ),
         }
+        # Denying @everyone leaves the channel visible only to Administrators, so a plain Moderator role could
+        # not read the flags or use the reactions. Every role that can already moderate messages gets access.
+        for role in guild.roles:
+            if role.permissions.manage_messages or role.permissions.manage_guild:
+                overwrites[role] = discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True, add_reactions=True, read_message_history=True
+                )
         ch = await guild.create_text_channel("jevmod-log", overwrites=overwrites, reason="jevmod decisions log")
         store.set_meta(tenant, log_channel=ch.id)
         return ch
