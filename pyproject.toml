@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jevmod"
-version = "0.2.0"
+version = "0.2.1"
 description = "Moderation for communities and apps, powered by Jev: spam, scams, harassment, adult, off-topic and your own plain-language rules, with a probability per category and thresholds you own."
 readme = "README.md"
 requires-python = ">=3.10"

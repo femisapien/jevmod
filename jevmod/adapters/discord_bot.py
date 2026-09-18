@@ -84,27 +84,37 @@ async def on_message(msg: discord.Message) -> None:
     batcher.add(tenant, msg)
 
 
+@bot.event
+async def on_message_edit(_before: discord.Message, after: discord.Message) -> None:
+    """Judge edits too: otherwise a member posts a harmless line and edits it into whatever they wanted."""
+    if after.content != _before.content:
+        await on_message(after)
+
+
 async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
     tenant = tenant_of(guild.id)
     policy = service.policy(tenant)
     note = ""
+    # `timeout` times the author out and leaves the message; only `delete` removes it. They used to be the same
+    # branch, so a category set to timeout silently deleted as well, which the site does not promise.
     try:
-        if d.action in ("delete", "timeout"):
+        if d.action == "delete":
             await m.delete()
             note = "deleted"
-        if d.action == "timeout" and isinstance(m.author, discord.Member):
+        elif d.action == "timeout" and isinstance(m.author, discord.Member):
             await m.author.timeout(
                 timedelta(minutes=policy.timeout_minutes), reason=f"jevmod: {d.category} p={d.probability:.2f}"
             )
-            note = f"deleted, timed out {policy.timeout_minutes} min"
+            note = f"timed out {policy.timeout_minutes} min"
     except discord.Forbidden:
         note = "missing permissions to act"
-    if d.action in ("delete", "timeout") and "missing" not in note:
+    if note and "missing" not in note:
+        what = "was removed" if d.action == "delete" else f"led to a {policy.timeout_minutes} minute timeout for you"
         with contextlib.suppress(Exception):  # DMs closed
             await m.author.send(
-                f"Your message in **{guild.name}** #{m.channel} was removed by an automated moderation system "
-                f"(reason: {d.category}, confidence {d.probability:.0%}). If you think this was a mistake, contact the "
-                "server's moderators; they can review the decision and adjust the rules."
+                f"Your message in **{guild.name}** #{m.channel} {what} because an automated moderation system "
+                f"rated it {d.category} with confidence {d.probability:.0%}. If you think this was a mistake, contact "
+                "the server's moderators; they can review the decision and adjust the rules."
             )
     channel = await log_channel(guild, tenant)
     if channel:
@@ -133,8 +143,17 @@ async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel 
         store.set_meta(tenant, log_channel=existing.id)
         return existing
     try:
+        # Channel overwrites beat guild-level permissions, so the bot needs an explicit one or it cannot read,
+        # post or react in the channel it just created, which breaks the log and the feedback reactions.
         overwrites: dict[discord.Role | discord.Member | discord.Object, discord.PermissionOverwrite] = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=False)
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(
+                read_messages=True,
+                send_messages=True,
+                embed_links=True,
+                add_reactions=True,
+                read_message_history=True,
+            ),
         }
         ch = await guild.create_text_channel("jevmod-log", overwrites=overwrites, reason="jevmod decisions log")
         store.set_meta(tenant, log_channel=ch.id)
