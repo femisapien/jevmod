@@ -124,3 +124,21 @@ def test_keep_text_chars_env_and_zero(monkeypatch, tmp_path):
     row = s.recent_decisions("discord:1")[0]
     assert row["text"] == "" and row["message_id"] == "m1" and row["scores"] == {"spam": 0.9}
     assert Store(tmp_path / "k2.sqlite", keep_text_chars=50).keep_text_chars == 50
+
+
+def test_ai_generated_is_opt_in_and_not_nudged():
+    """Measured in benchmark/ai_detect/REPORT.md: good ranking, but it flags humans who write encyclopedically,
+    so it ships off by default, flag-only, and outside the reaction feedback loop."""
+    from jevmod.core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS
+    from jevmod.judge import CATEGORIES
+
+    assert CATEGORIES["ai_generated"]["experimental"] is True
+    assert "not by themselves signs of a language model" in CATEGORIES["ai_generated"]["criteria"]["false"].lower()
+    assert DEFAULT_ACTIONS["ai_generated"] == "off" and DEFAULT_THRESHOLDS["ai_generated"] == 0.85
+    p = Policy()
+    assert "ai_generated" not in p.enabled_categories()
+    before = p.thresholds["ai_generated"]
+    assert p.nudge("ai_generated", 0.03) == before and p.thresholds["ai_generated"] == before
+    p.set_category("ai_generated", "flag")
+    assert "ai_generated" in p.enabled_categories()
+    assert p.nudge("spam", 0.03) > DEFAULT_THRESHOLDS["spam"]

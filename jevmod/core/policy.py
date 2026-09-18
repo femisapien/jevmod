@@ -17,9 +17,11 @@ DEFAULT_THRESHOLDS = {
     "selfharm": 0.8,
     "doxxing": 0.8,
     "minors": 0.7,
+    "ai_generated": 0.85,  # experimental, see benchmark/ai_detect/REPORT.md
 }
 # selfharm is flag-only by design: moderators should reach out, not punish. doxxing/minors flag by default;
 # communities that want automatic removal set delete/timeout explicitly.
+EXPERIMENTAL = ("ai_generated",)  # never moved by the feedback loop until measured on real traffic
 DEFAULT_ACTIONS = {
     "spam": "flag",
     "scam": "flag",
@@ -29,6 +31,7 @@ DEFAULT_ACTIONS = {
     "selfharm": "flag",
     "doxxing": "flag",
     "minors": "flag",
+    "ai_generated": "off",  # opt-in: precision falls to about 0.2 at a realistic base rate
 }
 RULE_THRESHOLD = 0.8
 POLICY_VERSION = 1
@@ -75,7 +78,12 @@ class Policy:
             self.rule_thresholds[name] = _clamp(threshold)
 
     def nudge(self, category: str, delta: float = 0.03) -> float:
-        """False-positive feedback: raise that category's threshold a notch."""
+        """False-positive feedback: raise that category's threshold a notch.
+
+        Experimental categories are not moved: their error rate has not been measured on a real community's
+        traffic, so a handful of reactions would move the line on noise."""
+        if category in EXPERIMENTAL:
+            return self.thresholds.get(category, DEFAULT_THRESHOLDS.get(category, 0.9))
         if category.startswith("rule:"):
             name = category[5:]
             cur = self.rule_thresholds.get(name, RULE_THRESHOLD)

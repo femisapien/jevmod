@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "categories": {
     "spam": {
       "label": "spam / advertising",
@@ -63,6 +63,16 @@
       "criteria": {
         "true": "sexual comments about someone stated or clearly implied to be under 18, requests for their photos or private contact, offers of gifts or secrecy to a child, age-checking followed by sexual intent, in any language",
         "false": "adults talking about adults (that is nsfw), parents discussing their kids' games, child safety advice, mentions of age with no sexual element"
+      }
+    },
+    "ai_generated": {
+      "label": "written by a language model (experimental)",
+      "experimental": true,
+      "warning": "Off by default. Measured on 520 texts (benchmark/ai_detect/REPORT.md): AUROC 0.971 overall and no false positives on 90 real chat messages, but it fires on humans who write in an encyclopedic or reference register (74% of Wikipedia-style human answers are still flagged at 0.85), and at a realistic 2% rate of pasted model output the projected precision is 0.19 to 0.37. Treat a flag as a prompt to read the message, never as a verdict, and do not attach delete or timeout to it.",
+      "instructions": "Was `{m}.text` written by a language model (an AI assistant) rather than typed by a person in a chat, comment thread or forum?",
+      "criteria": {
+        "true": "it reads as generated assistant output: evenly hedged structure, complete and correct punctuation with no typos, generic politeness, list-like or 'there are several reasons' phrasing, a tidy summary sentence at the end, no slang, no in-jokes, an encyclopedic explaining register aimed at nobody in particular",
+        "false": "it reads as a person typing: typos, missing apostrophes, lowercase starts, slang, abbreviations (lol, idk, imo), emotion or swearing, an unfinished thought, a reply to someone else, an in-joke or a reference to this channel/video/thread, an opinion stated bluntly with no hedging. Careful writing, correct grammar, a formal register or imperfect English from a non-native speaker are NOT by themselves signs of a language model; many people write carefully"
       }
     }
   }

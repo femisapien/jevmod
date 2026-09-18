@@ -16,20 +16,21 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 
 | id | page | sentence | source | token | verified |
 |---|---|---|---|---|---|
-| C01 | / | Rates every message in your Discord server for spam, scams, harassment and five more. | jevmod/core/policy.py:23 | DEFAULT_ACTIONS | yes |
-| C02 | / | Deletes only if you turn that on. | jevmod/core/policy.py:24 | flag | yes |
-| C03 | / | It flags. It does not act until you say so. | jevmod/core/policy.py:23 | DEFAULT_ACTIONS | yes |
+| C01 | / | Rates every message in your Discord server for spam, scams, harassment and five more. | jevmod/core/policy.py:25 | DEFAULT_ACTIONS | yes |
+| C02 | / | Deletes only if you turn that on. | jevmod/core/policy.py:22 | flag | yes |
+| C03 | / | It flags. It does not act until you say so. | jevmod/core/policy.py:25 | DEFAULT_ACTIONS | yes |
 | C04 | / | Every flagged message appears there with its category, its probability and the message. | jevmod/adapters/discord_bot.py:113; jevmod/adapters/discord_bot.py:114 | d.probability; description | yes |
 | C05 | / | Members see nothing. | jevmod/adapters/discord_bot.py:137 | read_messages=False | yes |
-| C06 | / | Eight questions. One number each. | jevmod/core/policy.py:11 | DEFAULT_THRESHOLDS | yes |
-| C07 | / | Every message gets a probability from 0 to 1 for each of these. Over the line for that category, it is flagged. | jevmod/core/policy.py:142 | thresholds.get | yes |
-| C08 | / | A message with nothing to do with the channel's topic. Off by default; /mod set offtopic flag turns it on. | jevmod/core/policy.py:28 | offtopic | yes |
+| C06 | / | Nine questions. One number each. | jevmod/core/policy.py:11 | DEFAULT_THRESHOLDS | yes |
+| C07 | / | Every message gets a probability from 0 to 1 for each of these. Over the line for that category, it is flagged. | jevmod/core/policy.py:150 | thresholds.get | yes |
+| C08 | / | A message with nothing to do with the channel's topic. Off by default; /mod set offtopic flag turns it on. | jevmod/core/policy.py:30 | offtopic | yes |
 | C09 | / | Sexual comments about someone under 18, or an adult building private trust with a child. | jevmod/categories.json:62 | building private trust | yes |
-| C10 | / | Add up to five rules in your own words. | jevmod/core/policy.py:68 | >= 5 | yes |
+| C39 | / | A message that reads as assistant output rather than someone typing. Off by default; `/mod set ai_generated flag` turns it on. We measured it: it separates model output from real chat almost perfectly, but it also flags members who write in an encyclopedic register, so it only ever flags and never moves its own line. | jevmod/core/policy.py:34; jevmod/core/policy.py:24; benchmark/ai_detect/REPORT.md:9; tests/test_offline.py::test_ai_generated_is_opt_in_and_not_nudged | ai_generated; EXPERIMENTAL; 0.971; | yes |
+| C10 | / | Add up to five rules in your own words. | jevmod/core/policy.py:71 | >= 5 | yes |
 | C11 | / | Three commands cover most days. | jevmod/adapters/discord_bot.py:212; jevmod/adapters/discord_bot.py:228; jevmod/adapters/discord_bot.py:160 | name="set"; name="rule"; threshold | yes |
 | C12 | / | /mod set scam delete 0.7 moves scam from flagging to deleting, with the line at 0.7. | jevmod/adapters/discord_bot.py:214 | delete | yes |
 | C13 | / | React with the cross on a log entry when the bot was wrong and the line for that category moves up 0.03. The check moves it down 0.02. | jevmod/adapters/discord_bot.py:180 | 0.03 | yes |
-| C14 | / | Time out, 10 minutes, needs Moderate Members. | jevmod/core/policy.py:44; jevmod/adapters/discord_bot.py:96 | timeout_minutes; timeout | yes |
+| C14 | / | Time out, 10 minutes, needs Moderate Members. | jevmod/core/policy.py:47; jevmod/adapters/discord_bot.py:96 | timeout_minutes; timeout | yes |
 | C15 | / | It cannot ban anyone. | jevmod/core/policy.py:10 | ACTIONS | yes |
 | C16 | / | Roles you mark as trusted are never judged. | jevmod/adapters/discord_bot.py:65; jevmod/judge.py:87 | trusted_roles; author_trusted | yes |
 | C17 | / | A cross on a log entry. The bot answers: noted: threshold for scam is now 0.78. | jevmod/adapters/discord_bot.py:182; jevmod/core/policy.py:13 | noted: threshold; 0.75 | yes |
@@ -147,13 +148,13 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C130 | /terms/ | jevmod is free software under the MIT License. | LICENSE:1 | MIT | yes |
 | C131 | /terms/ | It is provided as is, without warranty of any kind. | LICENSE:15 | AS IS | yes |
 | C132 | /terms/ | jevmod is an independent project by Omar Hernandez and is not affiliated with TypeSafe, Discord, Telegram or Reddit. | DISCLAIMER.md:16 | affiliation | yes |
-| C133 | /terms/ | By default every category except offtopic is set to flag: the message is reported to your log channel and nothing else happens. | jevmod/core/policy.py:23 | DEFAULT_ACTIONS | yes |
-| C134 | /terms/ | The offtopic category is off by default. | jevmod/core/policy.py:28 | offtopic | yes |
+| C133 | /terms/ | By default every category except offtopic is set to flag: the message is reported to your log channel and nothing else happens. | jevmod/core/policy.py:25 | DEFAULT_ACTIONS | yes |
+| C134 | /terms/ | The offtopic category is off by default. | jevmod/core/policy.py:30 | offtopic | yes |
 | C135 | /terms/ | The bot deletes a message or times a member out only for a category or rule you have set to delete or timeout with /mod set or /mod rule. | jevmod/adapters/discord_bot.py:214 | timeout | yes |
-| C136 | /terms/ | A time out lasts 10 minutes. | jevmod/core/policy.py:44 | timeout_minutes | yes |
+| C136 | /terms/ | A time out lasts 10 minutes. | jevmod/core/policy.py:47 | timeout_minutes | yes |
 | C137 | /terms/ | The bot never bans anyone: its only actions are off, flag, delete and timeout. | jevmod/core/policy.py:10 | ACTIONS | yes |
-| C138 | /terms/ | Thresholds go from 0.50 to 0.99. | jevmod/core/policy.py:155 | 0.99 | yes |
-| C139 | /terms/ | You can add up to 5 rules in your own words. | jevmod/core/policy.py:69 | custom rules | yes |
+| C138 | /terms/ | Thresholds go from 0.50 to 0.99. | jevmod/core/policy.py:163 | 0.99 | yes |
+| C139 | /terms/ | You can add up to 5 rules in your own words. | jevmod/core/policy.py:72 | custom rules | yes |
 | C140 | /terms/ | Decisions are probabilities from a machine-learning model compared with thresholds you set; there will be false positives and false negatives. | DISCLAIMER.md:6 | Probabilistic | yes |
 | C141 | /terms/ | You are responsible for the actions you enable, for the rules you write, for telling your members that automated moderation is in use, and for complying with the law that applies to your community. | DISCLAIMER.md:9 | responsible | yes |
 | C142 | /terms/ | The Free plan covers 5,000 judged messages per server per month. | .env.example:40 | 5000 | yes |
@@ -169,4 +170,4 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C152 | /terms/ | There is no service level agreement; jevmod is not the right tool if you need one. | DISCLAIMER.md:24 | SLA | yes |
 | C153 | /terms/ | If the model cannot be reached, the bot takes no action on that batch of messages and lets them through. | jevmod/core/service.py:67 | error_open | yes |
 | C155 | /terms/ | The selfharm category exists to alert moderators so a person can reach out. It is not a medical or crisis service and must not be used as one. | DISCLAIMER.md:19 | reach out | yes |
-| C156 | /terms/ | It is flag-only by design in the defaults. | jevmod/core/policy.py:21 | flag-only | yes |
+| C156 | /terms/ | It is flag-only by design in the defaults. | jevmod/core/policy.py:22 | flag-only | yes |

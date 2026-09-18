@@ -72,7 +72,7 @@
 <section id="judges" class="section">
   <div class="wrap stack">
     <div class="stack-s">
-      <h2 data-claim="C06">Eight questions. One number each.</h2>
+      <h2 data-claim="C06">Nine questions. One number each.</h2>
       <p class="lead" data-claim="C07">Every message gets a probability from 0 to 1 for each of these. Over the line for that category, it is flagged.</p>
     </div>
     <dl class="defs">
@@ -84,6 +84,7 @@
       <div class="def"><dt>Self-harm</dt><dd>A member saying they want to die, disappear or hurt themselves. It flags so a moderator can reach out.</dd></div>
       <div class="def"><dt>Doxxing</dt><dd>A home address, phone number, real name or workplace of a real person, or asking others to find them.</dd></div>
       <div class="def"><dt>Minors</dt><dd data-claim="C09">Sexual comments about someone under 18, or an adult building private trust with a child.</dd></div>
+      <div class="def"><dt>Written by a model <span class="muted">(experimental)</span></dt><dd data-claim="C39">A message that reads as assistant output rather than someone typing. Off by default; <code>/mod set ai_generated flag</code> turns it on. We measured it: it separates model output from real chat almost perfectly, but it also flags members who write in an encyclopedic register, so it only ever flags and never moves its own line.</dd></div>
     </dl>
     <p class="prose" data-claim="C10">Add up to five rules in your own words: <em>No politics. News about the game is fine.</em></p>
   </div>
