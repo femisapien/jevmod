@@ -28,7 +28,7 @@ class Store:
     def __init__(
         self,
         path: str | Path = "jevmod.sqlite",
-        keep_text_chars: int = 300,
+        keep_text_chars: int | None = None,
         retention_days: int = 30,
         monthly_quota: int | None = None,
     ) -> None:
@@ -36,7 +36,9 @@ class Store:
         every write and by `purge_expired()`, which the service also calls on every batch."""
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.lock = threading.Lock()
-        self.keep_text_chars = keep_text_chars
+        self.keep_text_chars = (
+            int(os.environ.get("JEVMOD_KEEP_TEXT_CHARS", "300")) if keep_text_chars is None else keep_text_chars
+        )
         self.retention_days = retention_days
         self.monthly_quota = FREE_MONTHLY if monthly_quota is None else monthly_quota  # 0 = unlimited
         with self.lock:

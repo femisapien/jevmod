@@ -289,7 +289,11 @@ async def recent_cmd(itx: discord.Interaction) -> None:
         await itx.response.send_message("no decisions yet", ephemeral=True)
         return
     await itx.response.send_message(
-        "\n".join(f"`{r['category']} {r['p']:.2f} {r['action']}` {r['text'][:80]}" for r in rows), ephemeral=True
+        "\n".join(
+            f"`{r['category']} {r['p']:.2f} {r['action']}` {r['text'][:80] or 'message ' + str(r['message_id'])}"
+            for r in rows
+        ),
+        ephemeral=True,
     )
 
 

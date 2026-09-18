@@ -111,3 +111,16 @@ def test_every_role_is_dispatchable(monkeypatch):
     src = inspect.getsource(m)
     for role in ("api", "hosted", "demo", "discord", "telegram", "reddit", "mcp"):
         assert f'"{role}"' in src.split("def run_role")[1].split("def main")[0], role
+
+
+def test_keep_text_chars_env_and_zero(monkeypatch, tmp_path):
+    """The hosted bot must be able to run without storing any message text (JEVMOD_KEEP_TEXT_CHARS=0)."""
+    monkeypatch.setenv("JEVMOD_KEEP_TEXT_CHARS", "0")
+    s = Store(tmp_path / "k.sqlite")
+    assert s.keep_text_chars == 0
+    m = Message("m1", "some flagged message text", author="42", channel_topic="general")
+    d = Decision("m1", "flag", "spam", 0.9, {"spam": 0.9}, True, "jev")
+    s.log_decision("discord:1", m, d, "rid")
+    row = s.recent_decisions("discord:1")[0]
+    assert row["text"] == "" and row["message_id"] == "m1" and row["scores"] == {"spam": 0.9}
+    assert Store(tmp_path / "k2.sqlite", keep_text_chars=50).keep_text_chars == 50
