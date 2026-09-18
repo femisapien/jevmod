@@ -1,6 +1,7 @@
 """No key needed: policy decisions, store, quota, retention, erasure, pre-filters."""
 
 import time
+from pathlib import Path
 
 from jevmod import Message, Policy, decide
 from jevmod.core import Decision, Store
@@ -142,3 +143,17 @@ def test_ai_generated_is_opt_in_and_not_nudged():
     p.set_category("ai_generated", "flag")
     assert "ai_generated" in p.enabled_categories()
     assert p.nudge("spam", 0.03) > DEFAULT_THRESHOLDS["spam"]
+
+
+def test_published_openapi_matches_the_app(tmp_path, monkeypatch):
+    """docs/openapi.json is what people import into Postman. It drifted once already, naming five of the nine
+    categories. Regenerate it with `python scripts/site/gen_openapi.py` when this fails."""
+    import json
+    import sys
+
+    monkeypatch.setenv("JEVMOD_DB", str(tmp_path / "oa.sqlite"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "site"))
+    import gen_openapi
+
+    published = json.loads((Path(__file__).resolve().parents[1] / "docs" / "openapi.json").read_text("utf-8"))
+    assert published == json.loads(json.dumps(gen_openapi.schema(), sort_keys=True))
