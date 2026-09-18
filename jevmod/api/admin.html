@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>jevmod admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<style>
+  body { margin: 0; background: #FAFAFA; color: #0A0A0A; font: 15px/1.5 Inter, system-ui, sans-serif; padding: 32px 16px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  .sub { color: #3F3F46; margin: 0 0 32px; }
+  .figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0;
+          border-top: 1px solid #D4D4D8; border-bottom: 1px solid #D4D4D8; margin-bottom: 32px; }
+  .figs div { padding: 20px 16px; border-right: 1px solid #E5E5E5; }
+  .figs b { display: block; font-size: 28px; font-weight: 700; }
+  .figs span { color: #71717A; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: #71717A; font-weight: 400; font-family: "IBM Plex Mono", monospace; font-size: 12px;
+       padding: 8px 12px; border-bottom: 1px solid #D4D4D8; }
+  td { padding: 10px 12px; border-bottom: 1px solid #E5E5E5; }
+  td.m { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  td.n { font-variant-numeric: tabular-nums; }
+  select { border: 1px solid #D4D4D8; background: #fff; padding: 6px 8px; font: inherit; border-radius: 0; }
+  .ok { color: #16A34A; } .err { color: #DC2626; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>jevmod admin</h1>
+  <p class="sub">$month · plans $plans · quotas: free $free_quota, pro $pro_quota</p>
+  <div class="figs">
+    <div><b>$active</b><span>tenants with usage this month</span></div>
+    <div><b>$judged</b><span>judged messages</span></div>
+    <div><b>$$$usd</b><span>Jev spend, list price</span></div>
+    <div><b>$$$demo</b><span>demo spend this month</span></div>
+  </div>
+  <table>
+    <thead><tr><th>tenant</th><th>plan</th><th>judged / quota</th><th>tokens</th><th>subscription</th><th>set plan</th></tr></thead>
+    <tbody>$rows</tbody>
+  </table>
+  <p id="msg" class="sub" style="margin-top:16px"></p>
+</div>
+<script>
+  const TOKEN = new URLSearchParams(location.search).get("token") || "";
+  document.querySelectorAll("select[data-t]").forEach(s => s.addEventListener("change", async () => {
+    const r = await fetch("/admin/api/plan?token=" + encodeURIComponent(TOKEN), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant: s.dataset.t, plan: s.value })
+    });
+    const m = document.getElementById("msg");
+    m.className = r.ok ? "sub ok" : "sub err";
+    m.textContent = r.ok ? `$${s.dataset.t} -> $${s.value}` : `failed: $${r.status}`;
+  }));
+</script>
+</body>
+</html>

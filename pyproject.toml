@@ -18,9 +18,10 @@ classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Pytho
 discord = ["discord.py>=2.3"]
 telegram = ["python-telegram-bot>=21"]
 reddit = ["praw>=7.7"]
+billing = ["stripe>=12"]
 mcp = ["mcp>=2"]
 keys = ["keyring>=25"]
-all = ["discord.py>=2.3", "python-telegram-bot>=21", "praw>=7.7", "mcp>=2", "keyring>=25"]
+all = ["discord.py>=2.3", "python-telegram-bot>=21", "praw>=7.7", "mcp>=2", "keyring>=25", "stripe>=12"]
 examples = ["langchain-core>=0.3", "httpx"]
 dev = ["pytest", "ruff", "mypy", "httpx"]
 
@@ -35,7 +36,7 @@ Repository = "https://github.com/ohernandezdev/jevmod"
 include = ["jevmod*"]
 
 [tool.setuptools.package-data]
-jevmod = ["categories.json"]
+jevmod = ["categories.json", "api/admin.html"]
 
 [tool.ruff]
 line-length = 120

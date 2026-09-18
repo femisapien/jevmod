@@ -10,8 +10,10 @@ services:
     build: ../..
     container_name: jevmod-demo
     environment:
-      JEVMOD_ROLE: demo
+      JEVMOD_ROLE: hosted
+      JEVMOD_HOST: 0.0.0.0
       JEVMOD_DEMO_DB: /data/jevmod-demo.sqlite
+      JEVMOD_DB: /data/jevmod.sqlite
     env_file: .env
     volumes: ["jevmod-demo-data:/data"]
     restart: unless-stopped
@@ -23,17 +25,32 @@ services:
       traefik.enable: "true"
       traefik.docker.network: coolify
       traefik.http.routers.jevmod-demo-http.entrypoints: http
-      traefik.http.routers.jevmod-demo-http.rule: Host(`${DEMO_HOST}`) && PathPrefix(`/demo/`)
+      traefik.http.routers.jevmod-demo-http.rule: Host(`${DEMO_HOST}`) && (PathPrefix(`/demo/`) || PathPrefix(`/billing/`) || PathPrefix(`/admin`))
       traefik.http.routers.jevmod-demo-http.priority: "10"
       traefik.http.routers.jevmod-demo-http.middlewares: jevmod-demo-https
       traefik.http.middlewares.jevmod-demo-https.redirectscheme.scheme: https
       traefik.http.middlewares.jevmod-demo-https.redirectscheme.permanent: "true"
       traefik.http.routers.jevmod-demo-https.entrypoints: https
-      traefik.http.routers.jevmod-demo-https.rule: Host(`${DEMO_HOST}`) && PathPrefix(`/demo/`)
+      traefik.http.routers.jevmod-demo-https.rule: Host(`${DEMO_HOST}`) && (PathPrefix(`/demo/`) || PathPrefix(`/billing/`) || PathPrefix(`/admin`))
       traefik.http.routers.jevmod-demo-https.priority: "10"
       traefik.http.routers.jevmod-demo-https.tls: "true"
       traefik.http.routers.jevmod-demo-https.tls.certresolver: letsencrypt
       traefik.http.services.jevmod-demo.loadbalancer.server.port: "8080"
+  # The hosted Discord bot: one process for every server that invites it; shares the tenant store with billing.
+  bot:
+    build: ../..
+    container_name: jevmod-bot
+    environment:
+      JEVMOD_ROLE: discord
+      JEVMOD_DB: /data/jevmod.sqlite
+    env_file: .env
+    volumes: ["jevmod-demo-data:/data"]
+    restart: unless-stopped
+    networks: [coolify]
+    deploy:
+      resources:
+        limits: { memory: 512m }
+    profiles: ["bot"]
   # The landing page (docs/) with nginx on the canonical host; /demo/* goes to the demo container (priority 10 > 1).
   site:
     image: nginx:alpine

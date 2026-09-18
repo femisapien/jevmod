@@ -65,3 +65,18 @@ blocked, it is marked blocked with the reason.
 
 - The landing is served from https://jevmod.dev (nginx behind Traefik on the VPS). GitHub Pages is optional; the repo went public on 2026-09-18.
 - npm package not published to the registry yet (`npm publish` from packages/jevmod-js at launch); PyPI likewise (`python -m build && twine upload`).
+
+## Hosted plan (built 2026-09-18 while Omar was out; decisions to confirm)
+
+- Pricing chosen provisionally: Free 5,000 judged messages per server per month; **Pro $3.99/month per server up to
+  50,000** (`JEVMOD_PRO_MONTHLY_QUOTA`). Worst-case Jev cost of a Pro server: 50,000 × 1,005 tokens × $0.042/M ≈ $2.11,
+  so the margin is positive even at full use. Change the price in Stripe and `JEVMOD_PRO_MONTHLY_QUOTA` in the VPS `.env`.
+- Flow: `/mod upgrade` → signed Checkout link (`/billing/checkout?tenant=&sig=`) → Stripe → webhook → plan `pro`;
+  cancel → `free`. Portal for existing subscribers via the same command. Admin panel `/admin?token=...`.
+- Needed from Omar (VPS `.env`, then `docker compose ... up -d`): `STRIPE_PRICE_ID`, `STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET` (endpoint `https://jevmod.dev/billing/stripe/webhook`, events checkout.session.completed,
+  customer.subscription.updated, customer.subscription.deleted), `DISCORD_TOKEN` (Message Content Intent), and the
+  Discord application id for the invite link (`data-invite` on `#hosted` in docs/index.html:
+  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot%20applications.commands&permissions=1099511655504`).
+- Open: Discord verification is required above 100 servers; Stripe tax settings (VAT for EU customers) are Omar's to
+  configure in the Stripe dashboard; refunds are manual.

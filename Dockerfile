@@ -2,7 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY jevmod ./jevmod
-RUN pip install --no-cache-dir . && useradd -m app && mkdir -p /data && chown app /data
+RUN pip install --no-cache-dir ".[all]" && useradd -m app && mkdir -p /data && chown app /data
 USER app
 ENV JEVMOD_DB=/data/jevmod.sqlite
 VOLUME ["/data"]

@@ -55,7 +55,9 @@ def run_role(role: str) -> None:
 
         run()
     else:
-        raise SystemExit(f"unknown role {role!r}; use check | init | mcp | api | demo | discord | telegram | reddit")
+        raise SystemExit(
+            f"unknown role {role!r}; use check | init | mcp | api | demo | hosted | discord | telegram | reddit"
+        )
 
 
 def main() -> None:

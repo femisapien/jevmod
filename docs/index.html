@@ -122,6 +122,19 @@
   .code .copy:hover { color: var(--ink); background: var(--hover); }
   .code .copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   pre.prose { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; }
+  .hosted { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 16px 0 20px; margin: 4px 0 16px; }
+  .hosted-h { font-size: 20px; margin-bottom: 8px; }
+  .hosted-cta { margin-top: 16px; align-items: center; }
+  .textbtn { display: inline-flex; align-items: center; height: 48px; padding: 0 8px; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .textbtn:hover { border-bottom-color: var(--ink); }
+  .btn[aria-disabled="true"] { opacity: .3; cursor: not-allowed; pointer-events: none; }
+  .plans-wrap { grid-column: 1 / -1; margin-top: 16px; overflow-x: auto; }
+  table.plans { width: 100%; border-collapse: collapse; min-width: 560px; }
+  table.plans th { text-align: left; font: 600 14px/1.5 var(--sans); color: var(--ink); padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line); }
+  table.plans td { padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line-soft); font-size: 14.5px; vertical-align: top; }
+  table.plans td:first-child { color: var(--muted); width: 22%; }
+  table.plans tr:last-child td { border-bottom: 1px solid var(--line); }
+  @media (max-width: 640px) { table.plans { min-width: 0; } table.plans th, table.plans td { padding-right: 8px; font-size: 13px; } table.plans td:first-child { width: auto; } }
   .plain { margin-top: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px 0; }
   .plain p { font-size: 14.5px; padding: 4px 0; }
   .door > div > p.small { margin-top: 12px; }
@@ -286,7 +299,7 @@
       <div class="k">cost</div>
       <div class="n">$0.042<small>per 1,000 messages</small></div>
       <p class="d">A 20,000-message community runs for <b>under $1 a month</b>. About <b>30x less</b> than a general LLM as judge at list price. Measured: 1,005 input tokens per judged message, Jev at $0.042 per million.</p>
-      <p class="d" style="margin-top:12px">jevmod is free (MIT). The only bill is TypeSafe's Jev API, paid to them; a free tier exists at <a href="https://console.typesafe.ai">console.typesafe.ai</a>.</p>
+      <p class="d" style="margin-top:12px">jevmod is free (MIT). Self-hosted, the only bill is TypeSafe's Jev API, paid to them; a free tier exists at <a href="https://console.typesafe.ai">console.typesafe.ai</a>.</p>
     </div>
     <div>
       <div class="k">quality, AUROC</div>
@@ -347,7 +360,7 @@
       </table>
     </div>
     <p class="note cap">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard, measured on 2,531 messages (RTX 5080); Jev $0.042 and Claude Haiku 4.5 $1.00 per million input tokens at list price; the 1.2 factor is prompt overhead. Details in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
-    <p class="note cap">Plus wherever you run it: a $4/month VM is enough for the bots.</p>
+    <p class="note cap">Self-hosted, plus wherever you run it: a $4/month VM is enough for the bots. The hosted bot has its own flat plans (see Community owner).</p>
   </div>
 </section>
 
@@ -359,8 +372,16 @@
     <div class="door" id="owner">
       <div>
         <div class="who">Community owner</div>
-        <h4>Run the bot and tune it with commands.</h4>
-        <p>There is no public bot to invite: you run it yourself on any small machine or a $4/month VM (or ask a technical friend). Setup is <a href="https://github.com/ohernandezdev/jevmod#run-the-bot">five steps in the README</a>.</p>
+        <h4>Invite the bot, or run it yourself.</h4>
+        <div class="hosted" id="hosted" data-invite="">
+          <h4 class="hosted-h">Or let us run it.</h4>
+          <p>Invite the hosted bot and it starts flagging in a minute. Free up to 5,000 judged messages a month per server. Pro: $3.99 a month per server, up to 50,000 judged messages. Type <code class="i">/mod upgrade</code> in your server to get the payment link; cancel from the same link any time.</p>
+          <div class="cta hosted-cta">
+            <a class="btn primary" id="inviteBtn" href="#">Invite the bot</a>
+            <a class="textbtn" href="#selfhost">Self-host instead</a>
+          </div>
+        </div>
+        <p id="selfhost">You can also run it yourself on any small machine or a $4/month VM: free forever, your own key, Docker in one command. Setup is <a href="https://github.com/ohernandezdev/jevmod#run-the-bot">three steps in the README</a>.</p>
         <p>The Discord bot creates a private log channel and starts flagging. <code class="i">/mod set scam delete 0.7</code> changes a threshold, <code class="i">/mod rule</code> adds a rule in plain language. React on a log entry to mark a false positive and the threshold moves a notch.</p>
         <p>Telegram has <code class="i">/mod_status</code>, <code class="i">/mod_set</code>, <code class="i">/mod_rule</code>, <code class="i">/mod_topic</code> and <code class="i">/mod_log</code>. The Reddit adapter is configured by environment variables only.</p>
         <div class="plain">
@@ -374,6 +395,18 @@
 jevmod init                <span class="c"># asks for the key, stores it in the OS keyring</span>
 <span class="k">export</span> DISCORD_TOKEN=...
 jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit</span></pre></div>
+      <div class="plans-wrap">
+        <table class="plans">
+          <thead><tr><th></th><th>Free</th><th>Pro</th><th>Self-hosted</th></tr></thead>
+          <tbody>
+            <tr><td>price</td><td>$0</td><td>$3.99 per server per month</td><td>$0 + your TypeSafe usage</td></tr>
+            <tr><td>judged messages per month</td><td>5,000</td><td>50,000</td><td>unlimited, your key</td></tr>
+            <tr><td>who holds the key</td><td>us</td><td>us</td><td>you</td></tr>
+            <tr><td>data</td><td>log 30 days, <code class="i">/mod forget</code></td><td>same</td><td>on your machine</td></tr>
+            <tr><td>cancel</td><td>n/a</td><td>any time, Stripe portal</td><td>n/a</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="door" id="dev">
@@ -672,6 +705,11 @@ claude mcp add jevmod -- jevmod mcp
   });
   liveText.addEventListener("input", () => { if (![...chips.children].some(x => x.dataset.text === liveText.value)) [...chips.children].forEach(x => x.classList.remove("on")); });
 
+  (() => {
+    const inv = document.getElementById("hosted").dataset.invite || "", b = document.getElementById("inviteBtn");
+    if (inv) { b.href = inv; b.rel = "noopener"; }
+    else { b.textContent = "Invite link coming soon"; b.removeAttribute("href"); b.setAttribute("aria-disabled", "true"); b.classList.remove("primary"); }
+  })();
   document.querySelectorAll(".code .copy").forEach(btn => btn.addEventListener("click", async () => {
     const text = btn.parentElement.querySelector("pre").textContent.replace(/\s+$/, "");
     try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; } catch { btn.textContent = "copy"; }
