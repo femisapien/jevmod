@@ -7,3 +7,4 @@ benchmark/data/
 node_modules/
 packages/jevmod-js/dist/
 benchmark/results/report.md
+build/

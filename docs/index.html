@@ -47,8 +47,20 @@
   pre .c { color: var(--muted); } pre .k { color: var(--body); }
   @media (max-width: 640px) { pre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; padding: 16px; } }
 
-  header.hero { padding: 128px 0 96px; }
-  @media (max-width: 640px) { header.hero { padding: 64px 0 48px; } }
+  header.hero { padding: 96px 0 96px; }
+  @media (max-width: 640px) { header.hero { padding: 48px 0 48px; } }
+  .hero-grid { display: grid; grid-template-columns: 6fr 5fr; gap: 64px; align-items: start; }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 48px; } }
+  .hero-grid h1 { font-size: 56px; }
+  @media (max-width: 640px) { .hero-grid h1 { font-size: 40px; } }
+  .try .panel { margin-top: 16px; position: static; }
+  .try .panel .q { min-height: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { height: 28px; padding: 0 12px; font: 400 12px/1 var(--sans); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 0; cursor: pointer; }
+  .chip:hover { background: var(--hover); color: var(--ink); border-color: #A1A1AA; }
+  .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .live-closed { margin-top: 12px; color: var(--body); }
   .cta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 32px; }
   .btn { display: inline-flex; align-items: center; height: 48px; padding: 0 32px; font: 400 16px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--ink); cursor: pointer; }
   .btn:hover { background: var(--ink); color: var(--bg); }
@@ -58,6 +70,7 @@
   .btn:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
   .figures { display: grid; grid-template-columns: 1fr 1.45fr 1fr; gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 96px; }
+  @media (max-width: 640px) { .figures { margin-top: 48px; } }
   .figures > div { padding: 48px 32px 48px 0; border-left: 1px solid var(--line); padding-left: 32px; }
   .figures > div:first-child { border-left: 0; padding-left: 0; }
   .figures .k { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
@@ -203,15 +216,45 @@
 
 <nav class="wrap">
   <a class="brand" href="#">jevmod</a>
-  <div class="links"><a class="m-hide" href="#cost">Cost</a><a href="#demo">Demo</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
+  <div class="links"><a class="m-hide" href="#cost">Cost</a><a href="#demo">Try it</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
 </nav>
 
 <header class="hero wrap">
-  <h1>A probability for every message. You set the line.</h1>
-  <p class="lead">jevmod moderates Discord, Telegram, Reddit and any app with user content: spam, scam, harassment, five more categories and rules in your own words. One Jev request per batch, thresholds and actions you own, every decision logged with its numbers.</p>
-  <div class="cta">
-    <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
-    <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
+  <div class="hero-grid">
+    <div>
+      <h1>A probability for every message. You set the line.</h1>
+      <p class="lead">jevmod moderates Discord, Telegram, Reddit and any app with user content: spam, scam, harassment, five more categories and rules in your own words. One Jev request per batch, thresholds and actions you own, every decision logged with its numbers.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+        <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
+      </div>
+    </div>
+    <div id="demo" class="try" data-demo="https://jevmod.hernandezbastos.es">
+      <div id="live">
+        <form id="liveForm" class="live" novalidate>
+          <div class="live-row">
+            <input id="liveText" type="text" maxlength="300" autocomplete="off" spellcheck="false" placeholder="a message someone might post in your community" aria-label="Message to check">
+            <button id="liveBtn" class="btn primary" type="submit">Check</button>
+          </div>
+          <div class="chips" id="chips" aria-label="Example messages">
+            <button type="button" class="chip" data-text="FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro">scam</button>
+            <button type="button" class="chip" data-text="you're a worthless idiot and everyone here hates you, just leave">harassment</button>
+            <button type="button" class="chip" data-text="Anyone know if the patch fixed the inventory bug?">clean</button>
+            <button type="button" class="chip" data-text="I don't want to be here anymore. nobody would notice if I was gone">self-harm signal</button>
+            <button type="button" class="chip" data-text="Hat jemand Lust auf eine Runde heute Abend? Brauchen noch einen Heiler.">German, clean</button>
+          </div>
+          <div class="live-meta"><span id="liveCount" class="cap">0 / 300</span><span id="liveMsg" class="cap" role="status"></span></div>
+        </form>
+        <p id="liveClosed" class="small live-closed" hidden>Live demo is closed for this month (budget cap reached). Precomputed results below; run <code class="i">jevmod check</code> with your own key for live checks.</p>
+      </div>
+      <div class="panel" aria-live="polite">
+        <p class="q" id="q">Type a message or pick an example. The decision the bots and the API return appears here.</p>
+        <div class="verdict" id="verdict">action <b>-</b> &nbsp; waiting for a message</div>
+        <div class="bars" id="bars"></div>
+        <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
+      </div>
+      <p id="liveNote" class="cap live-note">Your text is sent to this project's demo server and to TypeSafe's API for judgment, and is kept in the demo log with a hashed IP so the author can see what people try. Do not paste anything private.</p>
+    </div>
   </div>
 
   <div class="figures">
@@ -329,29 +372,16 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
   </div>
 </section>
 
-<section id="demo" data-demo="https://jevmod.hernandezbastos.es">
+<section id="items">
   <div class="wrap">
-    <h2>Try it.</h2>
-    <p class="sub">Type a message and get the same decision the bots and the API return. Then click any of the twelve benchmark messages below to compare.</p>
-    <div id="live">
-      <form id="liveForm" class="live" novalidate>
-        <div class="live-row">
-          <input id="liveText" type="text" maxlength="300" autocomplete="off" spellcheck="false" placeholder="a message someone might post in your community" aria-label="Message to check">
-          <button id="liveBtn" class="btn primary" type="submit">Check</button>
-        </div>
-        <div class="live-meta"><span id="liveCount" class="cap">0 / 300</span><span id="liveMsg" class="cap" role="status"></span></div>
-      </form>
-      <p id="liveNote" class="cap live-note">Your text is sent to this project's demo server and to TypeSafe's API for judgment, and is kept in the demo log with a hashed IP so the author can see what people try. Do not paste anything private.</p>
-    </div>
-    <p id="liveClosed" class="small live-closed" hidden>Live demo is closed for this month (budget cap reached). Precomputed results below; run <code class="i">jevmod check</code> with your own key for live checks.</p>
-    <h4 class="demo-h">Twelve messages from the benchmark</h4>
-    <p class="sub small">Click one to see the probability Jev gave each category and what the default policy does with it. 12 items inlined from <code class="i">benchmark/results/jevmod.jsonl</code>; the precomputed part sends nothing from this page.</p>
+    <h2>From the benchmark.</h2>
+    <p class="sub">Twelve of the 2,531 messages, with the probabilities Jev gave them in the benchmark run. Click one to see what the default policy does with it. 12 items inlined from <code class="i">benchmark/results/jevmod.jsonl</code>; this part sends nothing from this page.</p>
     <div class="demo">
       <ul class="msgs" id="msgs" aria-label="messages"></ul>
       <div class="panel" aria-live="polite">
-        <p class="q" id="q"></p>
-        <div class="verdict" id="verdict"></div>
-        <div class="bars" id="bars"></div>
+        <p class="q" id="q2"></p>
+        <div class="verdict" id="verdict2"></div>
+        <div class="bars" id="bars2"></div>
         <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
       </div>
     </div>
@@ -491,8 +521,23 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
     { id: "yt73", set: "YouTube", text: "Thank you. Please give your email.", s: { spam: 0.19, scam: 0.54, harassment: 0.02, nsfw: 0.02, selfharm: 0.01, doxxing: 0.79, minors: 0.27 } },
   ];
   function decide(s) { let best = null; for (const c of CATS) if (s[c] >= TH[c] && (!best || s[c] > s[best])) best = c; return best; }
-  const list = document.getElementById("msgs"), q = document.getElementById("q"), verdict = document.getElementById("verdict"), bars = document.getElementById("bars");
-  bars.innerHTML = CATS.map(c => `<span class="n">${c}</span><span class="b"><s style="left:${TH[c] * 100}%"></s><i data-c="${c}"></i></span><span class="v" data-v="${c}">0.00</span>`).join("");
+  function panel(qId, vId, bId) {
+    const el = { q: document.getElementById(qId), verdict: document.getElementById(vId), bars: document.getElementById(bId) };
+    el.bars.innerHTML = CATS.map(c => `<span class="n">${c}</span><span class="b"><s style="left:${TH[c] * 100}%"></s><i data-c="${c}"></i></span><span class="v" data-v="${c}">0.00</span>`).join("");
+    el.render = (text, scores, headHtml) => {
+      el.q.textContent = text;
+      el.verdict.innerHTML = headHtml;
+      for (const c of CATS) {
+        const v = scores && c in scores ? +scores[c] : 0, over = v >= TH[c];
+        const bar = el.bars.querySelector(`i[data-c="${c}"]`), val = el.bars.querySelector(`[data-v="${c}"]`);
+        bar.style.width = (v * 100) + "%"; bar.classList.toggle("hit", over);
+        val.textContent = v.toFixed(2); val.classList.toggle("hit", over);
+      }
+    };
+    return el;
+  }
+  const heroPanel = panel("q", "verdict", "bars"), itemPanel = panel("q2", "verdict2", "bars2");
+  const list = document.getElementById("msgs");
   ITEMS.forEach((it, i) => {
     const hit = decide(it.s), li = document.createElement("li");
     li.innerHTML = `<button type="button" data-i="${i}"><span>${it.text.replace(/</g, "&lt;")}</span><span class="tag ${hit ? "hit" : ""}">${hit ? hit + " " + it.s[hit].toFixed(2) : "ok"}</span></button>`;
@@ -501,28 +546,23 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
   function show(i) {
     const it = ITEMS[i], hit = decide(it.s);
     [...list.children].forEach((li, k) => li.classList.toggle("on", k === i));
-    q.textContent = it.text;
-    verdict.innerHTML = hit
-      ? `action <b class="hit">flag</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${it.s[hit].toFixed(2)}</b><br><span style="color:var(--muted)">${it.set}</span>`
-      : `action <b class="ok">none</b> &nbsp; nothing over its threshold<br><span style="color:var(--muted)">${it.set}</span>`;
-    for (const c of CATS) {
-      const over = it.s[c] >= TH[c], bar = bars.querySelector(`i[data-c="${c}"]`), val = bars.querySelector(`[data-v="${c}"]`);
-      bar.style.width = (it.s[c] * 100) + "%"; bar.classList.toggle("hit", over);
-      val.textContent = it.s[c].toFixed(2); val.classList.toggle("hit", over);
-    }
+    itemPanel.render(it.text, it.s, hit
+      ? `action <b class="hit">flag</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${it.s[hit].toFixed(2)}</b><br><span style="color:var(--muted)">${it.set}, benchmark run</span>`
+      : `action <b class="ok">none</b> &nbsp; nothing over its threshold<br><span style="color:var(--muted)">${it.set}, benchmark run</span>`);
   }
   list.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(+b.dataset.i); });
   show(1);
 
 
   // ---- live demo: one health check on load, then only what the visitor submits ----------------------------------
-  const DEMO_URL = (new URLSearchParams(location.search).get("demo") || document.getElementById("demo").dataset.demo || "").replace(/\/$/, "");
-  const live = document.getElementById("live"), liveClosed = document.getElementById("liveClosed"),
-        liveForm = document.getElementById("liveForm"), liveText = document.getElementById("liveText"),
-        liveCount = document.getElementById("liveCount"), liveBtn = document.getElementById("liveBtn"), liveMsg = document.getElementById("liveMsg");
-  function closeLive(why) { live.hidden = true; liveClosed.hidden = false; if (why) liveClosed.firstChild.textContent = why + " "; }
-  if (!DEMO_URL) closeLive("This copy of the page is not connected to a demo server.");
-  else fetch(DEMO_URL + "/demo/health", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(h => { if (!h.open) closeLive("Live demo is closed for this month (budget cap reached)."); }).catch(() => closeLive("The demo server is not reachable right now."));
+  const DEMO_URL = (document.getElementById("demo").dataset.demo || "").replace(/\/$/, "");
+  const liveClosed = document.getElementById("liveClosed"), liveForm = document.getElementById("liveForm"), liveText = document.getElementById("liveText"),
+        liveCount = document.getElementById("liveCount"), liveBtn = document.getElementById("liveBtn"), liveMsg = document.getElementById("liveMsg"),
+        chips = document.getElementById("chips");
+  let closed = false;
+  function closeLive() { closed = true; liveBtn.disabled = true; liveClosed.hidden = false; }
+  if (!DEMO_URL) closeLive();
+  else fetch(DEMO_URL + "/demo/health", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(h => { if (!h.open) closeLive(); }).catch(closeLive);
   liveText.addEventListener("input", () => { liveCount.textContent = `${liveText.value.length} / 300`; });
   function tailFor(d) {
     if (d.reason === "cache") return "cached, cost $0";
@@ -530,24 +570,17 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
     return `skipped: ${String(d.reason || "").replace(/_/g, " ")}`;
   }
   function showLive(d, text) {
-    [...list.children].forEach(li => li.classList.remove("on"));
-    q.textContent = text;
     const hit = d.action !== "none" && d.category ? d.category : null;
-    verdict.innerHTML = hit
+    heroPanel.render(text, d.scores, hit
       ? `action <b class="hit">${d.action}</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${(+d.probability).toFixed(2)}</b><br><span style="color:var(--muted)">${tailFor(d)}</span>`
-      : `action <b class="ok">none</b> &nbsp; ${d.judged ? "nothing over its threshold" : "not judged"}<br><span style="color:var(--muted)">${tailFor(d)}</span>`;
-    for (const c of CATS) {
-      const v = d.scores && c in d.scores ? +d.scores[c] : 0, over = v >= TH[c];
-      const bar = bars.querySelector(`i[data-c="${c}"]`), val = bars.querySelector(`[data-v="${c}"]`);
-      bar.style.width = (v * 100) + "%"; bar.classList.toggle("hit", over);
-      val.textContent = v.toFixed(2); val.classList.toggle("hit", over);
-    }
+      : `action <b class="ok">none</b> &nbsp; ${d.judged ? "nothing over its threshold" : "not judged"}<br><span style="color:var(--muted)">${tailFor(d)}</span>`);
   }
-  liveForm.addEventListener("submit", async e => {
-    e.preventDefault();
+  let inflight = false;
+  async function submitLive() {
     const text = liveText.value.trim();
+    if (closed || inflight) return;
     if (!text) { liveMsg.textContent = "Type something first."; return; }
-    liveBtn.disabled = true; liveMsg.textContent = "asking Jev";
+    inflight = true; liveBtn.disabled = true; liveMsg.textContent = "asking Jev";
     try {
       const r = await fetch(DEMO_URL + "/demo/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
       if (r.status === 429) { liveMsg.textContent = "Slow down: 6 checks a minute, 40 a day per visitor."; return; }
@@ -556,10 +589,17 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
       const d = await r.json();
       showLive(d, text);
       liveMsg.textContent = tailFor(d);
-      document.querySelector(".panel").scrollIntoView({ block: "nearest", behavior: "smooth" });
     } catch { liveMsg.textContent = "Could not reach the demo server."; }
-    finally { liveBtn.disabled = false; }
+    finally { inflight = false; if (!closed) liveBtn.disabled = false; }
+  }
+  liveForm.addEventListener("submit", e => { e.preventDefault(); submitLive(); });
+  chips.addEventListener("click", e => {
+    const c = e.target.closest(".chip"); if (!c) return;
+    [...chips.children].forEach(x => x.classList.toggle("on", x === c));
+    liveText.value = c.dataset.text; liveText.dispatchEvent(new Event("input"));
+    submitLive();
   });
+  liveText.addEventListener("input", () => { if (![...chips.children].some(x => x.dataset.text === liveText.value)) [...chips.children].forEach(x => x.classList.remove("on")); });
 
   document.getElementById("copy").addEventListener("click", async (e) => {
     const code = e.currentTarget.querySelector("code");
