@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>jevmod</title>
 <meta name="description" content="Open-source moderation layer for Discord, Telegram, Reddit and any app with user content. A probability per category for every message, thresholds you own, every decision logged. Powered by Jev.">
+<link rel="alternate" type="text/plain" href="/llms.txt">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -109,8 +110,26 @@
   @media (max-width: 640px) { table.cost, table.cost tbody, table.cost tr, table.cost td { display: block; } table.cost thead { display: none; } table.cost td { padding: 6px 0; border: 0; } table.cost td.sys { width: auto; padding-right: 0; } table.cost tr { padding: 20px 0; border-bottom: 1px solid var(--line-soft); display: block; } table.cost td.out { text-align: left; padding-left: 0; } }
 
   /* doors */
+  .cta .btn { padding: 0 24px; }
+  .meta { margin-top: 16px; }
+  .meta a { color: var(--ink); border-bottom: 1px solid var(--line); }
+  .figures .lq { margin-bottom: 16px; }
+  .code { position: relative; }
+  .code pre { padding-right: 72px; }
+  .code + .code, .paste-t { margin-top: 16px; }
+  .code .copy { position: absolute; top: 8px; right: 8px; height: 28px; padding: 0 10px; font: 400 12px var(--sans); color: var(--muted); background: transparent; border: 0; border-radius: 0; cursor: pointer; }
+  .code .copy:hover { color: var(--ink); background: var(--hover); }
+  .code .copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  pre.prose { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; }
+  .plain { margin-top: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .plain p { font-size: 14.5px; padding: 4px 0; }
+  .door > div > p.small { margin-top: 12px; }
+  .refs { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line-soft); }
+  .refs a { color: var(--ink); border-bottom: 1px solid var(--line); }
+  footer .flinks { display: flex; gap: 20px; flex-wrap: wrap; }
   .door { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; padding: 48px 0; border-top: 1px solid var(--line-soft); align-items: start; }
   .door pre { align-self: start; }
+  .door > div { min-width: 0; }
   .door:first-of-type { border-top: 0; padding-top: 0; }
   @media (max-width: 900px) { .door { grid-template-columns: 1fr; gap: 24px; padding: 32px 0; } }
   .door .who { font: 600 14px/1.5 var(--sans); color: var(--ink); margin-bottom: 8px; }
@@ -217,7 +236,7 @@
 
 <nav class="wrap">
   <a class="brand" href="#">jevmod</a>
-  <div class="links"><a class="m-hide" href="#cost">Cost</a><a href="#demo">Try it</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
+  <div class="links"><a class="m-hide" href="#cost">Cost</a><a href="#demo">Live demo</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
 </nav>
 
 <header class="hero wrap">
@@ -226,11 +245,14 @@
       <h1>A probability for every message. You set the line.</h1>
       <p class="lead">Moderation for Discord, Telegram, Reddit and any app with user text: eight categories, rules in your own words, thresholds you own, every decision logged.</p>
       <div class="cta">
-        <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+        <a class="btn primary" href="#owner">Run the bot</a>
+        <a class="btn" href="#dev">Add to my app</a>
+        <a class="btn" href="#agent">Let my agent do it</a>
         <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
       </div>
+      <p class="cap meta">v0.2.0 &middot; Python 3.10+ &middot; Node 20+ &middot; <a href="https://pypi.org/project/jevmod/">PyPI</a> &middot; <a href="https://www.npmjs.com/package/jevmod">npm</a> &middot; <a href="https://github.com/ohernandezdev/jevmod">GitHub</a></p>
     </div>
-    <div id="demo" class="try" data-demo="https://jevmod.hernandezbastos.es">
+    <div id="demo" class="try" data-demo="https://jevmod.dev">
       <div id="live">
         <form id="liveForm" class="live" novalidate>
           <div class="live-row">
@@ -263,9 +285,11 @@
       <div class="k">cost</div>
       <div class="n">$0.042<small>per 1,000 messages</small></div>
       <p class="d">A 20,000-message community runs for <b>under $1 a month</b>. About <b>30x less</b> than a general LLM as judge at list price. Measured: 1,005 input tokens per judged message, Jev at $0.042 per million.</p>
+      <p class="d" style="margin-top:12px">jevmod is free (MIT). The only bill is TypeSafe's Jev API, paid to them; a free tier exists at <a href="https://console.typesafe.ai">console.typesafe.ai</a>.</p>
     </div>
     <div>
       <div class="k">quality, AUROC</div>
+      <p class="d lq">Catches harassment, sexual content, self-harm and grooming better than Meta's and Google's open moderation models on OpenAI's human-labelled test set.</p>
       <div class="n auroc">0.93<span class="dot">/</span>0.98<span class="dot">/</span>0.99<span class="dot">/</span>0.98</div>
       <div class="l">harassment, sexual content, self-harm, minors</div>
       <p class="d">On OpenAI's human-labelled moderation set. <b>Best in every category</b> it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</p>
@@ -304,7 +328,7 @@
         <thead><tr><th>system</th><th>arithmetic</th><th style="text-align:right">per month</th></tr></thead>
         <tbody>
           <tr>
-            <td class="sys">jevmod<div class="cap">Jev, seven categories, one request per batch</div></td>
+            <td class="sys">jevmod<div class="cap">Jev, 7 categories on, one request per batch</div></td>
             <td class="math" id="m-jev"></td>
             <td class="out" id="o-jev"></td>
           </tr>
@@ -322,54 +346,99 @@
       </table>
     </div>
     <p class="note cap">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard, measured on 2,531 messages (RTX 5080); Jev $0.042 and Claude Haiku 4.5 $1.00 per million input tokens at list price; the 1.2 factor is prompt overhead. Details in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
+    <p class="note cap">Plus wherever you run it: a $4/month VM is enough for the bots.</p>
   </div>
 </section>
 
 <section id="doors">
   <div class="wrap">
     <h2>Three ways in.</h2>
-    <p class="sub">Same questions, same thresholds and the same audit log whether a bot, a script or an agent asks. Judgments come from <a href="https://typesafe.ai">Jev</a>, TypeSafe's System One model, so you need their API key.</p>
-    <div class="door">
+    <p class="sub">Same questions, same thresholds and the same audit log whether a bot, a script or an agent asks. Judgments come from <a href="https://typesafe.ai">Jev</a>, TypeSafe's System One model, so you need <a href="https://console.typesafe.ai">their API key</a>.</p>
+
+    <div class="door" id="owner">
       <div>
         <div class="who">Community owner</div>
-        <h4>Invite a bot and tune it with commands.</h4>
+        <h4>Run the bot and tune it with commands.</h4>
+        <p>There is no public bot to invite: you run it yourself on any small machine or a $4/month VM (or ask a technical friend). Setup is <a href="https://github.com/ohernandezdev/jevmod#run-the-bot">five steps in the README</a>.</p>
         <p>The Discord bot creates a private log channel and starts flagging. <code class="i">/mod set scam delete 0.7</code> changes a threshold, <code class="i">/mod rule</code> adds a rule in plain language. React on a log entry to mark a false positive and the threshold moves a notch.</p>
         <p>Telegram has <code class="i">/mod_status</code>, <code class="i">/mod_set</code>, <code class="i">/mod_rule</code>, <code class="i">/mod_topic</code> and <code class="i">/mod_log</code>. The Reddit adapter is configured by environment variables only.</p>
+        <div class="plain">
+          <p>By default it only flags into a private #jevmod-log channel.</p>
+          <p>Nothing is deleted or muted until you type <code class="i">/mod set &lt;category&gt; delete</code>.</p>
+          <p>Wrong call? React &#10060; on the log entry.</p>
+          <p>Regret everything? <code class="i">/mod forget</code> wipes all data; kicking the bot does the same.</p>
+        </div>
       </div>
-<pre>pip install "jevmod[discord]"
-<span class="k">export</span> TYPESAFE_API_KEY=...
+      <div class="code"><button class="copy" type="button" aria-label="Copy code">copy</button><pre>pip install "jevmod[discord]"
+jevmod init                <span class="c"># asks for the key, stores it in the OS keyring</span>
 <span class="k">export</span> DISCORD_TOKEN=...
-jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit</span></pre>
+jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit</span></pre></div>
     </div>
-    <div class="door">
+
+    <div class="door" id="dev">
       <div>
         <div class="who">Developer</div>
         <h4>A function, a CLI or one HTTP call.</h4>
-        <p>Python and npm packages ask Jev the questions in <code class="i">categories.json</code>. The CLI exits 1 when something triggers, so it fits a shell script or a CI job. The HTTP API is one Docker image with SQLite on a volume.</p>
+        <p>Python and npm packages ask Jev the questions in <a href="https://github.com/ohernandezdev/jevmod/blob/main/jevmod/categories.json"><code class="i">categories.json</code></a>. The CLI exits 1 when something triggers, so it fits a shell script or a CI job. The HTTP API is one Docker image with SQLite on a volume.</p>
+        <p class="small">The HTTP API fails open for you (<code class="i">reason="error_open"</code>); the SDK raises so you choose.</p>
+        <p class="small">Copy-paste starters: FastAPI dependency, pydantic field, Express middleware, Agent SDK hooks, LangChain callback in <a href="https://github.com/ohernandezdev/jevmod/tree/main/examples">examples/</a>.</p>
+        <p class="small">OpenAPI at <code class="i">/docs</code> on your own <code class="i">jevmod api</code> (static copy: <a href="openapi.json">openapi.json</a>); Postman collection: <a href="jevmod.postman_collection.json">jevmod.postman_collection.json</a>.</p>
       </div>
-<pre><span class="c"># Python</span>
+      <div>
+        <div class="code"><button class="copy" type="button" aria-label="Copy code">copy</button><pre><span class="c"># Python</span>
 <span class="k">from</span> jevmod <span class="k">import</span> Moderator
-d = Moderator().check(text, channel_topic="gaming")
-d.action, d.category, d.scores   <span class="c"># 'flag', 'scam', {...}</span>
+<span class="k">from</span> typesafe_sdk <span class="k">import</span> TypeSafeError
+<span class="k">try</span>:
+    d = Moderator().check(text, channel_topic="gaming")
+    d.action, d.category, d.scores   <span class="c"># 'flag', 'scam', {...}</span>
+<span class="k">except</span> TypeSafeError:                <span class="c"># Jev unreachable: fail open on purpose</span>
+    d = <span class="k">None</span>
 
-<span class="c"># CLI, one message per line, exit 1 if anything triggers</span>
+<span class="c"># Node 20+</span>
+npm install jevmod
+<span class="k">import</span> { Moderator } <span class="k">from</span> "jevmod";
+<span class="k">const</span> d = <span class="k">await new</span> Moderator().check(text, { channelTopic: "gaming" });  <span class="c">// d.action, d.category, d.scores</span>
+
+<span class="c"># CLI, one message per line</span>
 cat comments.txt | jevmod check --rule "No politics." -
+<span class="c"># exit 0 clean, 1 triggered, 2 error; --json prints every probability</span>
 
 <span class="c"># HTTP</span>
+JEVMOD_ADMIN_TOKEN=... jevmod api
+curl -X POST localhost:8080/v1/keys -H "Authorization: Bearer $JEVMOD_ADMIN_TOKEN" \
+     -H "Content-Type: application/json" -d '{"tenant":"my-app"}'   <span class="c"># -&gt; {"api_key":"jm_..."}</span>
 curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
-     -d '{"messages":[{"id":"a","text":"..."}]}'</pre>
+     -d '{"messages":[{"id":"a","text":"..."}]}'</pre></div>
+        <div class="code resp"><button class="copy" type="button" aria-label="Copy code">copy</button><pre><span class="c"># response</span>
+{"request_id":"9f1c...","decisions":[{"message_id":"a","action":"flag","category":"scam","probability":0.99,
+  "scores":{"spam":0.98,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},
+  "judged":true,"reason":"jev"}],
+ "usage":{"judged_this_month":1,"jev_requests_this_month":1,"input_tokens_this_month":1005}}</pre></div>
+      </div>
     </div>
-    <div class="door">
+
+    <div class="door" id="agent">
       <div>
         <div class="who">Agent</div>
-        <h4>An MCP server and a skill.</h4>
-        <p>A coding agent registers <code class="i">jevmod mcp</code> and gets two tools, <code class="i">moderate</code> and <code class="i">categories</code>. <code class="i">AGENTS.md</code> and the Claude Code skill describe how to add moderation to an existing codebase: pick the surface, wire the key, add the tests.</p>
+        <h4>A plugin, an MCP server and a recipe.</h4>
+        <p><code class="i">jevmod-integrate</code> detects your stack, picks SDK, npm, HTTP or MCP, stores the key, inserts the call and adds a real test; <code class="i">jevmod-moderate</code> screens text while you work. Tools: <code class="i">moderate(texts, channel_topic?, rules?)</code> and <code class="i">categories()</code>.</p>
+        <p class="small"><a href="https://github.com/ohernandezdev/jevmod/blob/main/AGENTS.md"><code class="i">AGENTS.md</code></a> is the integration recipe an agent follows without reading anything else.</p>
       </div>
-<pre><span class="c"># Claude Code, Cursor, Codex: register the MCP server</span>
-{ "mcpServers": { "jevmod": { "command": "jevmod", "args": ["mcp"] } } }
-
-<span class="c"># tools: moderate(texts, channel_topic?, rules?) and categories()</span></pre>
+      <div>
+        <div class="code"><button class="copy" type="button" aria-label="Copy code">copy</button><pre>pip install "jevmod[mcp]"
+<span class="c"># Claude Code: plugin (two skills + the MCP server)</span>
+/plugin marketplace add ohernandezdev/jevmod
+/plugin install jevmod@jevmod
+<span class="c"># or only the MCP server</span>
+claude mcp add jevmod -- jevmod mcp
+<span class="c"># Cursor, Codex, others</span>
+{ "mcpServers": { "jevmod": { "command": "jevmod", "args": ["mcp"], "env": { "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}" } } } }</pre></div>
+        <p class="small paste-t">Paste this into Claude Code, Cursor or Codex</p>
+        <div class="code"><button class="copy" type="button" aria-label="Copy prompt">copy</button><pre class="prose">Add content moderation to this repository with jevmod (https://github.com/ohernandezdev/jevmod, MIT, powered by TypeSafe's Jev). If you are Claude Code, first run /plugin marketplace add ohernandezdev/jevmod and /plugin install jevmod@jevmod, then use the jevmod-integrate skill; otherwise read https://raw.githubusercontent.com/ohernandezdev/jevmod/main/AGENTS.md and follow its integration recipe. Detect the stack and pick the surface (Python SDK: pip install jevmod; npm: npm install jevmod; or the HTTP API POST /v1/moderate); store the key with jevmod init or TYPESAFE_API_KEY in the environment, never in a committed file; insert one Moderator().check(text, channel_topic=...) call at the single point where user text enters the system; decide fail-open or fail-closed explicitly around TypeSafeError; keep the defaults flag-only; add a real test that skips without the key and asserts d.category with d.probability &gt;= 0.7 on the scam sample and d.action == "none" on a clean one; finally run jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro" (expect exit 1) and jevmod check "gg everyone, same time tomorrow?" (expect exit 0) and show me the diff before committing.</pre></div>
+      </div>
     </div>
+
+    <p class="small refs">Full reference: <a href="https://github.com/ohernandezdev/jevmod#readme">README</a> &middot; <a href="https://github.com/ohernandezdev/jevmod/blob/main/AGENTS.md">AGENTS.md</a> &middot; <a href="llms.txt">llms.txt</a> &middot; <a href="https://github.com/ohernandezdev/jevmod/tree/main/examples">examples/</a> &middot; <a href="jevmod.postman_collection.json">Postman collection</a> &middot; <a href="openapi.json">OpenAPI</a> &middot; <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a></p>
   </div>
 </section>
 
@@ -439,7 +508,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
     <div class="figs2">
       <figure class="fig">
         <a href="diagrams/coverage.svg"><img src="diagrams/coverage.svg" alt="Coverage matrix: spam, scam, harassment, nsfw, selfharm, doxxing, minors and custom rules are on by default on every surface; offtopic is available and turns on when a channel topic is set." width="998" height="508" loading="lazy"></a>
-        <figcaption>The questions live in one file, so every implementation asks Jev exactly the same thing. <a class="open" href="diagrams/coverage.svg">open diagram</a></figcaption>
+        <figcaption>8 categories (7 on by default; off-topic turns on when you set a channel topic). The questions live in one file, so every implementation asks Jev exactly the same thing. <a class="open" href="diagrams/coverage.svg">open diagram</a></figcaption>
       </figure>
       <figure class="fig">
         <a href="diagrams/failure.svg"><img src="diagrams/failure.svg" alt="Failure policy: if Jev is unreachable, jevmod fails open, acts on nothing and logs one warning per batch. If the optional monthly quota (JEVMOD_MONTHLY_QUOTA, unlimited by default) is reached, judging pauses, the owner is told once, and nothing is deleted." width="1000" height="330" loading="lazy"></a>
@@ -475,7 +544,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
 <footer>
   <div class="wrap">
     <span>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</span>
-    <a href="https://github.com/ohernandezdev/jevmod">github.com/ohernandezdev/jevmod</a>
+    <span class="flinks"><a href="https://github.com/ohernandezdev/jevmod/blob/main/LICENSE">MIT license</a> <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a> <a href="https://github.com/ohernandezdev/jevmod#readme">README</a> <a href="llms.txt">llms.txt</a> <a href="https://github.com/ohernandezdev/jevmod">GitHub</a></span>
   </div>
 </footer>
 
@@ -602,6 +671,11 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
   });
   liveText.addEventListener("input", () => { if (![...chips.children].some(x => x.dataset.text === liveText.value)) [...chips.children].forEach(x => x.classList.remove("on")); });
 
+  document.querySelectorAll(".code .copy").forEach(btn => btn.addEventListener("click", async () => {
+    const text = btn.parentElement.querySelector("pre").textContent.replace(/\s+$/, "");
+    try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; } catch { btn.textContent = "copy"; }
+    setTimeout(() => { btn.textContent = "copy"; }, 1400);
+  }));
   document.getElementById("copy").addEventListener("click", async (e) => {
     const code = e.currentTarget.querySelector("code");
     try { await navigator.clipboard.writeText("pip install jevmod"); code.textContent = "copied"; }
