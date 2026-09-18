@@ -347,10 +347,18 @@ def _billing_enabled() -> bool:
 
 @mod.command(name="forget", description="Delete everything jevmod stored about this server (GDPR)")
 async def forget_cmd(itx: discord.Interaction) -> None:
-    store.delete_tenant(tenant_of(itx.guild_id or 0))
-    await itx.response.send_message(
-        "all settings, usage and decision logs for this server were deleted", ephemeral=True
-    )
+    tenant = tenant_of(itx.guild_id or 0)
+    # Deleting the local rows does not cancel anything at Stripe, so a paying owner would keep being charged
+    # with no record left here to explain it. Say so before deleting, and leave the portal link in reach.
+    paying = store.plan(tenant) != "free"
+    store.delete_tenant(tenant)
+    note = "all settings, usage and decision logs for this server were deleted"
+    if paying:
+        note += (
+            ". This did not cancel your Pro subscription: Stripe will keep charging the card until you cancel "
+            "it in Stripe's billing portal."
+        )
+    await itx.response.send_message(note, ephemeral=True)
 
 
 @mod.command(name="forget_user", description="Delete this member's entries from the decision log (erasure request)")

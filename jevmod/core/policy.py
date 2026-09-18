@@ -57,6 +57,11 @@ class Policy:
             raise ValueError(f"unknown category {category!r}; one of {', '.join(CATEGORIES)}")
         if action not in ACTIONS:
             raise ValueError(f"unknown action {action!r}; one of {', '.join(ACTIONS)}")
+        if category in EXPERIMENTAL and action not in ("off", "flag"):
+            raise ValueError(
+                f"{category} is experimental and can only be off or flag: its precision on a real community's "
+                "traffic is too low to remove a message or time a member out"
+            )
         self.actions[category] = action
         if threshold is not None:
             self.thresholds[category] = _clamp(threshold)

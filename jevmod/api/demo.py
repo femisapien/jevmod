@@ -77,10 +77,21 @@ def month() -> str:
     return time.strftime("%Y-%m")
 
 
-def purge_expired() -> int:
-    """Delete demo rows older than DEMO_RETENTION_DAYS. Called on every check; spend still counts the month."""
+_last_purge = 0.0
+
+
+def purge_expired(force: bool = False) -> int:
+    """Delete demo rows older than DEMO_RETENTION_DAYS. Spend still counts for the month.
+
+    Every demo endpoint calls this, not only /demo/check, so the retention promise on the privacy page does not
+    depend on someone submitting a message. At most one sweep an hour, because /demo/health is polled."""
+    global _last_purge
+    now = time.time()
+    if not force and now - _last_purge < 3600:
+        return 0
+    _last_purge = now
     with _lock:
-        cur = _db.execute("DELETE FROM demo WHERE ts < ?", (time.time() - DEMO_RETENTION_DAYS * 86400,))
+        cur = _db.execute("DELETE FROM demo WHERE ts < ?", (now - DEMO_RETENTION_DAYS * 86400,))
         _db.commit()
         return cur.rowcount
 
@@ -111,6 +122,7 @@ def _allow(ip_hash: str) -> str | None:
 
 @app.get("/demo/health")
 def health() -> dict[str, Any]:
+    purge_expired()
     spent = spent_usd()
     return {"ok": True, "budget_usd": BUDGET_USD, "spent_usd": round(spent, 4), "open": spent < BUDGET_USD}
 
@@ -167,6 +179,7 @@ def _admin(authorization: str) -> None:
 @app.get("/demo/stats")
 def stats(authorization: str = Header(default="")) -> dict[str, Any]:
     _admin(authorization)
+    purge_expired()
     m = month()
     rows = _db.execute(
         "SELECT COUNT(*), COUNT(DISTINCT ip_hash), SUM(cached), COALESCE(SUM(tokens),0) FROM demo WHERE month=?", (m,)
@@ -193,6 +206,7 @@ def stats(authorization: str = Header(default="")) -> dict[str, Any]:
 @app.get("/demo/recent")
 def recent(limit: int = 100, authorization: str = Header(default="")) -> list[dict[str, Any]]:
     _admin(authorization)
+    purge_expired()
     rows = _db.execute(
         "SELECT ts, country, text, category, p, action, scores FROM demo ORDER BY ts DESC LIMIT ?",
         (max(1, min(limit, 1000)),),
