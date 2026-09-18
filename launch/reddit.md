@@ -55,9 +55,10 @@ LINK
 
 ```python
 from jevmod import Moderator
+
 d = Moderator().check("FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro")
-d.action, d.category, d.probability   # ('flag', 'scam', 0.97)
-d.scores                              # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, ...}
+d.action, d.category, d.probability  # ('flag', 'scam', 0.97)
+d.scores  # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, ...}
 ```
 
 `check_many()` judges a batch in one request. There is a CLI (`jevmod check -` reads stdin, `--json`, exit codes for scripts), a FastAPI server, an MCP server for agents, and Discord/Telegram/Reddit adapters over the same core. Also an npm package with the same questions.

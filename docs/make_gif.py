@@ -35,15 +35,30 @@ OUT1 = "scam 0.99                    'FREE NITRO for the first 100!! claim at di
 CMD2 = "jevmod check - < comments.txt"
 OUT2 = [
     ("skipped (too short)          'gg wp'  []", DIM),
-    ("ok                           'Sub to my channel visuelgamingzNL I sub back'  [spam 0.80, scam 0.09, doxxing 0.03]", FG),
-    ("harassment 0.98              'The world would be better off without immigrants like you.'  [harassment 0.98, spam 0.03, nsfw 0.02]", RED),
-    ("ok                           'Anyone know if the patch fixed the inventory bug?'  [spam 0.01, scam 0.01, harassment 0.01]", FG),
+    (
+        "ok                           'Sub to my channel visuelgamingzNL I sub back'  [spam 0.80, scam 0.09, doxxing 0.03]",
+        FG,
+    ),
+    (
+        "harassment 0.98              'The world would be better off without immigrants like you.'  [harassment 0.98, spam 0.03, nsfw 0.02]",
+        RED,
+    ),
+    (
+        "ok                           'Anyone know if the patch fixed the inventory bug?'  [spam 0.01, scam 0.01, harassment 0.01]",
+        FG,
+    ),
 ]
 CMD3 = 'curl -s localhost:8080/v1/moderate -H "Authorization: Bearer $JEVMOD_KEY" -d @batch.json'
 # the two decision objects from the real response (request_id and usage lines left out for space)
 OUT3 = [
-    ('{"message_id":"a","action":"flag","category":"scam","probability":0.99,"scores":{"spam":0.97,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},"judged":true,"reason":"jev"}', RED),
-    ('{"message_id":"b","action":"none","category":null,"probability":0.0,"scores":{"spam":0.02,"scam":0.02,"harassment":0.01,"nsfw":0.01,"selfharm":0.01,"doxxing":0.01,"minors":0.01},"judged":true,"reason":"jev"}', GREEN),
+    (
+        '{"message_id":"a","action":"flag","category":"scam","probability":0.99,"scores":{"spam":0.97,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},"judged":true,"reason":"jev"}',
+        RED,
+    ),
+    (
+        '{"message_id":"b","action":"none","category":null,"probability":0.0,"scores":{"spam":0.02,"scam":0.02,"harassment":0.01,"nsfw":0.01,"selfharm":0.01,"doxxing":0.01,"minors":0.01},"judged":true,"reason":"jev"}',
+        GREEN,
+    ),
 ]
 
 

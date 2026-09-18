@@ -103,13 +103,13 @@ screener and a pre-commit hook.
 from jevmod import Moderator, Policy
 
 d = Moderator().check("FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro", channel_topic="gaming")
-d.action, d.category, d.probability      # ('flag', 'scam', 0.97)
-d.scores                                 # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, 'nsfw': 0.01, ...}
+d.action, d.category, d.probability  # ('flag', 'scam', 0.97)
+d.scores  # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, 'nsfw': 0.01, ...}
 
 p = Policy()
 p.set_category("scam", "delete", 0.7)
 p.set_rule("no_politics", "No political discussion. Game news is fine.", action="flag", threshold=0.8)
-Moderator(policy=p).check_many(["...", "..."], channel_topic="support")    # one request for the batch
+Moderator(policy=p).check_many(["...", "..."], channel_topic="support")  # one request for the batch
 ```
 
 ### npm

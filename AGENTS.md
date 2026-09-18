@@ -122,9 +122,11 @@ red-team suite calls Jev about a hundred times; expect a minute and a few cents.
 
    ```python
    from jevmod import Moderator
-   mod = Moderator()                       # module-level: keeps the 24 h cache
+
+   mod = Moderator()  # module-level: keeps the 24 h cache
    d = mod.check(text, channel_topic=topic)
-   if d.action != "none": handle(d)        # d.category, d.probability, d.scores
+   if d.action != "none":
+       handle(d)  # d.category, d.probability, d.scores
    ```
 
    Batches: `mod.check_many(texts, ...)`, 50 or fewer per call. Not Python: `POST /v1/moderate`.

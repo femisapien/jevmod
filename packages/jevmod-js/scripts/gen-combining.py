@@ -4,6 +4,7 @@ The Python package strips those characters in normalize(); JavaScript has no equ
 (\p{M} is wider and would drop Thai and Indic vowel signs), so the table is generated from the
 same source and embedded. Run: python scripts/gen-combining.py
 """
+
 import unicodedata
 from pathlib import Path
 

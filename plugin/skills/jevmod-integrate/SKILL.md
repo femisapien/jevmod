@@ -53,12 +53,12 @@ Python, one message:
 ```python
 from jevmod import Moderator, Policy
 
-policy = Policy()                                   # defaults: flag at the thresholds below
-policy.set_category("scam", "delete", 0.75)         # your actions, your thresholds
+policy = Policy()  # defaults: flag at the thresholds below
+policy.set_category("scam", "delete", 0.75)  # your actions, your thresholds
 policy.set_rule("no_politics", "No political discussion. Game news is fine.", action="flag", threshold=0.8)
-mod = Moderator(policy=policy)                      # reuse this object: it caches verdicts for 24 h
+mod = Moderator(policy=policy)  # reuse this object: it caches verdicts for 24 h
 
-d = mod.check(text, channel_topic="support chat")   # -> Decision
+d = mod.check(text, channel_topic="support chat")  # -> Decision
 if d.action != "none":
     ...  # d.category ("scam" or "rule:no_politics"), d.probability, d.scores (every probability)
 ```
@@ -140,6 +140,7 @@ SAMPLES = [
     ("I don't want to be here anymore. nobody would notice if I was gone. sorry everyone", "selfharm"),
     ("my daughter is 12 and loves this game, any tips on parental controls?", None),
 ]
+
 
 def test_moderation_is_wired():
     mod = Moderator()
