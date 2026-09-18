@@ -30,7 +30,8 @@ when several services share one policy or the caller is not Python.
 ### 2. Put the key somewhere safe
 
 The key is `TYPESAFE_API_KEY` (free tier at https://console.typesafe.ai/settings/keys). jevmod
-reads it in this order: OS keyring, environment variable, `.env` in the working directory.
+reads it in this order: `TYPESAFE_API_KEY` in the environment, the OS keyring, `.env` in the working directory
+(an explicit variable always wins over what `jevmod init` stored).
 
 - Run `jevmod init` once. It asks for the key without echo, validates it with one small Jev call,
   stores it in the OS keyring (Windows Credential Manager, macOS Keychain, Secret Service; needs the
@@ -40,7 +41,6 @@ reads it in this order: OS keyring, environment variable, `.env` in the working 
 - Never write the key into source, config files that are committed, Dockerfiles, or tests. Never
   print it. If `.env` is used, check that `.gitignore` lists it.
 
-If `jevmod init` is not in the installed version yet, set the environment variable and move on.
 
 ### 3. Wire it at the right place
 
@@ -74,6 +74,8 @@ decisions = mod.check_many(texts, channel_topic="support chat", ids=[...])
 timeout) when Jev cannot be reached. Decide fail-open or fail-closed explicitly at the call site:
 
 ```python
+from typesafe_sdk import TypeSafeError
+
 try:
     d = mod.check(text)
 except TypeSafeError:

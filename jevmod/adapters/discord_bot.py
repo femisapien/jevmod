@@ -149,8 +149,8 @@ async def _notify_quota_once(guild: discord.Guild, tenant: str) -> None:
     ch = await log_channel(guild, tenant)
     if ch:
         await ch.send(
-            f"jevmod paused for this month: the free plan covers {FREE_MONTHLY:,} judged messages. "
-            "Messages are not being judged until next month or an upgrade. Nothing is deleted while paused."
+            f"jevmod paused for this month: the monthly quota of {FREE_MONTHLY:,} judged messages was reached "
+            "(JEVMOD_MONTHLY_QUOTA). Messages are not being judged until next month. Nothing is deleted while paused."
         )
 
 
@@ -203,9 +203,9 @@ async def status(itx: discord.Interaction) -> None:
     lines += [f'**rule {n}**: {p.rule_actions.get(n, "flag")} · "{r}"' for n, r in p.rules.items()]
     plan = store.plan(tenant)
     quota = (
-        f"{judged:,}/{FREE_MONTHLY:,} judged this month (free)"
-        if plan == "free"
-        else f"{judged:,} judged this month ({plan})"
+        f"{judged:,}/{FREE_MONTHLY:,} judged this month (quota)"
+        if plan == "free" and FREE_MONTHLY
+        else f"{judged:,} judged this month"
     )
     lines.append(f"\n{quota} · {requests} Jev requests · {tokens:,} tokens")
     await itx.response.send_message("\n".join(lines), ephemeral=True)

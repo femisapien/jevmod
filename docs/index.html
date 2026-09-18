@@ -31,7 +31,7 @@
   nav .links { display: flex; gap: 28px; font-size: 14px; color: var(--fg-2); }
   nav .links a { padding: 10px 0; white-space: nowrap; }
   nav .links a:hover { color: var(--fg); }
-  @media (max-width: 640px) { nav .links { gap: 16px; } nav .links a.sec { display: none; } }
+  @media (max-width: 640px) { nav .links { gap: 14px; font-size: 13px; } }
 
   header.hero.wrap { padding: 72px 28px 64px; }
   @media (max-width: 640px) { header.hero.wrap { padding: 44px 16px 40px; } }
@@ -61,6 +61,7 @@
   code.i { font-family: var(--mono); font-size: .92em; color: var(--fg); background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r); padding: 1px 6px; white-space: nowrap; }
   pre { margin: 0; padding: 18px 20px; background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r); font: 13.5px/1.6 var(--mono); color: var(--fg); overflow-x: auto; }
   pre .c { color: var(--fg-3); } pre .s { color: var(--accent); } pre .k { color: var(--fg-2); }
+  @media (max-width: 640px) { pre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; } }
 
   /* three doors: rows, not cards */
   .doors { border-top: 1px solid var(--line); }
@@ -117,6 +118,16 @@
   table.bench td.na { color: var(--line-2); }
   table.bench tfoot td { border-top: 1px solid var(--line-2); color: var(--fg-2); }
   table.bench tfoot td:first-child { color: var(--fg); }
+  .setm { display: none; }
+  table.bench tfoot td:nth-child(2) { color: transparent; }
+  @media (max-width: 640px) {
+    table.bench { min-width: 0; }
+    table.bench th:first-child, table.bench td:first-child { display: none; }
+    table.bench th:nth-child(2), table.bench td:nth-child(2) { position: sticky; left: 0; background: var(--bg-2); z-index: 1; box-shadow: 1px 0 0 var(--line); }
+    table.bench td:nth-child(2) { font-size: 13.5px; }
+    table.bench tfoot td:nth-child(2) { color: var(--fg); }
+    .setm { display: block; font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+  }
   .caveats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 40px; margin-top: 28px; }
   @media (max-width: 800px) { .caveats { grid-template-columns: 1fr; } }
   .caveats p { margin: 0; color: var(--fg-2); font-size: 14.5px; }
@@ -127,6 +138,8 @@
   .fig a { display: block; }
   .fig img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
   .fig figcaption { color: var(--fg-3); font-size: 13.5px; margin-top: 10px; max-width: 78ch; }
+  .fig figcaption a.open { display: none; color: var(--fg-2); border-bottom: 1px solid var(--line-2); margin-left: 6px; white-space: nowrap; }
+  @media (max-width: 640px) { .fig > a { display: none; } .fig { margin-bottom: 22px; } .fig figcaption { color: var(--fg-2); font-size: 15px; margin-top: 0; } .fig figcaption a.open { display: inline; } .figs2 { gap: 0; } }
   .figs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
   @media (max-width: 900px) { .figs2 { grid-template-columns: 1fr; } }
 
@@ -149,13 +162,13 @@
 
 <nav class="wrap">
   <a class="brand" href="#">jevmod</a>
-  <div class="links"><a href="#demo">Demo</a><a href="#bench">Benchmark</a><a class="sec" href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
+  <div class="links"><a href="#demo">Demo</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
 </nav>
 
 <header class="wrap hero">
   <div>
     <h1>A probability for every message. Thresholds you own.</h1>
-    <p class="lead">Moderation for Discord, Telegram, Reddit and any app with user content. Eight categories plus rules in your own words. <b>AUROC 0.994</b> on 500 YouTube spam comments at <b>$0.04 per 1,000 messages</b>.</p>
+    <p class="lead">Moderation for Discord, Telegram, Reddit and any app with user content. Eight categories plus rules in your own words. <b>AUROC 0.93 to 0.99</b> on harassment, sexual content, self-harm and minors in OpenAI's human-labelled moderation eval, at <b>$0.04 per 1,000 messages</b>.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
       <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
@@ -177,6 +190,7 @@
         <div class="who">community owner</div>
         <h3>Invite a bot and tune it with commands.</h3>
         <p>The Discord bot creates a private log channel and starts flagging. <code class="i">/mod set scam delete 0.7</code> changes a threshold, <code class="i">/mod rule</code> adds a rule in plain language. React on a log entry to mark a false positive and the threshold moves a notch.</p>
+        <p>Telegram has <code class="i">/mod_status</code>, <code class="i">/mod_set</code>, <code class="i">/mod_rule</code>, <code class="i">/mod_topic</code> and <code class="i">/mod_log</code>. The Reddit adapter is configured by environment variables only.</p>
       </div>
 <pre>pip install "jevmod[discord]"
 <span class="k">export</span> TYPESAFE_API_KEY=...
@@ -219,7 +233,7 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
 
 <section id="demo" class="wrap">
   <h2>Twelve messages from the benchmark.</h2>
-  <p class="sub">Click one to see the probability Jev gave each category and what the default policy does with it. These results are precomputed from <code class="i">benchmark/results/jevmod.jsonl</code>; nothing is sent anywhere from this page.</p>
+  <p class="sub">Click one to see the probability Jev gave each category and what the default policy does with it. 12 items inlined from <code class="i">benchmark/results/jevmod.jsonl</code>; nothing is sent anywhere from this page.</p>
   <div class="demo">
     <ul class="msgs" id="msgs" aria-label="messages"></ul>
     <div class="panel" aria-live="polite">
@@ -229,40 +243,41 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
       <p class="foot">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
     </div>
   </div>
-  <p class="note demo-note">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip.</p>
+  <p class="note demo-note">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit at 0.75 to 0.85.</p>
 </section>
 
 <hr class="rule">
 
 <section id="bench" class="wrap">
   <h2>Against three local classifiers.</h2>
-  <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
-  <p class="swipe">Swipe the table sideways for the numbers.</p>
+  <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. jevmod has the best AUROC in every category it was compared on (harassment and sexual content against three models; self-harm and minors against Llama Guard, the only other system with those labels) and ties ShieldGemma at 0.939 on "any category" of the OpenAI set. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
+  <p class="swipe">Swipe the table sideways for the other systems.</p>
   <div class="tbl">
     <table class="bench">
       <thead><tr><th>set</th><th>category</th><th>jevmod</th><th>Llama Guard 3 8B</th><th>ShieldGemma 2B</th><th>toxic-bert</th></tr></thead>
       <tbody>
-        <tr class="set"><td>OpenAI moderation, 1,680</td><td>harassment</td><td class="best jev">0.930</td><td>0.805</td><td>0.914</td><td>0.807</td></tr>
+        <tr class="set"><td>OpenAI moderation, 1,680</td><td>harassment<span class="setm">OpenAI moderation, 1,680</span></td><td class="best jev">0.930</td><td>0.805</td><td>0.914</td><td>0.807</td></tr>
         <tr><td></td><td>nsfw</td><td class="best jev">0.982</td><td>0.843</td><td>0.968</td><td>0.876</td></tr>
         <tr><td></td><td>self-harm</td><td class="best jev">0.992</td><td>0.891</td><td class="na">no policy</td><td class="na">no label</td></tr>
         <tr><td></td><td>minors</td><td class="best jev">0.977</td><td>0.590</td><td class="na">no policy</td><td class="na">no label</td></tr>
         <tr><td></td><td>any category</td><td class="best jev">0.939</td><td>0.921</td><td class="best">0.939</td><td>0.884</td></tr>
-        <tr class="set"><td>Civil Comments, 351</td><td>harassment</td><td>0.875</td><td>0.539</td><td>0.874</td><td class="best">0.973</td></tr>
+        <tr class="set"><td>Civil Comments, 351</td><td>harassment<span class="setm">Civil Comments, 351</span></td><td>0.875</td><td>0.539</td><td>0.874</td><td class="best">0.973</td></tr>
         <tr><td></td><td>any category</td><td>0.876</td><td>0.592</td><td>0.857</td><td class="best">0.973</td></tr>
-        <tr class="set"><td>YouTube spam, 500</td><td>spam</td><td class="best jev">0.994</td><td>0.500</td><td class="na">no policy</td><td class="na">no label</td></tr>
+        <tr class="set"><td>YouTube spam, 500</td><td>spam<span class="setm">YouTube spam, 500</span></td><td class="best jev">0.994</td><td>0.500</td><td class="na">no policy</td><td class="na">no label</td></tr>
         <tr><td></td><td>any category</td><td class="best jev">0.960</td><td>0.755</td><td>0.589</td><td>0.418</td></tr>
       </tbody>
       <tfoot>
-        <tr><td>cost per 1,000 messages</td><td></td><td>$0.042</td><td>$0.004</td><td>$0.011</td><td>$0.0006</td></tr>
-        <tr><td>latency per message</td><td></td><td>22 ms, batched 25</td><td>49 ms</td><td>130 ms</td><td>8 ms</td></tr>
+        <tr><td>cost per 1,000 messages</td><td>cost / 1,000</td><td>$0.042</td><td>$0.004</td><td>$0.011</td><td>$0.0006</td></tr>
+        <tr><td>latency per message</td><td>latency</td><td>22 ms, batched 25</td><td>49 ms</td><td>130 ms</td><td>8 ms</td></tr>
       </tfoot>
     </table>
   </div>
   <div class="caveats">
-    <p><b>Cost.</b> jevmod: 1,005 input tokens per judged message with seven categories, at Jev's list price of $0.042 per million. Local models: GPU time on an RTX 5080 at $0.30 per hour, from measured latency; hardware, hosting and your time are not in that number. A general LLM as judge on the same text would be about $1.23 per 1,000 messages at Claude Haiku 4.5 list price, not run.</p>
+    <p><b>Cost.</b> jevmod: about 1,005 input tokens per judged message with seven categories, $0.042 per 1,000 judged messages at Jev's list price of $0.042 per million tokens. Local models: GPU time on an RTX 5080 at $0.30 per hour, from measured latency; hardware, hosting and your time are not in that number.</p>
     <p><b>Where jevmod loses.</b> toxic-bert was trained on Civil Comments and wins there by a wide margin. Llama Guard returns a hard label, so its per-category AUROC is close to a coin flip by construction; compare it on the "any category" row. ShieldGemma has policies for harassment and sexual content only. YouTube labels are loose: many "spam" comments are plain self-promotion.</p>
   </div>
-  <p class="note">The full table with F1 at default thresholds, precision and recall is in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>. A separate 98-message red-team suite (unicode evasion, six languages, prompt injection, gaming slang) runs as a regression test against the real API.</p>
+  <p class="note">Not measured, for scale: a general LLM as judge on the same text, 1,005 tokens x 1.2 prompt overhead x $1 per million input tokens (Claude Haiku 4.5 list price), is about $1.2 per 1,000 messages before output tokens.</p>
+  <p class="note">The full table with F1 at default thresholds, precision and recall is in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>. A separate 98-message red-team suite (unicode evasion, Spanish, Portuguese, French, German, Russian and Japanese, prompt injection, gaming slang) runs as a regression test against the real API.</p>
 </section>
 
 <hr class="rule">
@@ -272,20 +287,20 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
   <p class="sub">Every surface is an adapter over the same core. Messages that a local rule can settle never leave the machine; the rest go to Jev together, and every probability lands in the audit log.</p>
   <figure class="fig">
     <a href="diagrams/architecture.svg"><img src="diagrams/architecture.svg" alt="Architecture: Discord, Telegram, Reddit, CLI, Python, npm, HTTP and MCP feed one ModerationService, which calls the Judge, which sends one request to Jev. A SQLite store keeps policy, usage and the audit log." width="1000" height="560" loading="lazy"></a>
-    <figcaption>Only the message text and the channel topic are sent to Jev. Author names and ids stay local.</figcaption>
+    <figcaption>Only the message text and the channel topic are sent to Jev. Author names and ids stay local. <a class="open" href="diagrams/architecture.svg">open diagram</a></figcaption>
   </figure>
   <figure class="fig">
     <a href="diagrams/flow.svg"><img src="diagrams/flow.svg" alt="Request flow: message, prefilter, cache, batch for two seconds, one Jev request, probabilities, policy, action, audit log. Messages under eight letters, from trusted authors or already judged are not sent. If Jev is unreachable the action is none with reason error_open." width="1000" height="500" loading="lazy"></a>
-    <figcaption>Text is NFKC-normalised and stripped of combining marks before judging and caching, so fullwidth, zalgo and zero-width tricks meet the same thresholds as plain text.</figcaption>
+    <figcaption>Text is NFKC-normalised and stripped of combining marks before judging and caching, so fullwidth, zalgo and zero-width tricks meet the same thresholds as plain text. <a class="open" href="diagrams/flow.svg">open diagram</a></figcaption>
   </figure>
   <div class="figs2">
     <figure class="fig">
       <a href="diagrams/coverage.svg"><img src="diagrams/coverage.svg" alt="Coverage matrix: spam, scam, harassment, nsfw, selfharm, doxxing, minors and custom rules are on by default on every surface; offtopic is available and turns on when a channel topic is set." width="998" height="508" loading="lazy"></a>
-      <figcaption>The questions live in one file, so every implementation asks Jev exactly the same thing. Tap a diagram to open it full size.</figcaption>
+      <figcaption>The questions live in one file, so every implementation asks Jev exactly the same thing. <a class="open" href="diagrams/coverage.svg">open diagram</a></figcaption>
     </figure>
     <figure class="fig">
-      <a href="diagrams/failure.svg"><img src="diagrams/failure.svg" alt="Failure policy: if Jev is unreachable, jevmod fails open, acts on nothing and logs one warning per batch. If the free quota is used up, judging pauses, the owner is told once, and it resumes next month or with a paid key." width="1000" height="330" loading="lazy"></a>
-      <figcaption>Nothing is deleted while Jev is down or the quota is paused. Flag-only is the default until you turn on delete or timeout.</figcaption>
+      <a href="diagrams/failure.svg"><img src="diagrams/failure.svg" alt="Failure policy: if Jev is unreachable, jevmod fails open, acts on nothing and logs one warning per batch. If the optional monthly quota (JEVMOD_MONTHLY_QUOTA, unlimited by default) is reached, judging pauses, the owner is told once, and nothing is deleted." width="1000" height="330" loading="lazy"></a>
+      <figcaption>Nothing is deleted while Jev is down or a quota pause is on. The quota is off unless you set <code class="i">JEVMOD_MONTHLY_QUOTA</code>. Flag-only is the default until you turn on delete or timeout. <a class="open" href="diagrams/failure.svg">open diagram</a></figcaption>
     </figure>
   </div>
 </section>
@@ -307,8 +322,8 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
       <h2>What happens when it fails</h2>
       <ul>
         <li>Jev unreachable: decisions come back with <code class="i">reason="error_open"</code>, nothing is acted on, one warning per batch is logged.</li>
-        <li>Free quota used up (5,000 judged messages per tenant per month): judging pauses, the owner is told once, nothing is deleted while paused.</li>
-        <li>A wrong call: react on the log entry and the threshold for that category moves a notch. Two clicks a day calibrate the bot to your community.</li>
+        <li>Optional monthly quota reached (<code class="i">JEVMOD_MONTHLY_QUOTA</code>, unlimited by default): judging pauses, the owner is told once, nothing is deleted while paused.</li>
+        <li>A wrong call: react on the log entry and the threshold for that category moves a notch, so the bot follows your community's line.</li>
         <li>Decisions are probabilistic. You are responsible for the thresholds and actions you configure and for the rules of the platform you run on.</li>
       </ul>
     </div>

@@ -1,5 +1,5 @@
 // Call a running `jevmod api` from Node 18+ (global fetch): mint a tenant key, moderate a batch.
-const URL = process.env.JEVMOD_URL ?? "http://localhost:8080";
+const URL = process.env.JEVMOD_API_URL ?? "http://localhost:8080";
 
 async function post(path, token, body) {
   const res = await fetch(URL + path, {

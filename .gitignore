@@ -4,6 +4,6 @@ __pycache__/
 .env
 *.egg-info/
 benchmark/data/
-benchmark/results/
 node_modules/
 packages/jevmod-js/dist/
+benchmark/results/report.md

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Mint a tenant key with the admin token, then moderate two messages. Needs curl and python (no jq).
 set -euo pipefail
-URL="${JEVMOD_URL:-http://localhost:8080}"
+URL="${JEVMOD_API_URL:-http://localhost:8080}"
 : "${JEVMOD_ADMIN_TOKEN:?set JEVMOD_ADMIN_TOKEN to the value the API was started with}"
 
 KEY=$(curl -sS --fail -X POST "$URL/v1/keys" \

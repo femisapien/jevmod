@@ -1,4 +1,4 @@
-"""Where the TypeSafe key comes from, in this order: OS keyring, `TYPESAFE_API_KEY` in the environment, `.env` in
+"""Where the TypeSafe key comes from, in this order: `TYPESAFE_API_KEY` in the environment, the OS keyring, `.env` in
 the current directory. `jevmod init` stores it (keyring first, `.env` with mode 600 as the fallback). Nothing here
 ever prints or logs the key.
 """
@@ -98,6 +98,22 @@ def validate_key(key: str) -> None:
 
     with TypeSafeClient(api_key=key, retry=RetryPolicy(max_retries=1), timeout=15.0) as client:
         client.system_one(state={"text": "hello"}, questions={"ok": Noul(instructions="Is `text` a greeting?")})
+
+
+def forget() -> int:
+    """`jevmod init --forget`: remove the key from the OS keyring. `.env` files are yours to delete."""
+    try:
+        import keyring
+        from keyring.errors import PasswordDeleteError
+    except ImportError:
+        print("keyring is not installed; nothing stored there. Delete .env by hand if you wrote one.")
+        return 0
+    try:
+        keyring.delete_password(SERVICE, ACCOUNT)
+        print("key removed from the OS keyring (service 'jevmod')")
+    except PasswordDeleteError:
+        print("no key stored in the OS keyring")
+    return 0
 
 
 def init(directory: Path | None = None, *, prefer_env_file: bool = False, prompt: bool = True) -> int:

@@ -1,9 +1,9 @@
-"""Tenant policies, usage counters, quota and the audit log. SQLite by default (self-hosted); the same interface
-can be backed by Postgres for the hosted version."""
+"""Tenant policies, usage counters, an optional monthly quota and the audit log, in SQLite."""
 
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -13,19 +13,26 @@ from typing import Any
 from ..judge import Message
 from .policy import Decision, Policy
 
-FREE_MONTHLY = 5000
+# Optional cost guard per tenant per month. 0 (the default) means unlimited; set JEVMOD_MONTHLY_QUOTA=5000 to pause
+# judging for a tenant after 5,000 judged messages in a calendar month (nothing is deleted while paused).
+FREE_MONTHLY = int(os.environ.get("JEVMOD_MONTHLY_QUOTA", "0") or 0)
 
 
 class Store:
     def __init__(
-        self, path: str | Path = "jevmod.sqlite", keep_text_chars: int = 300, retention_days: int = 30
+        self,
+        path: str | Path = "jevmod.sqlite",
+        keep_text_chars: int = 300,
+        retention_days: int = 30,
+        monthly_quota: int | None = None,
     ) -> None:
-        """keep_text_chars=0 stores no message text at all (hosted default). Decisions older than retention_days are
-        purged on every write."""
+        """keep_text_chars=0 stores no message text at all. Decisions older than retention_days are purged on
+        every write and by `purge_expired()`, which the service also calls on every batch."""
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.lock = threading.Lock()
         self.keep_text_chars = keep_text_chars
         self.retention_days = retention_days
+        self.monthly_quota = FREE_MONTHLY if monthly_quota is None else monthly_quota  # 0 = unlimited
         with self.lock:
             self.db.executescript(
                 """
@@ -111,7 +118,7 @@ class Store:
         return tuple(row) if row else (0, 0, 0)
 
     def over_quota(self, tenant: str) -> bool:
-        return self.plan(tenant) == "free" and self.usage(tenant)[0] >= FREE_MONTHLY
+        return self.monthly_quota > 0 and self.plan(tenant) == "free" and self.usage(tenant)[0] >= self.monthly_quota
 
     def note_quota_hit(self, tenant: str) -> bool:
         """True the first time this month the tenant hits the quota (so the adapter can notify the owner once)."""

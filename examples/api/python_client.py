@@ -4,7 +4,7 @@ import json
 import os
 import urllib.request
 
-URL = os.environ.get("JEVMOD_URL", "http://localhost:8080")
+URL = os.environ.get("JEVMOD_API_URL", "http://localhost:8080")
 
 
 def post(path: str, token: str, body: dict) -> dict:

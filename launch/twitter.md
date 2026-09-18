@@ -17,7 +17,7 @@ LINK
 ---
 
 **2/**
-It runs on Jev, TypeSafe's "System One" model. No text generation: you ask yes/no questions over a message and get calibrated probabilities back.
+It runs on Jev, TypeSafe's "System One" model. No text generation: you ask yes/no questions over a message and get probabilities back.
 
 That means you own the threshold. Flag at 0.75, delete at 0.95, or whatever your community tolerates.
 
@@ -45,7 +45,7 @@ Benchmark on 2,531 public messages (OpenAI moderation eval, Jigsaw, YouTube spam
 AUROC on OpenAI's set
 harassment 0.93 · sexual 0.98 · self-harm 0.99 · minors 0.98
 
-Best of the four in every one. Details and caveats in BENCHMARK.md.
+Best in every category it was compared on (self-harm and minors only against Llama Guard, the others lack those labels). Details and caveats in BENCHMARK.md.
 
 ---
 
@@ -64,7 +64,7 @@ Privacy, in one paragraph: only the message text and the channel topic go to the
 ---
 
 **8/**
-I red-teamed the judge with 98 adversarial messages (fullwidth unicode, zalgo, six languages, prompt injection inside messages). Found a real bug: batching messages as a list leaked probabilities between neighbours. Fixed, and the set now runs as a regression suite in CI.
+I red-teamed the judge with 98 adversarial messages (fullwidth unicode, zalgo, Spanish/Portuguese/French/German/Russian/Japanese, prompt injection inside messages). Found a real bug: batching messages as a list leaked probabilities between neighbours. Fixed, and the set now runs as a regression suite in CI.
 
 ---
 

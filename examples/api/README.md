@@ -16,5 +16,5 @@ node examples/api/node_client.mjs             # Node 18+ (global fetch)
 ```
 
 Each prints the decisions: one object per message with `action`, `category`, `probability` and every score.
-Set `JEVMOD_URL` to point at another host. In production, mint one key per tenant and keep the admin token off
+Set `JEVMOD_API_URL` to point at another host. In production, mint one key per tenant and keep the admin token off
 the clients.

@@ -5,7 +5,7 @@ off-topic, self-harm, doxxing, sexual content involving minors**, and for **rule
 You set the thresholds and the actions. Every decision is logged with its numbers.
 
 It runs on [Jev](https://typesafe.ai), TypeSafe's System One model: you ask yes/no questions about a message and
-get calibrated probabilities back, no text generation. About **$0.04 per 1,000 messages** with all categories on.
+get probabilities back, no text generation. About **$0.04 per 1,000 messages** with all categories on.
 
 ![jevmod check and the HTTP API in a terminal](docs/jevmod.gif)
 
@@ -19,14 +19,14 @@ left alone and the failure is logged. Self-harm is flag-only by design so a mode
 
 | you are | you get | start |
 |---|---|---|
-| a community owner, not technical | a Discord, Telegram or Reddit bot you tune with commands | [Run the bot](#run-the-bot) |
+| a community owner, not technical | a Discord bot you tune with commands (Telegram with fewer commands, Reddit by env vars) | [Run the bot](#run-the-bot) |
 | a developer | a CLI, a Python package, an npm package, or one HTTP call | [Developer](#developer) |
 | a coding agent, or someone using one | an MCP server and a Claude Code skill that wires jevmod into a codebase | [Agents](#agents) |
 
 On the [benchmark](BENCHMARK.md) (2,531 messages from OpenAI's moderation eval, Jigsaw and YouTube spam) jevmod
-had the best AUROC of four systems in every category of OpenAI's human-labelled set: harassment 0.93, sexual
-0.98, self-harm 0.99, minors 0.98. The others were Llama Guard 3 8B, ShieldGemma 2B and toxic-bert, run locally.
-Caveats are in the same file.
+had the best AUROC in every category it was compared on in OpenAI's human-labelled set: harassment 0.93 and
+sexual 0.98 against Llama Guard 3 8B, ShieldGemma 2B and toxic-bert; self-harm 0.99 and minors 0.98 against Llama
+Guard, the only other system with those labels. Calibration was measured too; caveats are in the same file.
 
 ## The key, once
 
@@ -39,7 +39,8 @@ jevmod init          # asks for the key without echo, verifies it with one call,
 
 Resolution order everywhere (CLI, API, bots, MCP, `Moderator`): `TYPESAFE_API_KEY` in the environment, then the
 keyring, then a `.env` in the current directory. In a container or a headless server `jevmod init --env-file`
-writes `.env` with mode 600. Keys never go into git; `.env` is ignored.
+writes `.env` with mode 600. `jevmod init --forget` removes the keyring entry (`pip uninstall` does not). Keys never
+go into git; `.env` is ignored.
 
 ## Run the bot
 
@@ -79,7 +80,8 @@ default; removal and bans are opt-in.
 ### What the bots send where
 
 Only the **message text** and the **channel topic** go to TypeSafe. Author names and ids never do. Locally,
-jevmod keeps a decision log (category, probabilities, action, first 300 characters) for 30 days, then deletes it.
+jevmod keeps a decision log (category, probabilities, action, first 300 characters); rows older than 30 days are
+purged on every batch.
 `/mod forget` deletes everything; leaving the server does the same. Members whose message is removed get a direct
 message saying an automated system did it and how to appeal.
 
@@ -103,8 +105,8 @@ screener and a pre-commit hook.
 from jevmod import Moderator, Policy
 
 d = Moderator().check("FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro", channel_topic="gaming")
-d.action, d.category, d.probability  # ('flag', 'scam', 0.97)
-d.scores  # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, 'nsfw': 0.01, ...}
+d.action, d.category, d.probability  # ('flag', 'scam', 0.99)
+d.scores  # {'spam': 0.98, 'scam': 0.99, 'harassment': 0.02, 'nsfw': 0.01, ...}
 
 p = Policy()
 p.set_category("scam", "delete", 0.7)
@@ -137,7 +139,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Co
 
 | endpoint | what |
 |---|---|
-| `POST /v1/moderate` | up to 50 messages → decisions; `X-Request-Id` echoed |
+| `POST /v1/moderate` | up to 50 messages → decisions; the `X-Request-Id` you send comes back as `request_id` and as a response header |
 | `GET/PUT /v1/policy` | thresholds, actions, rules for this tenant |
 | `GET /v1/decisions` | the audit log |
 | `DELETE /v1/tenant` | forget this tenant |
@@ -218,15 +220,15 @@ cp .env.example .env && docker compose up -d              # API on :8080
 docker compose --profile discord up -d                    # add the Discord bot
 ```
 
-A 4 $/month VM, Fly.io or Railway with a volume is enough. Failure policy: Jev unreachable → decisions come back
-`reason="error_open"` and nothing is acted on; free quota (5,000 judged messages per tenant per month) exceeded →
-judging pauses, the owner is told once, nothing is deleted while paused.
+A $4/month VM, Fly.io or Railway with a volume is enough. Failure policy: Jev unreachable → decisions come back
+`reason="error_open"` and nothing is acted on. There is no quota by default; `JEVMOD_MONTHLY_QUOTA=5000` pauses
+judging for a tenant after 5,000 judged messages in a month as a cost guard, tells the owner once, deletes nothing.
 
 ## Development
 
 ```bash
 git clone https://github.com/ohernandezdev/jevmod && cd jevmod
-python -m venv .venv && .venv/Scripts/pip install -e ".[all,dev,examples]"
+python -m venv .venv && .venv/bin/pip install -e ".[all,dev,examples]"      # Windows: .venv\Scripts\pip
 ruff check . && mypy jevmod && pytest          # offline tests run without a key; the rest hit the real API
 cd packages/jevmod-js && npm ci && npm test    # same for the npm package
 ```

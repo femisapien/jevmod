@@ -4,7 +4,7 @@
     categories() -> what each category means and its default action and threshold
 
 Register it in Claude Code, Cursor or Codex as a stdio server with command `jevmod` and args `["mcp"]`; the key
-comes from the keyring, `TYPESAFE_API_KEY` or `.env` (see `jevmod init`). Built on the official MCP Python SDK
+comes from `TYPESAFE_API_KEY`, the OS keyring or `.env`, in that order (see `jevmod init`). Built on the MCP Python SDK
 (`mcp>=2`, where FastMCP became `MCPServer`).
 """
 

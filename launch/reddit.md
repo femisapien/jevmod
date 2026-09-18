@@ -25,7 +25,7 @@ Cost: about $0.04 per 1,000 judged messages at the API's list price. A busy serv
 
 Privacy: only the text and the channel topic are sent to the API, no usernames. The local log keeps 300 characters for 30 days. `/mod forget` wipes everything; kicking the bot does too.
 
-I benchmarked it against Llama Guard 3, ShieldGemma and toxic-bert on 2,531 public messages; on OpenAI's human-labelled moderation set it had the best AUROC in every category (harassment 0.93, sexual 0.98, self-harm 0.99). Table and caveats are in the repo.
+I benchmarked it against Llama Guard 3, ShieldGemma and toxic-bert on 2,531 public messages; on OpenAI's human-labelled moderation set it had the best AUROC in every category it was compared on (harassment 0.93, sexual 0.98 against all three; self-harm 0.99 against Llama Guard, the only other one with that label). Table and caveats are in the repo.
 
 Self-host with Docker in one command, or `pip install "jevmod[discord]"`. Telegram and Reddit adapters are in the same package. MIT.
 
@@ -39,7 +39,7 @@ Happy to answer anything, and if it flags something dumb on your server I want t
 
 **Title:** jevmod: self-hosted moderation API + bots (Discord/Telegram/Reddit) with probabilities per category, $0.04 per 1k messages
 
-One Docker image, one env var picks the role: `api`, `discord`, `telegram` or `reddit`. SQLite on a volume. The HTTP API takes up to 50 messages per call and returns a decision plus the probability for each of 8 categories and your own plain-language rules. API keys per tenant, hashed; a `/metrics` endpoint for Prometheus; every decision in an audit log you can export or delete.
+One Docker image, one env var picks the role: `api`, `discord`, `telegram` or `reddit`. SQLite on a volume. The HTTP API takes up to 50 messages per call and returns a decision plus the probability for each of 8 categories and your own plain-language rules. API keys per tenant, hashed; a `/metrics` endpoint for Prometheus; every decision in an audit log you can query (`GET /v1/decisions`, 500 rows at a time) or delete.
 
 It is not a local model: judgment comes from TypeSafe's Jev API (you bring the key). What stays on your box is the policy, the keys, the log and the bots. If you want fully offline, Llama Guard 3 on a GPU is the alternative; I benchmarked both in the repo so you can pick.
 
@@ -51,7 +51,7 @@ LINK
 
 ## r/Python
 
-**Title:** jevmod: a moderation SDK that returns calibrated probabilities for spam/scam/harassment/nsfw/self-harm and rules written in English
+**Title:** jevmod: a moderation SDK that returns a probability per category for spam/scam/harassment/nsfw/self-harm and rules written in English
 
 ```python
 from jevmod import Moderator
@@ -63,7 +63,7 @@ d.scores  # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, ...}
 
 `check_many()` judges a batch in one request. There is a CLI (`jevmod check -` reads stdin, `--json`, exit codes for scripts), a FastAPI server, an MCP server for agents, and Discord/Telegram/Reddit adapters over the same core. Also an npm package with the same questions.
 
-The interesting engineering bit: the questions are one yes/no `Noul` per category with explicit true/false criteria (TypeSafe's guardrails cookbook pattern), and batching several messages in one request required sending them as a dict keyed by position, because as a list the probabilities leaked between neighbours. That came out of a 98-message adversarial red team that now runs as a regression suite in CI. Tests hit the real API; no mocks.
+The interesting engineering bit: the questions are one yes/no question (TypeSafe calls it a Noul) per category with explicit true/false criteria (TypeSafe's guardrails cookbook pattern), and batching several messages in one request required sending them as a dict keyed by position, because as a list the probabilities leaked between neighbours. That came out of a 98-message adversarial red team that now runs as a regression suite in CI. Tests hit the real API; no mocks.
 
 Benchmark against Llama Guard 3 / ShieldGemma / toxic-bert included. MIT.
 

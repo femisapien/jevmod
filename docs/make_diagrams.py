@@ -5,7 +5,7 @@ python docs/make_diagrams.py     # no dependencies: the SVG is written as text
 architecture.svg  channels -> ModerationService -> Judge -> Jev, store on the side
 flow.svg          one message through prefilter, cache, batch, Jev, policy, action, audit log; fail-open branch
 coverage.svg      categories and custom rules x surfaces
-failure.svg       what happens when Jev is down or the free quota is used up
+failure.svg       what happens when Jev is down or the optional monthly quota is reached
 """
 
 from __future__ import annotations
@@ -280,7 +280,7 @@ def flow() -> None:
     s.text(
         32,
         462,
-        "Measured on the benchmark: 1,005 input tokens per judged message with seven categories, 22 ms per message in batches of 25.",
+        "Measured on the benchmark: about 1,005 input tokens per judged message, $0.042 per 1,000 judged messages, 22 ms per message in batches of 25.",
         13,
         FG3,
     )
@@ -339,7 +339,9 @@ def coverage() -> None:
 
 
 def failure() -> None:
-    s = Svg(1000, 330, "jevmod failure policy: Jev down means fail open; quota used up means pause and notify once")
+    s = Svg(
+        1000, 330, "jevmod failure policy: Jev down means fail open; optional quota reached means pause and notify once"
+    )
     s.text(32, 40, "failure policy", 13, FG3, mono=True)
     s.text(32, 68, "Two things can go wrong. In neither case is a message deleted.", 15, FG2)
 
@@ -372,12 +374,12 @@ def failure() -> None:
     )
     lane(
         208,
-        "free quota used up",
-        "5,000 judged a month",
+        "monthly quota reached",
+        "JEVMOD_MONTHLY_QUOTA",
         [
             ("judging pauses", "messages pass untouched"),
             ("owner told once", "not on every message"),
-            ("resumes next month", "or with a paid key"),
+            ("off by default", "0 = unlimited"),
         ],
     )
     s.text(

@@ -48,5 +48,5 @@
 <rect x="140" y="356" width="180" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
 <text x="154" y="382" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">audit log</text>
 <text x="154" y="403" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">probabilities + action</text>
-<text x="32" y="462" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">Measured on the benchmark: 1,005 input tokens per judged message with seven categories, 22 ms per message in batches of 25.</text>
+<text x="32" y="462" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">Measured on the benchmark: about 1,005 input tokens per judged message, $0.042 per 1,000 judged messages, 22 ms per message in batches of 25.</text>
 </svg>

@@ -16,7 +16,7 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -118,8 +118,11 @@ def metrics() -> str:
 
 
 @app.post("/v1/moderate", response_model=ModerateResponse)
-def moderate(req: ModerateRequest, request: Request, tenant: str = Depends(tenant_from_auth)) -> ModerateResponse:
+def moderate(
+    req: ModerateRequest, request: Request, response: Response, tenant: str = Depends(tenant_from_auth)
+) -> ModerateResponse:
     rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+    response.headers["X-Request-Id"] = rid
     _metrics["requests"] += 1
     _metrics["messages"] += len(req.messages)
     msgs = [
