@@ -40,7 +40,11 @@ cd /opt/jevmod/deploy/demo && export $(grep DEMO_HOST .env)
 sudo -E docker compose -f docker-compose.traefik.yml up -d --build
 ```
 
-Deployed 2026-09-18 on Omar's Hetzner box as `jevmod-demo` (host `jevmod.hernandezbastos.es`, its own TypeSafe key).
+The same compose file also serves the landing page (`docs/`) with nginx on the same host; `/demo/*` goes to the
+demo container (router priority 10), everything else to the site (priority 1). To update the page, copy `docs/`
+to the VPS: nginx serves the folder directly, no restart needed.
+
+Deployed 2026-09-18 on Omar's Hetzner box as `jevmod-demo` + `jevmod-site` (host `jevmod.hernandezbastos.es`, its own TypeSafe key).
 
 ## Day to day
 

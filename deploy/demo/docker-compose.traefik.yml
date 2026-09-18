@@ -20,13 +20,36 @@ services:
       traefik.docker.network: coolify
       traefik.http.routers.jevmod-demo-http.entrypoints: http
       traefik.http.routers.jevmod-demo-http.rule: Host(`${DEMO_HOST}`) && PathPrefix(`/demo/`)
+      traefik.http.routers.jevmod-demo-http.priority: "10"
       traefik.http.routers.jevmod-demo-http.middlewares: jevmod-demo-https
       traefik.http.middlewares.jevmod-demo-https.redirectscheme.scheme: https
       traefik.http.routers.jevmod-demo-https.entrypoints: https
       traefik.http.routers.jevmod-demo-https.rule: Host(`${DEMO_HOST}`) && PathPrefix(`/demo/`)
+      traefik.http.routers.jevmod-demo-https.priority: "10"
       traefik.http.routers.jevmod-demo-https.tls: "true"
       traefik.http.routers.jevmod-demo-https.tls.certresolver: letsencrypt
       traefik.http.services.jevmod-demo.loadbalancer.server.port: "8080"
+  # The landing page itself (docs/) on the same host; /demo/* goes to the demo, everything else here.
+  site:
+    image: nginx:alpine
+    container_name: jevmod-site
+    volumes: ["../../docs:/usr/share/nginx/html:ro"]
+    restart: unless-stopped
+    networks: [coolify]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: coolify
+      traefik.http.routers.jevmod-site-http.entrypoints: http
+      traefik.http.routers.jevmod-site-http.rule: Host(`${DEMO_HOST}`)
+      traefik.http.routers.jevmod-site-http.priority: "1"
+      traefik.http.routers.jevmod-site-http.middlewares: jevmod-site-https
+      traefik.http.middlewares.jevmod-site-https.redirectscheme.scheme: https
+      traefik.http.routers.jevmod-site-https.entrypoints: https
+      traefik.http.routers.jevmod-site-https.rule: Host(`${DEMO_HOST}`)
+      traefik.http.routers.jevmod-site-https.priority: "1"
+      traefik.http.routers.jevmod-site-https.tls: "true"
+      traefik.http.routers.jevmod-site-https.tls.certresolver: letsencrypt
+      traefik.http.services.jevmod-site.loadbalancer.server.port: "80"
 networks:
   coolify:
     external: true
