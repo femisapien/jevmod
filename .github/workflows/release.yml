@@ -1,0 +1,42 @@
+# Publish on a version tag: `git tag v0.2.0 && git push --tags`.
+# PyPI: trusted publishing (no token). Register once at https://pypi.org/manage/account/publishing/ with
+#   owner ohernandezdev, repository jevmod, workflow release.yml, environment pypi.
+# npm: an automation token with publish rights, stored as the repository secret NPM_TOKEN.
+name: release
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+  npm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/jevmod-js
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: packages/jevmod-js/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
