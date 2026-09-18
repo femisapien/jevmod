@@ -15,8 +15,10 @@ ENV_VAR = "TYPESAFE_API_KEY"
 
 
 def get_api_key(cwd: Path | None = None) -> str | None:
-    """Keyring -> environment -> .env. None when nothing is set (TypeSafeClient then raises its own error)."""
-    return _from_keyring() or os.environ.get(ENV_VAR, "").strip() or read_dotenv(cwd or Path.cwd()).get(ENV_VAR)
+    """Environment -> keyring -> .env: an explicit variable always wins over what `jevmod init` stored, so a
+    container, a CI job or a test can override the machine's key. None when nothing is set (TypeSafeClient then
+    raises its own error)."""
+    return os.environ.get(ENV_VAR, "").strip() or _from_keyring() or read_dotenv(cwd or Path.cwd()).get(ENV_VAR)
 
 
 def _from_keyring() -> str | None:
@@ -58,8 +60,8 @@ def read_dotenv(directory: Path) -> dict[str, str]:
             line = line[7:]
         k, _, v = line.partition("=")
         v = v.strip()
-        if v[:1] in ("'", '"') and v[-1:] == v[:1] and len(v) >= 2:
-            v = v[1:-1]
+        if v[:1] in ("'", '"') and v.find(v[0], 1) > 0:
+            v = v[1 : v.find(v[0], 1)]
         elif " #" in v:
             v = v.split(" #", 1)[0].rstrip()
         if v:

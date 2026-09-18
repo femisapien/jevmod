@@ -1,0 +1,59 @@
+{
+  "name": "jevmod",
+  "version": "0.1.0",
+  "description": "Content moderation for user text, powered by Jev (TypeSafe System One): spam, scam, harassment, adult content, off-topic, self-harm, doxxing, minors, plus your own rules in plain language.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sync-categories": "node scripts/sync-categories.mjs",
+    "gen-combining": "python scripts/gen-combining.py",
+    "prepublishOnly": "npm run sync-categories && npm run typecheck && npm run build && npm test"
+  },
+  "keywords": [
+    "moderation",
+    "content-moderation",
+    "spam",
+    "toxicity",
+    "typesafe",
+    "jev"
+  ],
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "express": "^5.1.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

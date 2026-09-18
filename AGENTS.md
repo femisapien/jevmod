@@ -1,0 +1,139 @@
+# AGENTS.md: how an AI agent works with jevmod
+
+Read this whole file. Then you need no other document unless it points you to one.
+
+## What it is
+
+jevmod is an open-source moderation layer: a batch of messages goes to Jev (TypeSafe's System One
+model) in one request and each message comes back with a probability per category (`spam`, `scam`,
+`harassment`, `nsfw`, `offtopic`, `selfharm`, `doxxing`, `minors`) and per plain-language rule.
+A `Policy` turns probabilities into an action (`none`, `flag`, `delete`, `timeout`); flag-only by
+default, fail-open when Jev is unreachable. The same core serves a Python SDK, a CLI, an HTTP API,
+an MCP server and the Discord, Telegram and Reddit bots.
+
+## APIs, exact signatures
+
+Python (`pip install jevmod`, Python 3.10+):
+
+```python
+from jevmod import Moderator, Policy, Decision
+
+Moderator(policy: Policy | None = None, judge: Judge | None = None)
+Moderator.check(text: str, *, author: str = "", channel_topic: str = "", author_trusted: bool = False) -> Decision
+Moderator.check_many(texts: Sequence[str], *, author: str = "", channel_topic: str = "",
+                     author_trusted: bool = False, ids: Sequence[str] | None = None) -> list[Decision]
+
+Policy()                                   # DEFAULT_THRESHOLDS / DEFAULT_ACTIONS below
+Policy.set_category(category: str, action: str, threshold: float | None = None) -> None   # action in ("off","flag","delete","timeout")
+Policy.set_rule(name: str, text: str | None, action: str = "flag", threshold: float | None = None) -> None  # text=None removes; max 5 rules, 200 chars
+Policy.nudge(category: str, delta: float = 0.03) -> float   # "rule:<name>" for rules; clamps to 0.50..0.99
+Policy.enabled_categories() -> list[str]
+Policy.to_dict() / Policy.from_dict(d)
+
+Decision: message_id: str, action: str, category: str | None, probability: float,
+          scores: dict[str, float], judged: bool, reason: str, policy_version: int
+Decision.to_dict() -> dict   # probabilities rounded to 4 places
+```
+
+Defaults (`jevmod/core/policy.py`): spam 0.85, scam 0.75, harassment 0.75, nsfw 0.80, offtopic
+0.90 (off), selfharm 0.80 (flag only), doxxing 0.80, minors 0.70, rules 0.80. `decide()` picks the
+most severe action whose threshold is crossed, ties to the higher probability.
+
+Lower level: `Judge(client=None, cache_ttl_s=86400, timeout_s=20.0).judge(messages: list[Message],
+categories: list[str], custom_rules: dict[str, str] | None = None) -> list[Verdict]`;
+`Message(id, text, author="", channel_topic="", author_trusted=False)`; `Verdict(message_id,
+scores, judged, reason, custom)`. Errors surface as `typesafe_sdk.TypeSafeError` after 3 retries
+(429/5xx, backoff, Retry-After) and a 20 s timeout. `Moderator` does not catch them.
+
+CLI: `jevmod check [text | -] [--topic T] [--rule R]... [--threshold X] [--json]`; exit 0 clean,
+1 something triggered, 2 error. `jevmod init` stores the key. `jevmod api|discord|telegram|reddit|mcp`
+run that role.
+
+HTTP (`jevmod api`, FastAPI, port 8080): `POST /v1/moderate` (`{"messages":[{"id","text",
+"author","channel_topic","author_trusted"}]}`, max 50, bearer tenant key) returns `{"request_id",
+"decisions":[Decision without policy_version],"usage"}`; `GET/PUT /v1/policy`; `GET
+/v1/decisions?limit=50`; `DELETE /v1/tenant`; `POST /v1/keys` (admin token
+`JEVMOD_ADMIN_TOKEN`); `GET /v1/health`; `GET /metrics`. OpenAPI at `/docs`. Jev down:
+`action="none", judged=false, reason="error_open"`. Free quota exceeded: `reason="quota"`.
+
+MCP (`jevmod mcp`, stdio, official MCP Python SDK, extra `pip install "jevmod[mcp]"`): tools `moderate(texts: list[str], channel_topic: str = "",
+rules: dict[str, str] | None = None)` (up to 50 texts, actions `none`/`flag` only, nothing stored)
+and `categories()`. Register it in Claude Code with the plugin
+in `plugin/` or `claude mcp add jevmod -- jevmod mcp`; in Cursor or Codex, add
+`{"command": "jevmod", "args": ["mcp"], "env": {"TYPESAFE_API_KEY": "..."}}` to their MCP config.
+
+npm (`packages/jevmod-js/`, TypeScript): same questions (`jevmod/categories.json`), same policy,
+`check`, `checkMany`, and an HTTP client for a deployed API. Check the package's own README for
+the exact exports; it is developed in parallel with this file.
+
+## Where things live
+
+| path | what |
+|---|---|
+| `jevmod/judge.py` | the judgment core: normalisation, pre-filters, cache, one Jev request per batch; docstring lists the red-team findings that shaped it |
+| `jevmod/categories.json` | the questions and criteria every implementation asks Jev; the only place they are defined |
+| `jevmod/core/policy.py` | `Policy`, `Decision`, `decide`, defaults |
+| `jevmod/core/service.py` | `ModerationService` (tenant policy, quota, audit log, fail-open) and `Batcher` (2 s window) |
+| `jevmod/core/store.py` | SQLite store: tenants, hashed API keys, usage, decisions (30-day retention) |
+| `jevmod/keys.py` | key lookup: keyring (extra `keyring`, in `[all]`), then `TYPESAFE_API_KEY`, then `.env`; `jevmod init` |
+| `jevmod/cli.py`, `jevmod/__main__.py` | `jevmod check` and the role runner |
+| `jevmod/api/server.py` | the HTTP API |
+| `jevmod/mcp_server.py` | the MCP server |
+| `jevmod/adapters/` | Discord, Telegram, Reddit bots over the same core |
+| `packages/jevmod-js/` | npm package |
+| `plugin/` | Claude Code plugin: skills `jevmod-integrate`, `jevmod-moderate`, `.mcp.json` |
+| `tests/` | `test_offline.py` (no key), `test_judge.py`, `test_cli.py`, `test_api.py`, `test_redteam.py` (real Jev) |
+| `tests/data/redteam.csv` | 98 labelled adversarial messages; the regression floor |
+| `benchmark/` | comparison against Llama Guard 3, ShieldGemma, toxic-bert |
+| `docs/` | `llms.txt`, Postman collection, diagrams, landing page |
+
+## Running tests
+
+```
+python -m venv .venv && .venv/Scripts/pip install -e ".[all,dev]"    # Linux/macOS: .venv/bin/pip
+ruff check . && mypy jevmod
+pytest tests -q            # offline tests always run; the rest skip without TYPESAFE_API_KEY
+```
+
+Set `TYPESAFE_API_KEY` in the environment (or run `jevmod init`) to run the real-API tests. The
+red-team suite calls Jev about a hundred times; expect a minute and a few cents.
+
+## Coding rules
+
+- `ruff check .` and `mypy jevmod` clean before any commit. Line length 120, Python 3.10 syntax.
+- Real tests against Jev, no mocks of the TypeSafe client. Offline tests are for pure code
+  (`Policy`, `Store`, pre-filters). Assert against thresholds with margin, never exact values:
+  Jev's probabilities move about plus or minus 0.03 between runs.
+- The Jev state is a dict keyed by position (`messages.m3.text`), never a list. Lists leaked
+  probabilities between neighbours in multilingual batches.
+- Every question carries `criteria` with `true` and `false`. Change questions only in
+  `categories.json`, and re-run `tests/test_redteam.py`.
+- `selfharm` stays flag-only. `offtopic` stays off by default.
+- Only message text and `channel_topic` go to TypeSafe. No author names, ids or emails.
+- Never write a key into a file. `.env` is git-ignored. Nothing prints or logs the key.
+- Every external call has a timeout and a defined failure behaviour. Fail open, log once per batch.
+- Plain English in code and docs. No marketing adjectives, no emoji. Numbers only when measured.
+- Do not commit from an agent session unless asked; the coordinator commits.
+
+## Integration recipe, short form
+
+1. `pip install jevmod`; `jevmod init` (or set `TYPESAFE_API_KEY`). Confirm `.env` is git-ignored.
+2. Find the one place where user text enters the system. Insert:
+
+   ```python
+   from jevmod import Moderator
+   mod = Moderator()                       # module-level: keeps the 24 h cache
+   d = mod.check(text, channel_topic=topic)
+   if d.action != "none": handle(d)        # d.category, d.probability, d.scores
+   ```
+
+   Batches: `mod.check_many(texts, ...)`, 50 or fewer per call. Not Python: `POST /v1/moderate`.
+3. Wrap the call in `try/except typesafe_sdk.TypeSafeError` and choose fail-open or fail-closed on
+   purpose.
+4. Add a test that skips without the key and uses the samples in `tests/test_judge.py` (scam,
+   clean, harassment, selfharm, clean-with-minor-mentioned). Assert `d.category` and
+   `d.probability >= 0.7`, or `d.action == "none"`.
+5. Run `jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"` (exit 1) and
+   `jevmod check "gg everyone, same time tomorrow?"` (exit 0) to prove the key and the network.
+
+The long form, with the decision table and the gotchas, is `plugin/skills/jevmod-integrate/SKILL.md`.

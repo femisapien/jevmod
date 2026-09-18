@@ -4,6 +4,8 @@
     jevmod check -  < messages.txt                                # one message per line, one Jev request per 50
     jevmod check --topic "support" --rule "No politics" -- "..."  # context and a plain-language rule
     jevmod check --json ...                                       # machine-readable, one object per line
+    jevmod init                                                   # store the TypeSafe key (keyring, or .env)
+    jevmod mcp                                                    # MCP server over stdio for coding agents
 
 Exit code 0 when no message triggers an action, 1 when at least one does, 2 on an error. Pipe-friendly.
 """
@@ -56,6 +58,12 @@ def check(args: argparse.Namespace) -> int:
     return 1 if hit else 0
 
 
+def init(args: argparse.Namespace) -> int:
+    from .keys import init as store_key
+
+    return store_key(prefer_env_file=args.env_file)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="jevmod", description="Moderation decisions powered by Jev.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -66,10 +74,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--threshold", type=float, default=None, help="one threshold for every category (0.5-0.99)")
     p.add_argument("--json", action="store_true", help="one JSON object per line")
     p.set_defaults(func=check)
+    p = sub.add_parser("init", help="ask for the TypeSafe key (hidden input), verify it, store it in the OS keyring")
+    p.add_argument("--env-file", action="store_true", help="write .env in the current directory instead of the keyring")
+    p.set_defaults(func=init)
+    sub.add_parser("mcp", help="MCP server over stdio (tools: moderate, categories)")
     for role in ("api", "discord", "telegram", "reddit"):
         sub.add_parser(role, help=f"run the {role} role (same as JEVMOD_ROLE={role})")
     args = parser.parse_args(argv)
-    if args.cmd == "check":
+    if args.cmd in ("check", "init"):
         try:
             return int(args.func(args))
         except Exception as exc:  # network, key, quota: say it in one line, exit 2
