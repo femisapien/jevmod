@@ -1,6 +1,7 @@
 """No key needed: policy decisions, store, quota, retention, erasure, pre-filters."""
 
 import time
+from pathlib import Path
 
 from jevmod import Message, Policy, decide
 from jevmod.core import Decision, Store
@@ -111,3 +112,128 @@ def test_every_role_is_dispatchable(monkeypatch):
     src = inspect.getsource(m)
     for role in ("api", "hosted", "demo", "discord", "telegram", "reddit", "mcp"):
         assert f'"{role}"' in src.split("def run_role")[1].split("def main")[0], role
+
+
+def test_keep_text_chars_env_and_zero(monkeypatch, tmp_path):
+    """The hosted bot must be able to run without storing any message text (JEVMOD_KEEP_TEXT_CHARS=0)."""
+    monkeypatch.setenv("JEVMOD_KEEP_TEXT_CHARS", "0")
+    s = Store(tmp_path / "k.sqlite")
+    assert s.keep_text_chars == 0
+    m = Message("m1", "some flagged message text", author="42", channel_topic="general")
+    d = Decision("m1", "flag", "spam", 0.9, {"spam": 0.9}, True, "jev")
+    s.log_decision("discord:1", m, d, "rid")
+    row = s.recent_decisions("discord:1")[0]
+    assert row["text"] == "" and row["message_id"] == "m1" and row["scores"] == {"spam": 0.9}
+    assert Store(tmp_path / "k2.sqlite", keep_text_chars=50).keep_text_chars == 50
+
+
+def test_ai_generated_is_opt_in_and_not_nudged():
+    """Measured in benchmark/ai_detect/REPORT.md: good ranking, but it flags humans who write encyclopedically,
+    so it ships off by default, flag-only, and outside the reaction feedback loop."""
+    from jevmod.core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS
+    from jevmod.judge import CATEGORIES
+
+    assert CATEGORIES["ai_generated"]["experimental"] is True
+    assert "not by themselves signs of a language model" in CATEGORIES["ai_generated"]["criteria"]["false"].lower()
+    assert DEFAULT_ACTIONS["ai_generated"] == "off" and DEFAULT_THRESHOLDS["ai_generated"] == 0.85
+    p = Policy()
+    assert "ai_generated" not in p.enabled_categories()
+    before = p.thresholds["ai_generated"]
+    assert p.nudge("ai_generated", 0.03) == before and p.thresholds["ai_generated"] == before
+    p.set_category("ai_generated", "flag")
+    assert "ai_generated" in p.enabled_categories()
+    assert p.nudge("spam", 0.03) > DEFAULT_THRESHOLDS["spam"]
+
+
+def test_published_openapi_matches_the_app(tmp_path, monkeypatch):
+    """docs/openapi.json is what people import into Postman. It drifted once already, naming five of the nine
+    categories. Regenerate it with `python scripts/site/gen_openapi.py` when this fails."""
+    import json
+    import sys
+
+    monkeypatch.setenv("JEVMOD_DB", str(tmp_path / "oa.sqlite"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "site"))
+    import gen_openapi
+
+    published = json.loads((Path(__file__).resolve().parents[1] / "docs" / "openapi.json").read_text("utf-8"))
+    assert published == json.loads(json.dumps(gen_openapi.schema(), sort_keys=True))
+
+
+def test_postman_collection_covers_every_endpoint():
+    """The collection is a hand-written walkthrough, not generated, so a new endpoint can go missing from it."""
+    import json
+
+    root = Path(__file__).resolve().parents[1]
+    paths = set(json.loads((root / "docs" / "openapi.json").read_text("utf-8"))["paths"])
+    collection = json.loads((root / "docs" / "jevmod.postman_collection.json").read_text("utf-8"))
+    urls: list[str] = []
+
+    def walk(items: list[dict]) -> None:
+        for item in items:
+            if "item" in item:
+                walk(item["item"])
+                continue
+            url = item.get("request", {}).get("url")
+            urls.append(url.get("raw", "") if isinstance(url, dict) else str(url))
+
+    walk(collection["item"])
+    raw = " ".join(urls)
+    missing = sorted(p for p in paths if p not in raw)
+    assert not missing, f"docs/jevmod.postman_collection.json has no request for {missing}"
+
+
+def test_experimental_categories_can_only_be_off_or_flag():
+    """The site says the experimental category only ever flags. Nothing enforced that, so `/mod set
+    ai_generated delete` worked: a category whose projected precision is 0.19 to 0.37 could remove messages."""
+    import pytest
+
+    from jevmod.core.policy import EXPERIMENTAL
+
+    p = Policy()
+    for category in EXPERIMENTAL:
+        p.set_category(category, "flag")
+        assert p.actions[category] == "flag"
+        p.set_category(category, "off")
+        for forbidden in ("delete", "timeout"):
+            with pytest.raises(ValueError):
+                p.set_category(category, forbidden)
+        assert p.actions[category] == "off"
+
+
+def test_experimental_categories_ship_off_and_do_not_move():
+    from jevmod.core.policy import DEFAULT_THRESHOLDS, EXPERIMENTAL
+
+    p = Policy()
+    for category in EXPERIMENTAL:
+        assert p.actions.get(category) == "off"
+        assert category not in p.enabled_categories()
+        assert p.nudge(category, 0.03) == DEFAULT_THRESHOLDS[category]
+
+
+def test_env_example_never_assigns_a_key_twice():
+    """Two assignments of one key means the effective value depends on parse order. JEVMOD_MONTHLY_QUOTA was
+    set to 0 and then to 5000 in the same file, so copying half of it gave an unlimited free plan."""
+    from collections import Counter
+
+    text = (Path(__file__).resolve().parents[1] / ".env.example").read_text("utf-8")
+    keys = [ln.split("=", 1)[0].strip() for ln in text.splitlines() if "=" in ln and not ln.strip().startswith("#")]
+    dupes = [k for k, n in Counter(keys).items() if n > 1]
+    assert not dupes, f".env.example assigns {dupes} more than once"
+
+
+def test_the_quota_notice_reaches_the_adapter(tmp_path):
+    """note_quota_hit is a once-a-month latch that the adapters read to decide whether to post the notice.
+    The service used to call it first, so every adapter got False and no one was ever told judging had paused."""
+    from jevmod.core.service import ModerationService
+
+    store = Store(tmp_path / "q.sqlite", monthly_quota=1)
+    store.add_usage("t", 5, 1, 100)
+    assert store.over_quota("t")
+    policy = Policy()
+    policy.set_category("spam", "flag")
+    store.save_policy("t", policy)
+    service = ModerationService(store=store, judge=None)
+    decisions = service.moderate("t", [Message(id="m1", text="anything at all here")])
+    assert [d.reason for d in decisions] == ["quota"]
+    assert store.note_quota_hit("t") is True, "the adapter must still be able to claim the notice"
+    assert store.note_quota_hit("t") is False, "and only once"

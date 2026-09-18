@@ -84,27 +84,37 @@ async def on_message(msg: discord.Message) -> None:
     batcher.add(tenant, msg)
 
 
+@bot.event
+async def on_message_edit(_before: discord.Message, after: discord.Message) -> None:
+    """Judge edits too: otherwise a member posts a harmless line and edits it into whatever they wanted."""
+    if after.content != _before.content:
+        await on_message(after)
+
+
 async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
     tenant = tenant_of(guild.id)
     policy = service.policy(tenant)
     note = ""
+    # `timeout` times the author out and leaves the message; only `delete` removes it. They used to be the same
+    # branch, so a category set to timeout silently deleted as well, which the site does not promise.
     try:
-        if d.action in ("delete", "timeout"):
+        if d.action == "delete":
             await m.delete()
             note = "deleted"
-        if d.action == "timeout" and isinstance(m.author, discord.Member):
+        elif d.action == "timeout" and isinstance(m.author, discord.Member):
             await m.author.timeout(
                 timedelta(minutes=policy.timeout_minutes), reason=f"jevmod: {d.category} p={d.probability:.2f}"
             )
-            note = f"deleted, timed out {policy.timeout_minutes} min"
+            note = f"timed out {policy.timeout_minutes} min"
     except discord.Forbidden:
         note = "missing permissions to act"
-    if d.action in ("delete", "timeout") and "missing" not in note:
+    if note and "missing" not in note:
+        what = "was removed" if d.action == "delete" else f"led to a {policy.timeout_minutes} minute timeout for you"
         with contextlib.suppress(Exception):  # DMs closed
             await m.author.send(
-                f"Your message in **{guild.name}** #{m.channel} was removed by an automated moderation system "
-                f"(reason: {d.category}, confidence {d.probability:.0%}). If you think this was a mistake, contact the "
-                "server's moderators; they can review the decision and adjust the rules."
+                f"Your message in **{guild.name}** #{m.channel} {what} because an automated moderation system "
+                f"rated it {d.category} with confidence {d.probability:.0%}. If you think this was a mistake, contact "
+                "the server's moderators; they can review the decision and adjust the rules."
             )
     channel = await log_channel(guild, tenant)
     if channel:
@@ -133,9 +143,25 @@ async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel 
         store.set_meta(tenant, log_channel=existing.id)
         return existing
     try:
+        # Channel overwrites beat guild-level permissions, so the bot needs an explicit one or it cannot read,
+        # post or react in the channel it just created, which breaks the log and the feedback reactions.
         overwrites: dict[discord.Role | discord.Member | discord.Object, discord.PermissionOverwrite] = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=False)
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(
+                read_messages=True,
+                send_messages=True,
+                embed_links=True,
+                add_reactions=True,
+                read_message_history=True,
+            ),
         }
+        # Denying @everyone leaves the channel visible only to Administrators, so a plain Moderator role could
+        # not read the flags or use the reactions. Every role that can already moderate messages gets access.
+        for role in guild.roles:
+            if role.permissions.manage_messages or role.permissions.manage_guild:
+                overwrites[role] = discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True, add_reactions=True, read_message_history=True
+                )
         ch = await guild.create_text_channel("jevmod-log", overwrites=overwrites, reason="jevmod decisions log")
         store.set_meta(tenant, log_channel=ch.id)
         return ch
@@ -289,7 +315,11 @@ async def recent_cmd(itx: discord.Interaction) -> None:
         await itx.response.send_message("no decisions yet", ephemeral=True)
         return
     await itx.response.send_message(
-        "\n".join(f"`{r['category']} {r['p']:.2f} {r['action']}` {r['text'][:80]}" for r in rows), ephemeral=True
+        "\n".join(
+            f"`{r['category']} {r['p']:.2f} {r['action']}` {r['text'][:80] or 'message ' + str(r['message_id'])}"
+            for r in rows
+        ),
+        ephemeral=True,
     )
 
 
@@ -317,10 +347,18 @@ def _billing_enabled() -> bool:
 
 @mod.command(name="forget", description="Delete everything jevmod stored about this server (GDPR)")
 async def forget_cmd(itx: discord.Interaction) -> None:
-    store.delete_tenant(tenant_of(itx.guild_id or 0))
-    await itx.response.send_message(
-        "all settings, usage and decision logs for this server were deleted", ephemeral=True
-    )
+    tenant = tenant_of(itx.guild_id or 0)
+    # Deleting the local rows does not cancel anything at Stripe, so a paying owner would keep being charged
+    # with no record left here to explain it. Say so before deleting, and leave the portal link in reach.
+    paying = store.plan(tenant) != "free"
+    store.delete_tenant(tenant)
+    note = "all settings, usage and decision logs for this server were deleted"
+    if paying:
+        note += (
+            ". This did not cancel your Pro subscription: Stripe will keep charging the card until you cancel "
+            "it in Stripe's billing portal."
+        )
+    await itx.response.send_message(note, ephemeral=True)
 
 
 @mod.command(name="forget_user", description="Delete this member's entries from the decision log (erasure request)")

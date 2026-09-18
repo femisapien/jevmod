@@ -18,7 +18,11 @@ export const DEFAULT_THRESHOLDS: Readonly<Record<CategoryName, number>> = {
   selfharm: 0.8,
   doxxing: 0.8,
   minors: 0.7,
+  ai_generated: 0.85,
 };
+// Experimental categories are never moved by feedback: their measured precision at a realistic rate is too low
+// for a single reaction to carry information about where the line belongs. Mirrors EXPERIMENTAL in policy.py.
+export const EXPERIMENTAL: readonly string[] = ["ai_generated"];
 // selfharm is flag-only by design: moderators should reach out, not punish. doxxing/minors flag by default;
 // communities that want automatic removal set delete/timeout explicitly.
 export const DEFAULT_ACTIONS: Readonly<Record<CategoryName, Action>> = {
@@ -30,6 +34,7 @@ export const DEFAULT_ACTIONS: Readonly<Record<CategoryName, Action>> = {
   selfharm: "flag",
   doxxing: "flag",
   minors: "flag",
+  ai_generated: "off",
 };
 export const RULE_THRESHOLD = 0.8;
 export const POLICY_VERSION = 1;
@@ -93,6 +98,12 @@ export class Policy {
     if (!isAction(action)) {
       throw new Error(`unknown action '${action}'; one of ${ACTIONS.join(", ")}`);
     }
+    if (EXPERIMENTAL.includes(category) && action !== "off" && action !== "flag") {
+      throw new Error(
+        `${category} is experimental and can only be off or flag: its precision on real traffic is too low to ` +
+          "remove a message or time a member out",
+      );
+    }
     this.actions[category] = action;
     if (threshold !== undefined && threshold !== null) this.thresholds[category] = clamp(threshold);
   }
@@ -124,6 +135,7 @@ export class Policy {
       this.ruleThresholds[name] = next;
       return next;
     }
+    if (EXPERIMENTAL.includes(category)) return this.thresholds[category] ?? 0.9;
     const cur = this.thresholds[category] ?? 0.9;
     const next = clamp(cur + delta);
     this.thresholds[category] = next;

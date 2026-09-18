@@ -12,6 +12,7 @@ export { Judge, Verdict, cacheKey, pyRepr, type JudgeOptions, type Scores } from
 export {
   ACTIONS,
   DEFAULT_ACTIONS,
+  EXPERIMENTAL,
   DEFAULT_THRESHOLDS,
   MAX_RULES,
   POLICY_VERSION,

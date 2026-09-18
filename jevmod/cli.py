@@ -18,6 +18,7 @@ import sys
 from collections.abc import Iterable
 
 from . import Moderator, Policy
+from .core.policy import EXPERIMENTAL
 from .judge import CATEGORIES
 
 
@@ -35,6 +36,8 @@ def _chunks(items: list[str], n: int) -> Iterable[list[str]]:
 def check(args: argparse.Namespace) -> int:
     policy = Policy()
     for c in CATEGORIES:
+        if c in EXPERIMENTAL and c not in (args.category or []):  # opt in, like the bot
+            continue
         policy.set_category(c, "off" if c == "offtopic" and not args.topic else "flag", args.threshold)
     for i, rule in enumerate(args.rule or []):
         policy.set_rule(f"rule{i + 1}", rule)
@@ -75,6 +78,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--topic", default="", help="what the channel is about (enables the offtopic check)")
     p.add_argument("--rule", action="append", help="a rule in plain language; repeatable, up to 5")
     p.add_argument("--threshold", type=float, default=None, help="one threshold for every category (0.5-0.99)")
+    p.add_argument(
+        "--category",
+        action="append",
+        choices=sorted(EXPERIMENTAL),
+        help="also ask an experimental category, off by default; repeatable",
+    )
     p.add_argument("--json", action="store_true", help="one JSON object per line")
     p.set_defaults(func=check)
     p = sub.add_parser("init", help="ask for the TypeSafe key (hidden input), verify it, store it in the OS keyring")
