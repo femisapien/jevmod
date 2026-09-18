@@ -6,6 +6,7 @@
 <title>jevmod</title>
 <meta name="description" content="Open-source moderation layer for Discord, Telegram, Reddit and any app with user content. A probability per category for every message, thresholds you own, every decision logged. Powered by Jev.">
 <link rel="alternate" type="text/plain" href="/llms.txt">
+<script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -395,7 +396,7 @@ jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit<
     d = <span class="k">None</span>
 
 <span class="c"># Node 20+</span>
-npm install jevmod
+npm install jevmod        # or: pnpm add jevmod
 <span class="k">import</span> { Moderator } <span class="k">from</span> "jevmod";
 <span class="k">const</span> d = <span class="k">await new</span> Moderator().check(text, { channelTopic: "gaming" });  <span class="c">// d.action, d.category, d.scores</span>
 
