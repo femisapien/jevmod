@@ -157,3 +157,26 @@ def test_published_openapi_matches_the_app(tmp_path, monkeypatch):
 
     published = json.loads((Path(__file__).resolve().parents[1] / "docs" / "openapi.json").read_text("utf-8"))
     assert published == json.loads(json.dumps(gen_openapi.schema(), sort_keys=True))
+
+
+def test_postman_collection_covers_every_endpoint():
+    """The collection is a hand-written walkthrough, not generated, so a new endpoint can go missing from it."""
+    import json
+
+    root = Path(__file__).resolve().parents[1]
+    paths = set(json.loads((root / "docs" / "openapi.json").read_text("utf-8"))["paths"])
+    collection = json.loads((root / "docs" / "jevmod.postman_collection.json").read_text("utf-8"))
+    urls: list[str] = []
+
+    def walk(items: list[dict]) -> None:
+        for item in items:
+            if "item" in item:
+                walk(item["item"])
+                continue
+            url = item.get("request", {}).get("url")
+            urls.append(url.get("raw", "") if isinstance(url, dict) else str(url))
+
+    walk(collection["item"])
+    raw = " ".join(urls)
+    missing = sorted(p for p in paths if p not in raw)
+    assert not missing, f"docs/jevmod.postman_collection.json has no request for {missing}"
