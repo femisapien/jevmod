@@ -98,6 +98,12 @@ export class Policy {
     if (!isAction(action)) {
       throw new Error(`unknown action '${action}'; one of ${ACTIONS.join(", ")}`);
     }
+    if (EXPERIMENTAL.includes(category) && action !== "off" && action !== "flag") {
+      throw new Error(
+        `${category} is experimental and can only be off or flag: its precision on real traffic is too low to ` +
+          "remove a message or time a member out",
+      );
+    }
     this.actions[category] = action;
     if (threshold !== undefined && threshold !== null) this.thresholds[category] = clamp(threshold);
   }

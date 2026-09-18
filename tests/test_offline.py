@@ -180,3 +180,42 @@ def test_postman_collection_covers_every_endpoint():
     raw = " ".join(urls)
     missing = sorted(p for p in paths if p not in raw)
     assert not missing, f"docs/jevmod.postman_collection.json has no request for {missing}"
+
+
+def test_experimental_categories_can_only_be_off_or_flag():
+    """The site says the experimental category only ever flags. Nothing enforced that, so `/mod set
+    ai_generated delete` worked: a category whose projected precision is 0.19 to 0.37 could remove messages."""
+    import pytest
+
+    from jevmod.core.policy import EXPERIMENTAL
+
+    p = Policy()
+    for category in EXPERIMENTAL:
+        p.set_category(category, "flag")
+        assert p.actions[category] == "flag"
+        p.set_category(category, "off")
+        for forbidden in ("delete", "timeout"):
+            with pytest.raises(ValueError):
+                p.set_category(category, forbidden)
+        assert p.actions[category] == "off"
+
+
+def test_experimental_categories_ship_off_and_do_not_move():
+    from jevmod.core.policy import DEFAULT_THRESHOLDS, EXPERIMENTAL
+
+    p = Policy()
+    for category in EXPERIMENTAL:
+        assert p.actions.get(category) == "off"
+        assert category not in p.enabled_categories()
+        assert p.nudge(category, 0.03) == DEFAULT_THRESHOLDS[category]
+
+
+def test_env_example_never_assigns_a_key_twice():
+    """Two assignments of one key means the effective value depends on parse order. JEVMOD_MONTHLY_QUOTA was
+    set to 0 and then to 5000 in the same file, so copying half of it gave an unlimited free plan."""
+    from collections import Counter
+
+    text = (Path(__file__).resolve().parents[1] / ".env.example").read_text("utf-8")
+    keys = [ln.split("=", 1)[0].strip() for ln in text.splitlines() if "=" in ln and not ln.strip().startswith("#")]
+    dupes = [k for k, n in Counter(keys).items() if n > 1]
+    assert not dupes, f".env.example assigns {dupes} more than once"
