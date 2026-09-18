@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>jevmod</title>
 <meta name="description" content="Open-source moderation layer for Discord, Telegram, Reddit and any app with user content. A probability per category for every message, thresholds you own, every decision logged. Powered by Jev.">
 <link rel="alternate" type="text/plain" href="/llms.txt">
@@ -24,7 +24,7 @@
   a { color: inherit; text-decoration: none; }
   b, strong { font-weight: 600; color: var(--ink); }
   .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
-  @media (max-width: 640px) { .wrap { padding: 0 16px; } }
+  @media (max-width: 640px) { .wrap { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); } }
 
   nav { height: 56px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
   nav .brand { font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
@@ -49,8 +49,8 @@
   pre .c { color: var(--muted); } pre .k { color: var(--body); }
   @media (max-width: 640px) { pre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; padding: 16px; } }
 
-  header.hero { padding: 96px 0 96px; }
-  @media (max-width: 640px) { header.hero { padding: 48px 0 48px; } }
+  header.hero { padding-top: 96px; padding-bottom: 96px; }
+  @media (max-width: 640px) { header.hero { padding-top: 48px; padding-bottom: 48px; } }
   .hero-grid { display: grid; grid-template-columns: 6fr 5fr; gap: 64px; align-items: start; }
   @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 48px; } }
   .hero-grid h1 { font-size: 48px; max-width: none; }
@@ -88,8 +88,8 @@
   .screen img { display: block; width: 100%; height: auto; }
   @media (max-width: 640px) { .screen { margin-top: 48px; } }
 
-  section { padding: 96px 0; border-top: 1px solid var(--line); }
-  @media (max-width: 640px) { section { padding: 64px 0; } }
+  section { padding-top: 96px; padding-bottom: 96px; border-top: 1px solid var(--line); }
+  @media (max-width: 640px) { section { padding-top: 64px; padding-bottom: 64px; } }
 
   /* calculator */
   .calc { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: start; }
