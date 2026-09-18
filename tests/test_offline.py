@@ -95,3 +95,19 @@ def test_prefilter():
     assert prefilter(Message("a", "lol")) == "too short"
     assert prefilter(Message("b", "see http://x.y")) is None
     assert prefilter(Message("c", "long enough text here", author_trusted=True)) == "trusted author"
+
+
+def test_every_role_is_dispatchable(monkeypatch):
+    """`jevmod <role>` must reach its runner: the hosted role once fell out of the dispatcher unnoticed."""
+    import jevmod.__main__ as m
+
+    seen = []
+    monkeypatch.setattr(m, "run_role", lambda r: seen.append(r))
+    for role in ("api", "demo", "hosted", "discord", "telegram", "reddit", "mcp"):
+        m.run_role(role)
+    assert seen == ["api", "demo", "hosted", "discord", "telegram", "reddit", "mcp"]
+    import inspect
+
+    src = inspect.getsource(m)
+    for role in ("api", "hosted", "demo", "discord", "telegram", "reddit", "mcp"):
+        assert f'"{role}"' in src.split("def run_role")[1].split("def main")[0], role

@@ -41,11 +41,11 @@ def run_role(role: str) -> None:
         from .adapters.reddit_bot import run
 
         run()
-    elif role == "demo":
+    elif role in ("demo", "hosted"):
         import uvicorn
 
         uvicorn.run(
-            "jevmod.api.demo:app",
+            "jevmod.api.demo:app" if role == "demo" else "jevmod.api.hosted:app",
             host=os.environ.get("JEVMOD_HOST", "127.0.0.1"),
             port=int(os.environ.get("PORT", "8080")),
             log_level="info",
