@@ -30,6 +30,19 @@ curl -s https://$DEMO_HOST/demo/health      # {"ok":true,"budget_usd":0.5,"spent
 While the repo is private, clone with a fine-grained GitHub token that has read access to this repo only, or
 `scp` the tree from your machine; delete the token from the VPS afterwards.
 
+## Behind an existing Traefik (Coolify)
+
+If the VPS already runs Coolify's Traefik on 80/443, do not start Caddy. Use `docker-compose.traefik.yml`: it joins
+the `coolify` network, publishes no ports and asks Traefik for a Let's Encrypt certificate through labels.
+
+```bash
+cd /opt/jevmod/deploy/demo && export $(grep DEMO_HOST .env)
+sudo -E docker compose -f docker-compose.traefik.yml up -d --build
+```
+
+Deployed 2026-09-18 on Omar's Hetzner box as `jevmod-demo` (host `65-108-95-94.sslip.io`, to become
+`jevmod.hernandezbastos.es` once the A record exists).
+
 ## Day to day
 
 ```bash
