@@ -2,10 +2,13 @@
 
 > Open-source content moderation powered by Jev (TypeSafe's System One model). One request per batch of messages, a probability per category (spam, scam, harassment, nsfw, offtopic, selfharm, doxxing, minors) and per plain-language rule, a policy that turns probabilities into flag/delete/timeout. Python SDK, CLI, HTTP API, MCP server, npm package, and Discord/Telegram/Reddit bots over the same core. MIT.
 
-Key facts: flag-only by default; fails open when Jev is unreachable; about $0.000045 per judged message; probabilities move about plus or minus 0.03 between runs; only message text and channel topic are sent to TypeSafe; the key is `TYPESAFE_API_KEY` (keyring, environment or .env, never in code).
+Key facts: flag-only by default; the hosted bot stores no message text (JEVMOD_KEEP_TEXT_CHARS=0); fails open when Jev is unreachable; about $0.000045 per judged message; probabilities move about plus or minus 0.03 between runs; only message text and channel topic are sent to TypeSafe; the key is `TYPESAFE_API_KEY` (keyring, environment or .env, never in code).
 
 ## Start here
 
+- [Site for community owners](https://jevmod.dev/): what the hosted Discord bot does, what it never does, plans and the live demo.
+- [Site for developers](https://jevmod.dev/developers/): quickstart for CLI, Python, npm, HTTP and MCP, the benchmark table and the cost calculator.
+- [Privacy](https://jevmod.dev/privacy/) and [Terms](https://jevmod.dev/terms/): written from the code, with the exact data the hosted bot stores and the Discord permissions it asks for.
 - [README](../README.md): the three doors (community owner, developer, self-host), commands, categories, the red-team scoreboard.
 - [AGENTS.md](../AGENTS.md): exact API signatures, where things live, tests, coding rules, the integration recipe in short form. Read this if you are an agent.
 - [BENCHMARK.md](../BENCHMARK.md): jevmod against Llama Guard 3, ShieldGemma and toxic-bert on public datasets, with cost and latency.
