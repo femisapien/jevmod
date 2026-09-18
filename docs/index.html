@@ -162,7 +162,7 @@
     </div>
   </div>
   <figure class="shot" style="margin:0">
-    <img src="jevmod.gif" alt="Terminal recording: jevmod check flags a fake Nitro giveaway as scam 0.99 and exits 1; a four-line file is checked in one request; the HTTP API returns the same decisions as JSON." width="1120" height="600" loading="eager">
+    <img src="jevmod.gif" alt="Terminal recording: jevmod check flags a fake Nitro giveaway as scam 0.99 and exits 1; a four-line file is checked in one request; the HTTP API returns the same decisions as JSON." width="920" height="590" loading="eager">
   </figure>
 </header>
 
@@ -205,12 +205,12 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
       <div>
         <div class="who">agent</div>
         <h3>An MCP server and a skill.</h3>
-        <p>A coding agent registers <code class="i">jevmod mcp</code> and gets two tools, <code class="i">moderate</code> and <code class="i">policy</code>. <code class="i">AGENTS.md</code> and the Claude Code skill describe how to add moderation to an existing codebase: pick the surface, wire the key, add the tests.</p>
+        <p>A coding agent registers <code class="i">jevmod mcp</code> and gets two tools, <code class="i">moderate</code> and <code class="i">categories</code>. <code class="i">AGENTS.md</code> and the Claude Code skill describe how to add moderation to an existing codebase: pick the surface, wire the key, add the tests.</p>
       </div>
 <pre><span class="c"># Claude Code, Cursor, Codex: register the MCP server</span>
 { <span class="s">"mcpServers"</span>: { <span class="s">"jevmod"</span>: { <span class="s">"command"</span>: <span class="s">"jevmod"</span>, <span class="s">"args"</span>: [<span class="s">"mcp"</span>] } } }
 
-<span class="c"># tools: moderate(messages, channel_topic?) and policy(get | set)</span></pre>
+<span class="c"># tools: moderate(texts, channel_topic?, rules?) and categories()</span></pre>
     </div>
   </div>
 </section>

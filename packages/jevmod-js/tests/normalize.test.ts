@@ -28,7 +28,10 @@ describe("prefilter", () => {
 
 describe("normalize", () => {
   it("unescapes html, folds fullwidth and ligatures, drops zalgo and zero-width characters", () => {
-    expect(normalize("&#39;ＦＲＥＥ&#39; Ｎｉｔｒｏ ﬁ z̸ál​go  &amp; x")).toBe("'FREE' Nitro fi zalgo & x");
+    // NFKC runs first, so a + U+0301 composes to á and stays (Python does the same); the overlay U+0338 has
+    // no composition with z and is dropped, as is the zero-width space.
+    expect(normalize("&#39;ＦＲＥＥ&#39; Ｎｉｔｒｏ ﬁ z̸ál​go  &amp; x")).toBe("'FREE' Nitro fi zálgo & x");
+    expect(normalize("z̵̶̷a̴l̹g̺o")).toBe("zalgo");
   });
 
   it("maps the enclosed alphanumeric supplement rows to plain letters", () => {
@@ -40,9 +43,9 @@ describe("normalize", () => {
     expect(normalize("﻿  spaced   out  ")).toBe("spaced out");
   });
 
-  it("keeps Thai and Indic vowel signs that Python keeps (combining class 0)", () => {
-    expect(normalize("สวัสดี")).toBe("สวัสดี");
-    expect(normalize("नमस्ते")).toBe("नमस्ते");
+  it("keeps the marks Python keeps (combining class 0) and drops the ones it drops", () => {
+    expect(normalize("สวัสดี")).toBe("สวัสดี"); // Thai vowel signs: ccc 0, kept
+    expect(normalize("नमस्ते")).toBe("नमसते"); // Devanagari virama U+094D: ccc 9, dropped like Python
     expect(isCombining(0x0e31)).toBe(false); // Thai mai han-akat: Mn but ccc 0, kept by Python
     expect(isCombining(0x094d)).toBe(true); // Devanagari virama: ccc 9, dropped by Python
     expect(isCombining(0x0301)).toBe(true);

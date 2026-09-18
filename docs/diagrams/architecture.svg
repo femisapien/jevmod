@@ -28,7 +28,7 @@
 <text x="194" y="295" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">POST /v1/moderate</text>
 <rect x="182" y="318" width="136" height="50" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
 <text x="194" y="339" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eaed" text-anchor="start">MCP</text>
-<text x="194" y="357" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">moderate, policy</text>
+<text x="194" y="357" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#8a9099" text-anchor="start">moderate, categories</text>
 <line x1="322" y1="254" x2="376" y2="254" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
 <rect x="380" y="176" width="230" height="156" rx="6" fill="#191b1e" stroke="#2fbf83" stroke-width="1.5"/>
 <text x="396" y="200" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">jevmod.core</text>

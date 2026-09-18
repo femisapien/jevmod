@@ -179,8 +179,18 @@ export interface Decision {
 export function decide(policy: Policy, v: Verdict): Decision {
   const scores: Record<string, number> = { ...v.scores };
   for (const [n, p] of Object.entries(v.custom)) scores[`rule:${n}`] = p;
-  const base = { message_id: v.messageId, scores, reason: v.reason, policy_version: POLICY_VERSION };
-  if (!v.judged) return { ...base, action: "none", category: null, probability: 0, judged: false };
+  // Keys in the same order as the Python to_dict(), so the JSON reads the same across implementations.
+  const build = (action: DecisionAction, category: string | null, probability: number, judged: boolean): Decision => ({
+    message_id: v.messageId,
+    action,
+    category,
+    probability,
+    scores,
+    judged,
+    reason: v.reason,
+    policy_version: POLICY_VERSION,
+  });
+  if (!v.judged) return build("none", null, 0, false);
   const hits: Array<[string, number, Action]> = [];
   for (const [c, p] of Object.entries(v.scores)) {
     const action = policy.actions[c] ?? "off";
@@ -192,7 +202,7 @@ export function decide(policy: Policy, v: Verdict): Decision {
       hits.push([`rule:${n}`, p, action]);
     }
   }
-  if (hits.length === 0) return { ...base, action: "none", category: null, probability: 0, judged: true };
+  if (hits.length === 0) return build("none", null, 0, true);
   // Python's max() keeps the first of equal maxima, so only a strictly better hit replaces the current one.
   let best = hits[0] as [string, number, Action];
   for (const h of hits.slice(1)) {
@@ -200,7 +210,7 @@ export function decide(policy: Policy, v: Verdict): Decision {
     if (better) best = h;
   }
   const [category, p, action] = best;
-  return { ...base, action: action as DecisionAction, category, probability: p, judged: true };
+  return build(action as DecisionAction, category, p, true);
 }
 
 /** Round the numbers like the Python `Decision.to_dict()` (4 decimals). */

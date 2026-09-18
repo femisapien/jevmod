@@ -1,188 +1,184 @@
 # jevmod
 
-Moderation for communities and apps, powered by [Jev](https://typesafe.ai) (TypeSafe's System One model).
-Every message gets a probability for **spam, scam, harassment, adult content, off-topic, self-harm, doxxing,
-sexual content involving minors** and for **your own rules written in plain language**. You own the thresholds and the actions. Every decision is logged with its numbers.
+Moderation for communities and apps: every message gets a probability for **spam, scam, harassment, nsfw,
+off-topic, self-harm, doxxing, sexual content involving minors**, and for **rules you write in plain English**.
+You set the thresholds and the actions. Every decision is logged with its numbers.
+
+It runs on [Jev](https://typesafe.ai), TypeSafe's System One model: you ask yes/no questions about a message and
+get calibrated probabilities back, no text generation. About **$0.04 per 1,000 messages** with all categories on.
+
+![jevmod check and the HTTP API in a terminal](docs/jevmod.gif)
+
+```
+$ jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"
+scam 0.99      'FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro'  [scam 0.99, spam 0.98, harassment 0.02]
+```
 
 Flag-only by default: nothing is deleted until you turn that on. Fails open: if Jev is unreachable, messages are
-left alone and the failure is logged.
-
-Cost, measured: about 1,050 input tokens per judged message with all eight categories on, at Jev's list price
-of $0.042 per million, so **$0.000045 per message**. A community with 20,000 judged messages a month costs
-under $1 to run. Turn categories off and the price drops with them.
-
-Pick your door:
+left alone and the failure is logged. Self-harm is flag-only by design so a moderator can reach out.
 
 | you are | you get | start |
 |---|---|---|
-| a community owner, not technical | a Discord, Telegram or Reddit bot you tune with commands | [Run the bot](#1-community-owner-run-the-bot) |
-| a developer with user content | `pip install jevmod`: a CLI, a function or one HTTP call | [Developer](#2-developer-cli-package-and-http-api) |
-| a team that must self-host | Docker image and compose file | [Self-host](#3-self-host-docker-and-compose) |
+| a community owner, not technical | a Discord, Telegram or Reddit bot you tune with commands | [Run the bot](#run-the-bot) |
+| a developer | a CLI, a Python package, an npm package, or one HTTP call | [Developer](#developer) |
+| a coding agent, or someone using one | an MCP server and a Claude Code skill that wires jevmod into a codebase | [Agents](#agents) |
 
----
+On the [benchmark](BENCHMARK.md) (2,531 messages from OpenAI's moderation eval, Jigsaw and YouTube spam) jevmod
+had the best AUROC of four systems in every category of OpenAI's human-labelled set: harassment 0.93, sexual
+0.98, self-harm 0.99, minors 0.98. The others were Llama Guard 3 8B, ShieldGemma 2B and toxic-bert, run locally.
+Caveats are in the same file.
 
-## 1. Community owner: run the bot
+## The key, once
 
-You need two things: a **TypeSafe API key** (free tier at [console.typesafe.ai](https://console.typesafe.ai)) and a
-bot token from the platform. Keys are never pasted into chat or files that go to git; they live in environment
-variables or a `.env` file that stays on your machine.
+Every surface needs a TypeSafe API key (free tier at [console.typesafe.ai](https://console.typesafe.ai)).
+
+```bash
+pip install "jevmod[keys]"
+jevmod init          # asks for the key without echo, verifies it with one call, stores it in the OS keyring
+```
+
+Resolution order everywhere (CLI, API, bots, MCP, `Moderator`): `TYPESAFE_API_KEY` in the environment, then the
+keyring, then a `.env` in the current directory. In a container or a headless server `jevmod init --env-file`
+writes `.env` with mode 600. Keys never go into git; `.env` is ignored.
+
+## Run the bot
 
 ### Discord
 
-1. [Developer Portal](https://discord.com/developers/applications) → New Application → Bot → **Reset Token** (copy
-   it) → enable **Message Content Intent**. No other privileged intent is needed.
+1. [Developer Portal](https://discord.com/developers/applications) → New Application → Bot → **Reset Token** →
+   enable **Message Content Intent** (the only privileged intent used).
 2. OAuth2 → URL Generator → scopes `bot` + `applications.commands`; permissions: Read Messages, Send Messages,
    Manage Messages, Moderate Members, Manage Channels, Embed Links, Add Reactions. Open the URL, add it to your server.
-3. Run it:
+3. `pip install "jevmod[discord]"`, set `DISCORD_TOKEN`, run `jevmod discord`.
 
-```bash
-pip install "jevmod[discord]"
-export TYPESAFE_API_KEY=...   # Windows: set TYPESAFE_API_KEY=...
-export DISCORD_TOKEN=...
-jevmod discord
-```
-
-The bot creates a private `#jevmod-log` channel and starts flagging. Type `/mod status` to see the settings.
+The bot creates a private `#jevmod-log` channel and starts flagging there.
 
 | command (server managers only) | what |
 |---|---|
 | `/mod status` | settings and this month's usage |
-| `/mod set <category> <action> [threshold]` | `spam`, `scam`, `harassment`, `nsfw`, `offtopic`, `selfharm`, `doxxing`, `minors` → `off`, `flag`, `delete`, `timeout` |
+| `/mod set <category> <action> [threshold]` | any category → `off`, `flag`, `delete`, `timeout` |
 | `/mod rule <name> <text> [action] [threshold]` | a rule in your words: "No politics. News about the game is fine." (max 5) |
 | `/mod trust <role>` | messages from that role are never judged |
-| `/mod topic <text>` | what the current channel is for (used by `offtopic`) |
-| `/mod log` | log decisions in the current channel instead |
-| `/mod recent` | last decisions with probabilities |
-| `/mod forget` / `/mod forget_user @member` | delete everything stored about the server / one member |
+| `/mod topic <text>` | what the current channel is for (turns on `offtopic`) |
+| `/mod log`, `/mod recent` | choose the log channel; last decisions with probabilities |
+| `/mod forget`, `/mod forget_user @member` | delete everything stored about the server, or one member |
 
-React **❌** on a log entry to mark a false positive (threshold for that category goes up a notch), **✅** to confirm
-a correct call (down a notch, never below 0.5). Two clicks a day calibrate the bot to your community.
+React ❌ on a log entry to mark a false positive (that category's threshold goes up a notch), ✅ to confirm a
+correct call (down a notch, floor 0.5).
 
-### Telegram
+### Telegram and Reddit
 
-1. Talk to [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token.
-2. Add the bot to your group and make it an **admin** (delete messages, restrict members).
-3. `pip install "jevmod[telegram]"`, set `TYPESAFE_API_KEY` and `TELEGRAM_TOKEN`, run `jevmod telegram`.
+Telegram: [@BotFather](https://t.me/BotFather) → `/newbot`, make the bot a group admin, `pip install
+"jevmod[telegram]"`, set `TELEGRAM_TOKEN`, run `jevmod telegram`. Admin commands: `/mod_status`, `/mod_set`,
+`/mod_rule`, `/mod_topic`, `/mod_log`.
 
-Admin commands in the group: `/mod_status`, `/mod_set <category> <action> [threshold]`, `/mod_rule <name> <text>`,
-`/mod_topic <text>`. Run `/mod_log <group chat id>` inside a private admins chat to receive the decisions there.
+Reddit: for your own subreddit with your own "script" app credentials, non-commercial (Reddit's API terms).
+`pip install "jevmod[reddit]"`, fill the `REDDIT_*` variables from `.env.example`, run `jevmod reddit`. Reports by
+default; removal and bans are opt-in.
 
-### Reddit
+### What the bots send where
 
-Reddit's API terms restrict commercial use and require registration for moderation bots. jevmod's Reddit adapter is
-for **your own subreddit with your own credentials**, non-commercial. Create a "script" app at
-[reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) with a moderator account, then
-`pip install "jevmod[reddit]"`, fill the `REDDIT_*` variables from `.env.example`, run `jevmod reddit`. It reports
-by default; removal and bans are opt-in in the policy.
+Only the **message text** and the **channel topic** go to TypeSafe. Author names and ids never do. Locally,
+jevmod keeps a decision log (category, probabilities, action, first 300 characters) for 30 days, then deletes it.
+`/mod forget` deletes everything; leaving the server does the same. Members whose message is removed get a direct
+message saying an automated system did it and how to appeal.
 
-### What the bot sends where
-
-Only the **message text** and the **channel topic** are sent to TypeSafe's API for judgment. Author names and ids
-are never sent. TypeSafe's terms apply to that service. Locally, jevmod keeps a decision log (category,
-probabilities, action, the first 300 characters of the text) for 30 days, then deletes it. `/mod forget` deletes
-everything at once; leaving the server does the same automatically. Members whose message is removed get a
-direct message saying an automated system did it and how to appeal to the moderators.
-
----
-
-## 2. Developer: CLI, package and HTTP API
+## Developer
 
 ### CLI
 
 ```bash
-pip install jevmod                     # TYPESAFE_API_KEY in the environment
-jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"
-# scam 0.97                    'FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro'  [scam 0.97, spam 0.95, ...]
-
-cat comments.txt | jevmod check --json --rule "No politics. Game news is fine." -   # one message per line
+pip install jevmod
+jevmod check "some text"                                   # exit 0 clean, 1 something triggered, 2 error
+cat comments.txt | jevmod check --json --rule "No politics. Game news is fine." -
 ```
 
-Exit code 0 when nothing triggers, 1 when something does, 2 on error: usable in a shell script or a CI job that
-screens user-submitted text. `--topic` enables the off-topic check, `--threshold` sets one for every category,
-`--json` prints one object per line with every probability.
+One message per line on stdin, one Jev request per 50. `--topic` turns on the off-topic check, `--threshold` sets
+one for every category, `--json` prints one object per line with every probability. `examples/cli/` has a file
+screener and a pre-commit hook.
 
 ### Python
-
-```bash
-pip install jevmod      # TYPESAFE_API_KEY in the environment
-```
 
 ```python
 from jevmod import Moderator, Policy
 
-mod = Moderator()
-d = mod.check("FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro", channel_topic="gaming")
-d.action, d.category, d.probability  # ('flag', 'scam', 0.97)
-d.scores  # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, 'nsfw': 0.01}
+d = Moderator().check("FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro", channel_topic="gaming")
+d.action, d.category, d.probability      # ('flag', 'scam', 0.97)
+d.scores                                 # {'spam': 0.95, 'scam': 0.97, 'harassment': 0.03, 'nsfw': 0.01, ...}
 
-# your thresholds, your actions, your rules
 p = Policy()
 p.set_category("scam", "delete", 0.7)
 p.set_rule("no_politics", "No political discussion. Game news is fine.", action="flag", threshold=0.8)
-mod = Moderator(policy=p)
-decisions = mod.check_many(["...", "...", "..."], channel_topic="support")  # one Jev request for the batch
+Moderator(policy=p).check_many(["...", "..."], channel_topic="support")    # one request for the batch
 ```
 
-`check_many` is the cheap path: every message that passes the pre-filter goes to Jev in one request. Messages under
-eight letters without a link, trusted authors and repeats of already-judged text are never sent.
+### npm
+
+```ts
+import { Moderator, Policy } from "jevmod";
+const d = await new Moderator().check("FREE NITRO ...", { channelTopic: "gaming" });
+d.action, d.category, d.scores            // same shape as Python and the HTTP API
+```
+
+Node 20+. Same questions (`jevmod/categories.json` is copied byte for byte and CI fails if it drifts), same
+policy, same decision. `JevmodClient` talks to a deployed HTTP API instead, so browsers and edge functions never
+hold the TypeSafe key. Express middleware in `packages/jevmod-js/examples/`. Details in
+[packages/jevmod-js/README.md](packages/jevmod-js/README.md).
 
 ### HTTP API
 
-Run it (`jevmod api`, or the Docker image) with `JEVMOD_ADMIN_TOKEN` set, then mint a key per tenant:
-
 ```bash
+JEVMOD_ADMIN_TOKEN=... jevmod api                     # or: docker compose up -d
 curl -X POST localhost:8080/v1/keys -H "Authorization: Bearer $JEVMOD_ADMIN_TOKEN" \
-     -H "Content-Type: application/json" -d '{"tenant":"my-app","label":"prod"}'
-# {"api_key":"jm_...","note":"shown once; stored hashed"}
-```
-
-```bash
-curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Content-Type: application/json" -d '{
-  "messages": [
-    {"id":"a","text":"FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro","channel_topic":"gaming"},
-    {"id":"b","text":"Anyone know if the patch fixed the inventory bug?","channel_topic":"gaming"}
-  ]}'
-```
-
-```json
-{"request_id":"9f1c…","decisions":[
-  {"message_id":"a","action":"flag","category":"scam","probability":0.97,"scores":{"spam":0.95,"scam":0.97,"harassment":0.03,"nsfw":0.01},"judged":true,"reason":"jev"},
-  {"message_id":"b","action":"none","category":null,"probability":0.0,"scores":{"spam":0.02,"scam":0.01,"harassment":0.02,"nsfw":0.01},"judged":true,"reason":"jev"}],
- "usage":{"judged_this_month":2,"jev_requests_this_month":1,"input_tokens_this_month":1180}}
+     -H "Content-Type: application/json" -d '{"tenant":"my-app"}'          # {"api_key":"jm_...", shown once}
+curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Content-Type: application/json" \
+     -d '{"messages":[{"id":"a","text":"FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"}]}'
 ```
 
 | endpoint | what |
 |---|---|
-| `POST /v1/moderate` | up to 50 messages → decisions. `X-Request-Id` is echoed for tracing. |
-| `GET/PUT /v1/policy` | thresholds, actions, rules, timeout minutes for this tenant |
-| `GET /v1/decisions?limit=50` | the audit log (probabilities, action, 300 chars of text) |
-| `DELETE /v1/tenant` | forget this tenant entirely |
-| `POST /v1/keys` (admin) | mint a tenant key; keys are stored hashed |
-| `GET /v1/health`, `GET /metrics` | liveness and Prometheus counters |
+| `POST /v1/moderate` | up to 50 messages → decisions; `X-Request-Id` echoed |
+| `GET/PUT /v1/policy` | thresholds, actions, rules for this tenant |
+| `GET /v1/decisions` | the audit log |
+| `DELETE /v1/tenant` | forget this tenant |
+| `POST /v1/keys` (admin) | mint a tenant key, stored hashed |
+| `GET /v1/health`, `GET /metrics` | liveness, Prometheus counters |
 
-OpenAPI docs at `/docs`; a ready-made Postman collection in `docs/jevmod.postman_collection.json`. Any chatbot, forum or comment system that can make an HTTP call can use it; the Discord,
-Telegram and Reddit bots are just adapters over the same service.
+OpenAPI at `/docs`, a Postman collection in `postman/`. Any chatbot, forum or comment system that can make an HTTP
+call can use it; the bots are adapters over the same service.
 
----
+### Examples, one folder per surface
 
-## 3. Self-host: Docker and compose
+| folder | what |
+|---|---|
+| [`examples/sdk/`](examples/sdk) | `Moderator` basics, a custom policy with a rule, batching 50 per request |
+| [`examples/cli/`](examples/cli) | `screen_file.sh` exits 1 on hits; `pre-commit.sh` blocks flagged text files |
+| [`examples/api/`](examples/api) | curl, a stdlib Python client, a Node client against a local `jevmod api` |
+| [`examples/discord/`](examples/discord) | run the bot; `custom_adapter.py` puts any chat platform on `ModerationService` in 20 lines |
+| [`examples/agent_harness/`](examples/agent_harness) | `@guarded` decorator, Claude Agent SDK `PreToolUse`/`PostToolUse` hooks, LangChain callback |
+| [`examples/input_validation/`](examples/input_validation) | FastAPI dependency that answers 422, a pydantic `ModeratedText` field |
+| [`packages/jevmod-js/examples/`](packages/jevmod-js/examples) | Express middleware and a plain Node script |
 
-One image, one environment variable picks the role (`api`, `discord`, `telegram`, `reddit`). SQLite on a volume.
+## Agents
 
-```bash
-cp .env.example .env                # fill TYPESAFE_API_KEY and the tokens you use
-docker compose up -d                # the API on :8080
-docker compose --profile discord up -d    # add the Discord bot; --profile telegram likewise
+**MCP server.** `pip install "jevmod[mcp]"` then `jevmod mcp` (stdio). Tools: `moderate(texts, channel_topic?,
+rules?)` returns one decision per text; `categories()` describes each category and its default threshold.
+
+```
+claude mcp add jevmod -- jevmod mcp                                   # Claude Code
+{"mcpServers": {"jevmod": {"command": "jevmod", "args": ["mcp"]}}}    # Cursor, Codex, others
 ```
 
-Any host that runs a container works: a 4 $/month VM with `docker compose`, Fly.io or Railway with a volume for
-the SQLite file. No cloud-specific deployment is required or provided.
+**Claude Code plugin.** This repository is its own marketplace:
 
-Failure policy: Jev unreachable → decisions come back `reason="error_open"`, nothing is acted on, one warning per
-batch is logged. Free quota (5,000 judged messages per tenant per month) exceeded → judging pauses, the owner is
-told once, nothing is deleted while paused.
+```
+/plugin marketplace add ohernandezdev/jevmod
+/plugin install jevmod@jevmod
+```
 
----
+`jevmod-integrate` adds moderation to an existing codebase (detects the stack, picks SDK/npm/HTTP/MCP, wires the
+key, inserts the call where it belongs, adds a real test). `jevmod-moderate` screens text or datasets from the
+terminal while working. [AGENTS.md](AGENTS.md) has every signature; [docs/llms.txt](docs/llms.txt) indexes the docs.
 
 ## Categories
 
@@ -193,47 +189,52 @@ told once, nothing is deleted while paused.
 | `harassment` | insults, slurs, threats, targeted abuse, in any language | flag ≥ 0.75 |
 | `nsfw` | sexual or gore content for a general audience (below the threshold means SFW) | flag ≥ 0.80 |
 | `offtopic` | unrelated to `channel_topic`; needs a topic to mean anything | off, 0.90 |
-| `selfharm` | the author is in crisis or considering self-harm; flag so moderators reach out, never punish | flag ≥ 0.80 |
+| `selfharm` | the author is in crisis or considering self-harm; alert moderators, never punish | flag ≥ 0.80 |
 | `doxxing` | reveals or hunts private data about a real person | flag ≥ 0.80 |
 | `minors` | sexualises a minor or shows grooming behaviour | flag ≥ 0.70 |
 | `rule:<name>` | your rule in plain language, exceptions included, up to 5 | flag ≥ 0.80 |
 
-Every check returns all enabled categories at once, in one request. Questions follow TypeSafe's `llm_guardrails`
-cookbook (one yes/no question per hazard with explicit true/false criteria).
+Every check returns all enabled categories at once, in one request. The questions are in
+[`jevmod/categories.json`](jevmod/categories.json): one yes/no question per category with explicit true/false
+criteria, the pattern of TypeSafe's guardrails cookbook. Jev's probabilities move about ±0.03 between runs, so
+anything within that band of a threshold will flip; the ❌/✅ feedback and `PUT /v1/policy` exist to move the line.
 
-## How good is it
+## How it works
 
-The judge was red-teamed with 98 labelled messages across unicode evasion (fullwidth, zalgo, homoglyphs, split
-links), six languages, gaming slang that must not be flagged, prompt injection inside messages, custom rules and
-very short or very long inputs. The set lives in `tests/data/redteam.csv` and runs as a regression suite against the
-real API. Current scoreboard with default thresholds:
+![architecture](docs/diagrams/architecture.svg)
 
-| block | messages | false positives | false negatives |
-|---|---|---|---|
-| evasion | 16 | 0 | 0 |
-| languages (es, pt, fr, de, ru, ja) | 20 | 0 | 0 |
-| clean gaming chat | 20 | 0 | 0 |
-| injection attempts | 8 | 0 | 0 |
-| custom rules | 14 | 0 | 2 |
-| length extremes | 11 | 0 | 0 |
-| adult content | 5 | 0 | 0 |
+Message → pre-filter (trusted authors, under eight letters without a link, repeats of judged text never reach
+Jev) → batch for 2 s per community → **one** Jev request for the batch → probabilities → policy → action → audit
+log. Batched messages are sent as a dict keyed by position; as a list, probabilities leaked between neighbours,
+which the 98-message adversarial [red team](tests/data/redteam.csv) caught and which now runs as a regression
+suite in CI. More in [docs/diagrams/](docs/diagrams) and [PLAN.md](PLAN.md).
 
-The two misses in custom rules are both borderline politics ("trans rights are human rights, and the new character…"
-at 0.64; "ugh the elections tomorrow, whatever, tonight we raid" at 0.77 with the rule threshold at 0.80). Jev's
-probabilities move about ±0.03 between runs, so anything within that band of a threshold will flip; your
-community's ❌/✅ moves the line to where you want it. One hundred messages is a regression suite, not a benchmark; numbers on your own
-traffic will differ, and `/mod recent` shows you exactly where.
+## Self-host
+
+One image, one variable picks the role: `api`, `discord`, `telegram`, `reddit`. SQLite on a volume.
+
+```bash
+cp .env.example .env && docker compose up -d              # API on :8080
+docker compose --profile discord up -d                    # add the Discord bot
+```
+
+A 4 $/month VM, Fly.io or Railway with a volume is enough. Failure policy: Jev unreachable → decisions come back
+`reason="error_open"` and nothing is acted on; free quota (5,000 judged messages per tenant per month) exceeded →
+judging pauses, the owner is told once, nothing is deleted while paused.
 
 ## Development
 
 ```bash
 git clone https://github.com/ohernandezdev/jevmod && cd jevmod
-python -m venv .venv && .venv/Scripts/pip install -e ".[all,dev]"
-ruff check . && mypy jevmod && pytest          # offline tests run without a key; the rest need TYPESAFE_API_KEY
+python -m venv .venv && .venv/Scripts/pip install -e ".[all,dev,examples]"
+ruff check . && mypy jevmod && pytest          # offline tests run without a key; the rest hit the real API
+cd packages/jevmod-js && npm ci && npm test    # same for the npm package
 ```
+
+Tests never mock Jev. `tests/test_redteam.py` is the adversarial regression set; `benchmark/` reproduces
+[BENCHMARK.md](BENCHMARK.md).
 
 ## License
 
-MIT. jevmod is an independent project by Omar Hernandez and is not affiliated with TypeSafe, Discord, Telegram or
-Reddit. Moderation decisions are probabilistic; you are responsible for the thresholds and actions you configure
-and for complying with the platforms' terms and the laws that apply to your community.
+MIT, © Omar Hernandez. See [DISCLAIMER.md](DISCLAIMER.md): decisions are probabilistic, the operator owns the
+thresholds, the actions and legal compliance; not affiliated with TypeSafe, Discord, Telegram or Reddit.

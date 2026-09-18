@@ -104,7 +104,7 @@ def architecture() -> None:
     # channels, two columns of four
     s.text(32, 118, "channels", 12, FG3, mono=True)
     chans = [("Discord", "bot"), ("Telegram", "bot"), ("Reddit", "bot"), ("CLI", "jevmod check"),
-             ("Python", "Moderator"), ("npm", "check()"), ("HTTP", "POST /v1/moderate"), ("MCP", "moderate, policy")]
+             ("Python", "Moderator"), ("npm", "check()"), ("HTTP", "POST /v1/moderate"), ("MCP", "moderate, categories")]
     for i, (name, how) in enumerate(chans):
         col, row = i // 4, i % 4
         x, y = 32 + col * 150, 132 + row * 62

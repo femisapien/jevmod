@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "jevmod.gif"
-W, H = 1120, 600
+W, H = 920, 590
 BG = (17, 19, 24)
 BAR = (30, 33, 40)
 FG = (220, 223, 228)
@@ -22,10 +22,10 @@ DIM = (120, 126, 140)
 GREEN = (47, 191, 131)
 RED = (240, 110, 110)
 YELLOW = (240, 196, 84)
-FONT = ImageFont.truetype("C:/Windows/Fonts/consola.ttf", 15)
-LINE_H = 22
-PAD = 22
-MAX_COLS = 128
+FONT = ImageFont.truetype("C:/Windows/Fonts/consola.ttf", 22)
+LINE_H = 30
+PAD = 18
+MAX_COLS = 70  # readable when the GIF is shown 570 px wide
 
 Line = tuple[str, tuple[int, int, int]]
 
@@ -40,23 +40,18 @@ OUT2 = [
     ("ok                           'Anyone know if the patch fixed the inventory bug?'  [spam 0.01, scam 0.01, harassment 0.01]", FG),
 ]
 CMD3 = 'curl -s localhost:8080/v1/moderate -H "Authorization: Bearer $JEVMOD_KEY" -d @batch.json'
+# the two decision objects from the real response (request_id and usage lines left out for space)
 OUT3 = [
-    ('{"request_id":"b1459fa66e81","decisions":[', FG),
-    ('  {"message_id":"a","action":"flag","category":"scam","probability":0.99,', RED),
-    ('   "scores":{"spam":0.97,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},', FG),
-    ('   "judged":true,"reason":"jev"},', FG),
-    ('  {"message_id":"b","action":"none","category":null,"probability":0.0,', GREEN),
-    ('   "scores":{"spam":0.02,"scam":0.02,"harassment":0.01,"nsfw":0.01,"selfharm":0.01,"doxxing":0.01,"minors":0.01},', FG),
-    ('   "judged":true,"reason":"jev"}],', FG),
-    (' "usage":{"judged_this_month":2,"jev_requests_this_month":1,"input_tokens_this_month":2103}}', DIM),
+    ('{"message_id":"a","action":"flag","category":"scam","probability":0.99,"scores":{"spam":0.97,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},"judged":true,"reason":"jev"}', RED),
+    ('{"message_id":"b","action":"none","category":null,"probability":0.0,"scores":{"spam":0.02,"scam":0.02,"harassment":0.01,"nsfw":0.01,"selfharm":0.01,"doxxing":0.01,"minors":0.01},"judged":true,"reason":"jev"}', GREEN),
 ]
 
 
 def wrap(text: str, color: tuple[int, int, int]) -> list[Line]:
     out: list[Line] = []
     while len(text) > MAX_COLS:
-        cut = text.rfind(" ", 0, MAX_COLS)
-        cut = cut if cut > 40 else MAX_COLS
+        cut = max(text.rfind(" ", 0, MAX_COLS), text.rfind(",", 0, MAX_COLS) + 1)
+        cut = cut if cut > 30 else MAX_COLS
         out.append((text[:cut], color))
         text = "    " + text[cut:].lstrip()
     out.append((text, color))
@@ -66,10 +61,10 @@ def wrap(text: str, color: tuple[int, int, int]) -> list[Line]:
 def frame(lines: list[Line]) -> Image.Image:
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
-    d.rectangle((0, 0, W, 30), fill=BAR)
-    d.text((PAD, 7), "jevmod", fill=DIM, font=FONT)
-    y = 30 + PAD
-    for text, color in lines[-((H - 60) // LINE_H) :]:
+    d.rectangle((0, 0, W, 34), fill=BAR)
+    d.text((PAD, 4), "jevmod", fill=DIM, font=FONT)
+    y = 34 + PAD
+    for text, color in lines[-((H - 34 - 2 * PAD) // LINE_H) :]:
         d.text((PAD, y), text, fill=color, font=FONT)
         y += LINE_H
     return img
@@ -87,8 +82,8 @@ def build() -> None:
     def type_cmd(cmd: str) -> None:
         nonlocal lines
         for k in range(1, len(cmd) + 1):
-            add(lines + [("$ " + cmd[:k], FG)], 14)
-        lines = lines + [("$ " + cmd, FG)]
+            add(lines + wrap("$ " + cmd[:k], FG), 14)
+        lines = lines + wrap("$ " + cmd, FG)
         add(lines, 500)
 
     def output(ls: list[Line], per_line_ms: int = 220, hold_ms: int = 1600) -> None:
@@ -103,15 +98,15 @@ def build() -> None:
     type_cmd(CMD1)
     output([(OUT1, RED)], hold_ms=1200)
     type_cmd("echo $?")
-    output([("1", DIM), ("", FG)], hold_ms=900)
+    output([("1", DIM), ("", FG)], hold_ms=700)
 
     type_cmd(CMD2)
     output(OUT2, hold_ms=1500)
     lines = lines + [("", FG)]
 
     type_cmd(CMD3)
-    output(OUT3, per_line_ms=140, hold_ms=2000)
-    lines = lines + [("", FG), ("one Jev request per batch. probabilities, not prose. exit 1 when something triggers.", GREEN)]
+    output(OUT3, per_line_ms=300, hold_ms=1800)
+    lines = lines + [("", FG), ("one Jev request per batch. probabilities, not prose.", GREEN)]
     add(lines, 2400)
 
     # open on the finished screen so the first frame already shows results, then replay from the start
