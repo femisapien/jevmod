@@ -7,7 +7,7 @@
   "homepage": "https://github.com/ohernandezdev/jevmod/tree/main/packages/jevmod-js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ohernandezdev/jevmod",
+    "url": "git+https://github.com/ohernandezdev/jevmod.git",
     "directory": "packages/jevmod-js"
   },
   "type": "module",
