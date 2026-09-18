@@ -38,7 +38,7 @@ describe.skipIf(!HAS_KEY)("Moderator against the real Jev API", () => {
   it("a custom rule from the Policy wins as rule:<name> with its own action", async () => {
     const policy = new Policy();
     policy.setRule("no_politics", "No political discussion. Game news is fine.", "delete", 0.7);
-    const mod = new Moderator({ policy, apiKey: process.env["TYPESAFE_API_KEY"] });
+    const mod = new Moderator({ policy, apiKey: process.env["TYPESAFE_API_KEY"] as string });
     const d = await mod.check("Who are you all voting for in the election next month? The left is destroying this country.");
     expect(d.category).toBe("rule:no_politics");
     expect(d.action).toBe("delete");
