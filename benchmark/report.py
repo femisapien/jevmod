@@ -9,7 +9,6 @@ Cost: Jev at list price from measured tokens; local models at an RTX 5080's elec
 from __future__ import annotations
 
 import json
-from collections import defaultdict
 from pathlib import Path
 
 R = Path(__file__).parent / "results"
