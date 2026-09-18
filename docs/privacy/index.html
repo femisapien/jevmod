@@ -14,16 +14,12 @@
 </head>
 <body>
 
-<nav class="site-nav" aria-label="Site">
-  <div class="wrap">
-    <a class="brand" href="/">jevmod</a>
-    <a href="/">Community</a>
-    <a href="/developers/">Developers</a>
-    <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
-  </div>
+<nav class="site-nav wrap" aria-label="Site">
+  <a class="brand" href="/">jevmod</a>
+  <div class="links"><a href="/">Community</a><a href="/developers/">Developers</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
 </nav>
 
-<main class="wrap prose">
+<main class="wrap textpage">
 
 <section class="section" id="top">
   <h1>Privacy</h1>
@@ -86,7 +82,8 @@
   <p data-claim="C108">The IP address is hashed with SHA-256 and a salt before it is stored; the address itself is not kept.</p>
   <p data-claim="C109">Each address may run 6 checks per minute and 40 per day.</p>
   <p data-claim="C110">The demo has a monthly spend cap, $0.50 by default, and answers with an error once it is reached.</p>
-  <p>The demo does not use the bot's database and is not covered by the 30-day rule above.</p>
+  <p data-claim="C124">Demo records are deleted 90 days after they are written; the check that does it runs on every request.</p>
+  <p>The demo does not use the bot's database.</p>
 </section>
 
 <section class="section" id="analytics">
@@ -111,8 +108,9 @@
     <li data-claim="C118"><strong>Add Reactions</strong>: to add the <code>❌</code> and <code>✅</code> reactions under each log entry.</li>
     <li data-claim="C119"><strong>Embed Links</strong>: the log entry is an embed.</li>
     <li data-claim="C120"><strong>Read Message History</strong>: to fetch the log entry you reacted to, so it can adjust the threshold.</li>
-    <li data-claim="C121"><strong>Message Content intent</strong>: without it Discord does not deliver message text to bots.</li>
   </ul>
+  <p data-claim="C121">Separately from the permissions above, the bot has Discord's Message Content intent enabled; without it Discord does not deliver message text to bots.</p>
+  <p data-claim="C125">The invite link asks for those eight permissions and no others.</p>
   <p data-claim="C122">If a permission is missing, the bot records "missing permissions to act" in the log entry and does nothing else.</p>
   <p data-claim="C123">The bot has no code path that bans anyone; the only actions it knows are off, flag, delete and timeout.</p>
 </section>
@@ -127,13 +125,13 @@
 <footer class="site-footer">
   <div class="wrap">
     <p>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
-    <p class="flinks">
+    <div class="links">
       <a href="/developers/">Developers</a>
       <a href="/privacy/">Privacy</a>
       <a href="/terms/">Terms</a>
       <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
       <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a>
-    </p>
+    </div>
   </div>
 </footer>
 

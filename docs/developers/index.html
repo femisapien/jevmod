@@ -9,25 +9,6 @@
 <link rel="alternate" type="text/plain" href="/llms.txt">
 <link rel="stylesheet" href="/site.css">
 <script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
-<style>
-  /* scoped extras for /developers/, not in site.css; agent A may absorb them */
-  #dev-page .cta .link { display: inline-flex; align-items: center; min-height: 44px; }
-  #dev-page .hero .lead { margin-top: 20px; }
-  #dev-page .hero .cta { margin-top: 28px; }
-  #dev-page .snippet > .code-label { margin: 0 0 8px; }
-  #dev-page .snippet + .snippet { margin-top: var(--block); }
-  #dev-page .code pre.wrap-text, #dev-page .code pre.wrap-text code { white-space: pre-wrap; overflow-wrap: anywhere; }
-  #dev-page table.plans caption { text-align: left; padding-bottom: 12px; }
-  #dev-page table.plans td small, #dev-page table.plans th small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
-  #dev-page .field { display: grid; gap: 8px; }
-  #dev-page .field + .field { margin-top: 24px; }
-  #dev-page .field label { font-weight: 500; color: var(--ink); }
-  #dev-page .field input[type="number"], #dev-page .field input[type="text"] { width: 100%; max-width: 320px; height: 48px; padding: 0 14px; font: 400 16px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); appearance: none; }
-  #dev-page .field input:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
-  #dev-page .field input[type="range"] { width: 100%; max-width: 320px; height: 44px; margin: 0; accent-color: var(--ink); }
-  #dev-page .field p { margin-top: 4px; max-width: 46ch; }
-  #dev-page #o-jev, #dev-page #o-llm, #dev-page #o-lg { color: var(--ink); font-weight: 600; }
-</style>
 </head>
 <body id="dev-page">
 
@@ -330,43 +311,5 @@ docker compose --profile discord up -d     # add the Discord bot</code></pre>
 </footer>
 
 <script defer src="/site.js"></script>
-<script>
-/* Fallback until site.js owns these two behaviours (agent A): #copy in the hero and the cost calculator.
-   Both are guarded so that a later site.js can take them over; remove this block when it does. */
-(function () {
-  "use strict";
-  var $ = function (id) { return document.getElementById(id); };
-  var copyBtn = $("copy");
-  if (copyBtn && !copyBtn.dataset.wired) {
-    copyBtn.dataset.wired = "1";
-    copyBtn.addEventListener("click", function () {
-      var label = copyBtn.textContent, text = copyBtn.dataset.copy || label;
-      function done(ok) { copyBtn.textContent = ok ? "copied" : "copy failed"; setTimeout(function () { copyBtn.textContent = label; }, 1400); }
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
-      else done(false);
-    });
-  }
-  var vol = $("vol"), range = $("msgsRange"), gpu = $("gpu");
-  if (!vol || !range || !gpu || vol.dataset.wired) return;
-  vol.dataset.wired = "1";
-  var TOK = 1005, JEV_PER_M = 0.042, LLM_PER_M = 1.0, OVERHEAD = 1.2, LG_MS = 49;
-  var fmtN = function (n) { return n.toLocaleString("en-US"); };
-  var fmt$ = function (v) { return v < 0.01 ? "$" + v.toFixed(4) : v < 1 ? "$" + v.toFixed(3) : v < 100 ? "$" + v.toFixed(2) : "$" + Math.round(v).toLocaleString("en-US"); };
-  function calc() {
-    var n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, parseFloat(String(gpu.value).replace(",", ".")) || 0);
-    var jev = n * TOK * JEV_PER_M / 1e6, llm = n * TOK * OVERHEAD * LLM_PER_M / 1e6, lg = n * LG_MS / 3.6e6 * g;
-    $("m-jev").textContent = fmtN(n) + " x 1,005 tokens x $0.042 / 1M";
-    $("o-jev").innerHTML = fmt$(jev) + "<small>" + fmt$(jev / Math.max(n, 1) * 1000) + " per 1,000</small>";
-    $("m-llm").textContent = fmtN(n) + " x 1,005 tokens x 1.2 x $1.00 / 1M";
-    $("o-llm").innerHTML = fmt$(llm) + "<small>" + (jev > 0 ? (llm / jev).toFixed(0) + "x jevmod" : "") + "</small>";
-    $("m-lg").textContent = fmtN(n) + " x 49 ms x $" + g.toFixed(2) + " / 3,600,000 ms";
-    $("o-lg").innerHTML = fmt$(lg) + "<small>" + (n * LG_MS / 3.6e6).toFixed(2) + " GPU hours of compute</small>";
-  }
-  vol.addEventListener("input", function () { if (+vol.value > 0) range.value = Math.log10(+vol.value); calc(); });
-  range.addEventListener("input", function () { var v = Math.pow(10, +range.value); vol.value = v < 10000 ? Math.round(v / 100) * 100 : Math.round(v / 1000) * 1000; calc(); });
-  gpu.addEventListener("input", calc);
-  calc();
-})();
-</script>
 </body>
 </html>

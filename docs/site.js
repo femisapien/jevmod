@@ -26,21 +26,59 @@
   }
   inviteToggle();
 
-  /* ---- copy buttons (.code > button.copy + pre) ---- */
-  document.querySelectorAll(".code .copy").forEach(function (btn) {
+  /* ---- copy buttons: .code > button.copy copies its <pre>, button[data-copy] copies the attribute ---- */
+  function wireCopy(btn, getText) {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = "1";
     btn.addEventListener("click", function () {
-      var pre = btn.parentElement.querySelector("pre");
-      var text = pre ? pre.textContent.replace(/\s+$/, "") : "";
       var label = btn.textContent;
       function done(ok) {
         btn.textContent = ok ? "copied" : "copy failed";
         setTimeout(function () { btn.textContent = label; }, 1400);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        navigator.clipboard.writeText(getText()).then(function () { done(true); }, function () { done(false); });
       } else { done(false); }
     });
+  }
+  document.querySelectorAll(".code .copy").forEach(function (btn) {
+    wireCopy(btn, function () {
+      var pre = btn.parentElement.querySelector("pre");
+      return pre ? pre.textContent.replace(/\s+$/, "") : "";
+    });
   });
+  document.querySelectorAll("button[data-copy]").forEach(function (btn) {
+    wireCopy(btn, function () { return btn.dataset.copy; });
+  });
+
+  /* ---- cost calculator (developers): the visitor's volume times measured or listed constants ---- */
+  (function () {
+    var vol = $("vol"), range = $("msgsRange"), gpu = $("gpu");
+    if (!vol || !range || !gpu) return;
+    var TOK = 1005, JEV_PER_M = 0.042, LLM_PER_M = 1.0, OVERHEAD = 1.2, LG_MS = 49;
+    function fmtN(n) { return n.toLocaleString("en-US"); }
+    function fmt$(v) {
+      return v < 0.01 ? "$" + v.toFixed(4) : v < 1 ? "$" + v.toFixed(3) : v < 100 ? "$" + v.toFixed(2) : "$" + Math.round(v).toLocaleString("en-US");
+    }
+    function calc() {
+      var n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, parseFloat(String(gpu.value).replace(",", ".")) || 0);
+      var jev = n * TOK * JEV_PER_M / 1e6, llm = n * TOK * OVERHEAD * LLM_PER_M / 1e6, lg = n * LG_MS / 3.6e6 * g;
+      $("m-jev").textContent = fmtN(n) + " x 1,005 tokens x $0.042 / 1M";
+      $("o-jev").innerHTML = fmt$(jev) + "<small>" + fmt$(jev / Math.max(n, 1) * 1000) + " per 1,000</small>";
+      $("m-llm").textContent = fmtN(n) + " x 1,005 tokens x 1.2 x $1.00 / 1M";
+      $("o-llm").innerHTML = fmt$(llm) + "<small>" + (jev > 0 ? (llm / jev).toFixed(0) + "x jevmod" : "") + "</small>";
+      $("m-lg").textContent = fmtN(n) + " x 49 ms x $" + g.toFixed(2) + " / 3,600,000 ms";
+      $("o-lg").innerHTML = fmt$(lg) + "<small>" + (n * LG_MS / 3.6e6).toFixed(2) + " GPU hours of compute</small>";
+    }
+    vol.addEventListener("input", function () { if (+vol.value > 0) range.value = Math.log10(+vol.value); calc(); });
+    range.addEventListener("input", function () {
+      var v = Math.pow(10, +range.value);
+      vol.value = v < 10000 ? Math.round(v / 100) * 100 : Math.round(v / 1000) * 1000;
+      calc();
+    });
+    gpu.addEventListener("input", calc);
+    calc();
+  })();
 
   /* ---- live demo ---- */
   var demo = $("demo");

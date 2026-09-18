@@ -11,6 +11,9 @@ Sources:
   tests/test_x.py::test_y         the file exists and defines `def test_y`
   docs/img/name.webp (any file)   the file exists
 
+A claim may cite several sources separated by `;`. Every one of them must verify. The `token` column may hold one
+token per source, in the same order, or a single token used for all of them.
+
 Exit 1 on any failure, with one line per problem.
 """
 
@@ -64,10 +67,23 @@ def tokens_of(sentence: str) -> list[str]:
     return [t for t in re.findall(r"[A-Za-z0-9_$.]+", sentence) if len(t) >= 4]
 
 
-def check_source(cid: str, row: dict[str, str]) -> str | None:
-    src = row.get("source", "").strip().strip("`")
-    if not src:
-        return f"{cid}: empty source"
+def check_source(cid: str, row: dict[str, str]) -> list[str]:
+    """Every source of a claim, each with its own token when the token column lists one per source."""
+    sources = [s.strip().strip("`") for s in row.get("source", "").split(";") if s.strip()]
+    if not sources:
+        return [f"{cid}: empty source"]
+    tokens = [t.strip().strip("`") for t in row.get("token", "").split(";")]
+    if len(tokens) != len(sources):
+        tokens = [row.get("token", "").strip().strip("`")] * len(sources)
+    problems = []
+    for src, token in zip(sources, tokens, strict=True):
+        err = check_one(cid, src, token, row.get("sentence", ""))
+        if err:
+            problems.append(err)
+    return problems
+
+
+def check_one(cid: str, src: str, token: str, sentence: str) -> str | None:
     m = TEST_RE.match(src)
     if m:
         f = ROOT / m["path"]
@@ -86,8 +102,7 @@ def check_source(cid: str, row: dict[str, str]) -> str | None:
         if n < 1 or n > len(lines):
             return f"{cid}: {m['path']} has {len(lines)} lines, no line {n}"
         text = lines[n - 1].lower()
-        token = row.get("token", "").strip().strip("`")
-        wanted = [token] if token else tokens_of(row.get("sentence", ""))
+        wanted = [token] if token else tokens_of(sentence)
         if not any(t.lower() in text for t in wanted):
             what = f"token {token!r}" if token else "any 4+ character word of the sentence"
             return f"{cid}: {src} does not contain {what}: {lines[n - 1].strip()[:80]!r}"
@@ -126,9 +141,7 @@ def main(argv: list[str]) -> int:
         if (not argv or page_file in checked_pages) and cid not in on_pages:
             problems.append(f"{cid}: in CLAIMS.md (line {row['_line']}) but on no page")
         if cid in on_pages or not argv:
-            err = check_source(cid, row)
-            if err:
-                problems.append(err)
+            problems.extend(check_source(cid, row))
             if row.get("verified", "").strip().lower() != "yes":
                 problems.append(f"{cid}: verified column is {row.get('verified', '')!r}, expected 'yes'")
 

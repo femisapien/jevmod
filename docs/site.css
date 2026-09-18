@@ -123,6 +123,32 @@ h3 { font-size: var(--fs-h3); font-weight: 500; line-height: 1.25; letter-spacin
 .lead { font-size: var(--fs-lead); line-height: 1.45; max-width: 52ch; }
 .prose { max-width: 62ch; }
 .prose > * + * { margin-top: 16px; }
+/* rhythm for running text, including content nested in .section blocks */
+.prose p + p,
+.prose > .section > * + *,
+.prose ul, .prose ol, .prose figure, .prose table, .prose .code { margin-top: 16px; }
+.prose ul, .prose ol { padding-left: 22px; }
+.prose li + li { margin-top: 8px; }
+
+/* a whole page of running text: a document, not a landing section */
+main.prose { font-size: 17px; line-height: 1.65; }
+main.prose .section { padding-top: 48px; padding-bottom: 48px; }
+@media (min-width: 768px) { main.prose .section { padding-top: 56px; padding-bottom: 56px; } }
+main.prose h1 {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  max-width: 20ch;
+}
+main.prose h2 { font-size: 28px; line-height: 1.2; max-width: 28ch; }
+main.prose h3 { font-size: 20px; }
+main.prose h2 + *, main.prose h1 + *, main.prose h3 + * { margin-top: 16px; }
+@media (min-width: 768px) {
+  main.prose h1 { font-size: 40px; }
+  main.prose h2 { font-size: 32px; }
+}
 .small { font-size: 14px; line-height: 1.55; }
 .muted { color: var(--muted); }
 .num {
@@ -178,6 +204,8 @@ table.plans thead th:first-child { font-size: 14px; font-weight: 400; color: var
 table.plans tbody th { font-size: 14px; font-weight: 400; color: var(--muted); }
 table.plans td { color: var(--body); }
 table.plans td strong { font-weight: 500; }
+table.plans caption { text-align: left; padding-bottom: 12px; }
+table.plans td small, table.plans th small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
 @media (max-width: 767px) {
   table.plans thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   table.plans, table.plans tbody, table.plans tr { display: block; width: 100%; }
@@ -219,11 +247,39 @@ table.plans td strong { font-weight: 500; }
 .btn[disabled] { pointer-events: auto; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
 
+/* inline link inside a button row keeps a 44px hit area without the text padding */
+.cta .link { display: inline-flex; align-items: center; min-height: 44px; padding-top: 0; padding-bottom: 0; }
+
+/* labelled snippets (developers) */
+.snippet > .code-label { margin: 0 0 8px; }
+.snippet + .snippet { margin-top: var(--block); }
+
+/* form fields (developers calculator) */
+.field { display: grid; gap: 8px; }
+.field + .field { margin-top: 24px; }
+.field label { font-weight: 500; color: var(--ink); }
+.field input[type="number"], .field input[type="text"] {
+  width: 100%;
+  max-width: 320px;
+  height: 48px;
+  padding: 0 14px;
+  font: 400 16px/1 var(--sans);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  appearance: none;
+}
+.field input:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
+.field input[type="range"] { width: 100%; max-width: 320px; height: 44px; margin: 0; accent-color: var(--ink); }
+.field p { margin-top: 4px; max-width: 46ch; }
+#o-jev, #o-llm, #o-lg { color: var(--ink); font-weight: 600; }
+
 /* code blocks with copy */
 .code { position: relative; }
 .code pre {
   margin: 0;
-  padding: 20px 64px 20px 20px;
+  padding: 20px 76px 20px 20px;
   font-size: 13px;
   line-height: 1.6;
   color: var(--ink);
@@ -233,11 +289,12 @@ table.plans td strong { font-weight: 500; }
   overflow-x: auto;
 }
 .code pre code { font: inherit; color: inherit; background: none; border: 0; padding: 0; white-space: pre; }
+.code pre.wrap-text, .code pre.wrap-text code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .code .copy {
   position: absolute;
   top: 8px;
   right: 8px;
-  height: 36px;
+  height: 44px;
   padding: 0 12px;
   font: 500 13px/1 var(--sans);
   color: var(--muted);
@@ -249,12 +306,30 @@ table.plans td strong { font-weight: 500; }
 .code .copy:hover { color: var(--ink); border-color: var(--ink); }
 .code .copy:active { transform: translateY(1px); }
 
-/* nav */
-nav.site-nav { height: 56px; display: flex; align-items: center; justify-content: space-between; }
-nav.site-nav a.brand { display: inline-flex; align-items: center; height: 44px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
-nav.site-nav .links { display: flex; gap: 8px; }
-nav.site-nav .links a { display: inline-flex; align-items: center; height: 44px; padding: 0 12px; font-size: 15px; color: var(--body); border-radius: var(--r); }
-nav.site-nav .links a:hover { color: var(--ink); background: var(--surface); }
+/* nav: works whether the row is the nav itself (nav.site-nav.wrap) or an inner .wrap,
+   and whether the links sit in a .links box or are bare anchors next to the brand */
+nav.site-nav { min-height: 56px; display: flex; align-items: center; gap: 8px; }
+nav.site-nav > .wrap { flex: 1 1 auto; min-height: 56px; display: flex; align-items: center; gap: 8px; }
+nav.site-nav a.brand { display: inline-flex; align-items: center; height: 44px; margin-right: auto; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+nav.site-nav .links { display: flex; align-items: center; gap: 8px; }
+nav.site-nav .links a,
+nav.site-nav > a:not(.brand),
+nav.site-nav > .wrap > a:not(.brand) {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 12px;
+  font-size: 15px;
+  color: var(--body);
+  border-radius: var(--r);
+  white-space: nowrap;
+}
+nav.site-nav .links a:hover,
+nav.site-nav > a:not(.brand):hover,
+nav.site-nav > .wrap > a:not(.brand):hover { color: var(--ink); background: var(--surface); }
+/* the last nav link lines up with the content edge */
+nav.site-nav .links { margin-right: -12px; }
+nav.site-nav > .wrap > a:last-child { margin-right: -12px; }
 
 /* footer */
 footer.site-footer { border-top: 1px solid var(--line); padding: 40px 0 calc(40px + env(safe-area-inset-bottom)); font-size: 14px; color: var(--muted); }
@@ -348,6 +423,9 @@ details#cats[open] summary { text-decoration: none; color: var(--muted); }
 @media (min-width: 768px) { .hero { padding-top: 72px; } }
 @media (min-width: 1440px) { .hero { padding-top: 88px; } }
 .hero .grid-5-7 { margin-top: var(--block); }
+/* the developers hero stacks its own children instead of using .stack */
+#dev-page .hero .lead { margin-top: 20px; }
+#dev-page .hero .cta { margin-top: 28px; }
 
 /* billing pages */
 main.plain { padding-top: 64px; padding-bottom: var(--section); min-height: calc(100vh - 56px - 130px); }
@@ -357,3 +435,16 @@ main.plain { padding-top: 64px; padding-bottom: var(--section); min-height: calc
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition: none !important; }
 }
+
+/* text pages (privacy, terms): a reading measure, a calmer heading scale and real paragraph rhythm */
+.textpage { max-width: 68ch; }
+.textpage .section { padding-block: clamp(32px, 5vw, 48px); }
+.textpage .section + .section { border-top: 1px solid var(--line); }
+.textpage h1 { font-size: clamp(32px, 5vw, 44px); max-width: none; }
+.textpage h2 { font-size: clamp(22px, 2.6vw, 28px); max-width: none; margin-bottom: 16px; }
+.textpage h3 { font-size: 18px; margin-bottom: 8px; }
+.textpage p, .textpage li { font-size: 17px; line-height: 1.65; color: var(--body); }
+.textpage p + p, .textpage p + ul, .textpage ul + p, .textpage h2 + p, .textpage h3 + p { margin-top: 14px; }
+.textpage ul { padding-left: 20px; }
+.textpage li + li { margin-top: 8px; }
+.textpage .small { font-size: 15px; }
