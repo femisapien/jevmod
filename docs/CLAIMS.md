@@ -19,8 +19,8 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C01 | / | Rates every message in your Discord server for spam, scams, harassment and five more. | jevmod/core/policy.py:25 | DEFAULT_ACTIONS | yes |
 | C02 | / | Deletes only if you turn that on. | jevmod/core/policy.py:22 | flag | yes |
 | C03 | / | It flags. It does not act until you say so. | jevmod/core/policy.py:25 | DEFAULT_ACTIONS | yes |
-| C04 | / | Every flagged message appears there with its category, its probability and the message. | jevmod/adapters/discord_bot.py:113; jevmod/adapters/discord_bot.py:114 | d.probability; description | yes |
-| C05 | / | Members see nothing. | jevmod/adapters/discord_bot.py:139 | read_messages=False | yes |
+| C04 | / | Every flagged message appears there with its category, its probability and the message. | jevmod/adapters/discord_bot.py:116; jevmod/adapters/discord_bot.py:124 | d.probability; description | yes |
+| C05 | / | Members see nothing. | jevmod/adapters/discord_bot.py:149 | read_messages=False | yes |
 | C06 | / | Nine questions. One number each. | jevmod/core/policy.py:11 | DEFAULT_THRESHOLDS | yes |
 | C07 | / | Every message gets a probability from 0 to 1 for each of these. Over the line for that category, it is flagged. | jevmod/core/policy.py:150 | thresholds.get | yes |
 | C08 | / | A message with nothing to do with the channel's topic. Off by default; /mod set offtopic flag turns it on. | jevmod/core/policy.py:30 | offtopic | yes |
@@ -28,13 +28,13 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C39 | / | A message that reads as assistant output rather than someone typing. Off by default; `/mod set ai_generated flag` turns it on. We measured it: it separates model output from real chat almost perfectly, but it also flags members who write in an encyclopedic register, so it only ever flags and never moves its own line. | jevmod/core/policy.py:34; jevmod/core/policy.py:24; benchmark/ai_detect/REPORT.md:9; tests/test_offline.py::test_ai_generated_is_opt_in_and_not_nudged | ai_generated; EXPERIMENTAL; 0.971; | yes |
 | C39b | / | The live demo is closed right now. The example buttons still show what jevmod answered for them on 2026-09-18; run `jevmod check` with your own key for a live one. | docs/site.js:135 | RECORDED | yes |
 | C10 | / | Add up to five rules in your own words. | jevmod/core/policy.py:71 | >= 5 | yes |
-| C11 | / | Three commands cover most days. | jevmod/adapters/discord_bot.py:221; jevmod/adapters/discord_bot.py:237; jevmod/adapters/discord_bot.py:169 | name="set"; name="rule"; threshold | yes |
-| C12 | / | /mod set scam delete 0.7 moves scam from flagging to deleting, with the line at 0.7. | jevmod/adapters/discord_bot.py:223 | delete | yes |
-| C13 | / | React with the cross on a log entry when the bot was wrong and the line for that category moves up 0.03. The check moves it down 0.02. | jevmod/adapters/discord_bot.py:189 | 0.03 | yes |
-| C14 | / | Time out, 10 minutes, needs Moderate Members. | jevmod/core/policy.py:47; jevmod/adapters/discord_bot.py:96 | timeout_minutes; timeout | yes |
+| C11 | / | Three commands cover most days. | jevmod/adapters/discord_bot.py:231; jevmod/adapters/discord_bot.py:247; jevmod/adapters/discord_bot.py:179 | name="set"; name="rule"; threshold | yes |
+| C12 | / | /mod set scam delete 0.7 moves scam from flagging to deleting, with the line at 0.7. | jevmod/adapters/discord_bot.py:233 | delete | yes |
+| C13 | / | React with the cross on a log entry when the bot was wrong and the line for that category moves up 0.03. The check moves it down 0.02. | jevmod/adapters/discord_bot.py:199 | 0.03 | yes |
+| C14 | / | Time out, 10 minutes, needs Moderate Members. | jevmod/core/policy.py:47; jevmod/adapters/discord_bot.py:98 | timeout_minutes; timeout | yes |
 | C15 | / | It cannot ban anyone. | jevmod/core/policy.py:10 | ACTIONS | yes |
 | C16 | / | Roles you mark as trusted are never judged. | jevmod/adapters/discord_bot.py:65; jevmod/judge.py:87 | trusted_roles; author_trusted | yes |
-| C17 | / | A cross on a log entry. The bot answers: noted: threshold for scam is now 0.78. | jevmod/adapters/discord_bot.py:191; jevmod/core/policy.py:13 | noted: threshold; 0.75 | yes |
+| C17 | / | A cross on a log entry. The bot answers: noted: threshold for scam is now 0.78. | jevmod/adapters/discord_bot.py:201; jevmod/core/policy.py:13 | noted: threshold; 0.75 | yes |
 | C18 | / | Tested on 2,531 public messages with human labels. | BENCHMARK.md:3 | 2,531 | yes |
 | C19 | / | 0.93 harassment, AUROC on OpenAI's moderation set. | BENCHMARK.md:40 | 0.930 | yes |
 | C20 | / | 0.98 sexual content, AUROC on OpenAI's moderation set. | BENCHMARK.md:44 | 0.982 | yes |
@@ -55,7 +55,7 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C35 | / | Messages under eight letters without a link, from trusted roles, or identical to one already judged are settled locally and do not count. | jevmod/judge.py:85; jevmod/judge.py:95 | min_chars; letters < min_chars | yes |
 | C36 | / | For each flagged message the hosted bot keeps the message id, the author id, the category and the probabilities for 30 days, never the text. | deploy/demo/docker-compose.traefik.yml:46; jevmod/core/store.py:32 | never store message text; retention_days | yes |
 | C37 | / | Messages that pass are not kept. | jevmod/core/service.py:76 | log_decision | yes |
-| C38 | / | /mod forget deletes everything, and so does kicking the bot. | jevmod/adapters/discord_bot.py:333; jevmod/adapters/discord_bot.py:196 | delete_tenant; forget everything | yes |
+| C38 | / | /mod forget deletes everything, and so does kicking the bot. | jevmod/adapters/discord_bot.py:343; jevmod/adapters/discord_bot.py:206 | delete_tenant; forget everything | yes |
 
 ## Claims on /developers/
 
@@ -109,17 +109,17 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C91 | /privacy/ | Decision records are kept for 30 days. | jevmod/core/store.py:32 | retention_days | yes |
 | C92 | /privacy/ | Older records are deleted before every batch is judged. | jevmod/core/service.py:52 | purge_expired | yes |
 | C93 | /privacy/ | Your settings (thresholds, actions, rules, trusted roles, channel topics, the id of the log channel) are stored for as long as the bot is in your server. | jevmod/core/store.py:48 | policy | yes |
-| C94 | /privacy/ | Every flagged message is posted to a log channel as an embed that contains the first 500 characters of the message text. | jevmod/adapters/discord_bot.py:114 | content | yes |
-| C95 | /privacy/ | That embed also mentions the author and the channel. | jevmod/adapters/discord_bot.py:117 | author | yes |
-| C96 | /privacy/ | The log channel is created with the everyone role unable to read it. | jevmod/adapters/discord_bot.py:139 | read_messages | yes |
-| C97 | /privacy/ | When a message is deleted or a member is timed out, the member receives a direct message from the bot with the server name, the channel, the category and the confidence, and a note to contact the server's moderators. | jevmod/adapters/discord_bot.py:104 | send | yes |
-| C98 | /privacy/ | /mod forget deletes the server's settings, usage counters, decision records, API keys and subscription row. | jevmod/adapters/discord_bot.py:333 | delete_tenant | yes |
-| C99 | /privacy/ | /mod forget_user @member deletes that member's decision records and replies with how many were removed. | jevmod/adapters/discord_bot.py:341 | delete_user | yes |
-| C100 | /privacy/ | Kicking the bot, or the bot leaving the server, deletes everything stored about that server. | jevmod/adapters/discord_bot.py:197 | delete_tenant | yes |
-| C101 | /privacy/ | All /mod commands require the Manage Server permission. | jevmod/adapters/discord_bot.py:203 | manage_guild | yes |
+| C94 | /privacy/ | Every flagged message is posted to a log channel as an embed that contains the first 500 characters of the message text. | jevmod/adapters/discord_bot.py:124 | content | yes |
+| C95 | /privacy/ | That embed also mentions the author and the channel. | jevmod/adapters/discord_bot.py:114 | author | yes |
+| C96 | /privacy/ | The log channel is created with the everyone role unable to read it. | jevmod/adapters/discord_bot.py:149 | read_messages | yes |
+| C97 | /privacy/ | When a message is deleted or a member is timed out, the member receives a direct message from the bot with the server name, the channel, the category and the confidence, and a note to contact the server's moderators. | jevmod/adapters/discord_bot.py:114 | send | yes |
+| C98 | /privacy/ | /mod forget deletes the server's settings, usage counters, decision records, API keys and subscription row. | jevmod/adapters/discord_bot.py:343 | delete_tenant | yes |
+| C99 | /privacy/ | /mod forget_user @member deletes that member's decision records and replies with how many were removed. | jevmod/adapters/discord_bot.py:351 | delete_user | yes |
+| C100 | /privacy/ | Kicking the bot, or the bot leaving the server, deletes everything stored about that server. | jevmod/adapters/discord_bot.py:207 | delete_tenant | yes |
+| C101 | /privacy/ | All /mod commands require the Manage Server permission. | jevmod/adapters/discord_bot.py:213 | manage_guild | yes |
 | C102 | /privacy/ | Payment for the Pro plan happens on a Stripe Checkout page opened from /mod upgrade. | jevmod/api/billing.py:73 | checkout | yes |
 | C103 | /privacy/ | jevmod stores, per server: the Stripe customer id, the subscription id, the price id, the subscription status and the end of the current period. | jevmod/core/store.py:58 | subscription_id | yes |
-| C104 | /privacy/ | Stripe notifies jevmod of changes through a webhook; when a subscription is cancelled or stops being active the server goes back to the Free plan. | jevmod/api/billing.py:133 | free | yes |
+| C104 | /privacy/ | Stripe notifies jevmod of changes through a webhook; when a subscription is cancelled or stops being active the server goes back to the Free plan. | jevmod/api/billing.py:135 | free | yes |
 | C105 | /privacy/ | Managing or cancelling the subscription happens in Stripe's billing portal, reached through the same /mod upgrade command. | jevmod/api/billing.py:101 | billing_portal | yes |
 | C106 | /privacy/ | The demo on the front page accepts up to 300 characters of text. | jevmod/api/demo.py:35 | MAX_CHARS | yes |
 | C107 | /privacy/ | Each check is logged by the operator with the text, the category, the probabilities, a hash of your IP address, the country header set by the proxy, and the number of tokens it cost. | jevmod/api/demo.py:57 | ip_hash | yes |
@@ -131,15 +131,15 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C125 | /privacy/ | The invite link asks for those eight permissions and no others. | PRODUCT.md:80; docs/index.html:26 | 1099511721040 | yes |
 | C112 | /privacy/ | A self-hosted copy keeps up to 300 characters of each flagged message by default; set JEVMOD_KEEP_TEXT_CHARS=0 to keep none. | jevmod/core/store.py:40 | JEVMOD_KEEP_TEXT_CHARS | yes |
 | C113 | /privacy/ | View Channels: to receive the messages it judges. | jevmod/adapters/discord_bot.py:78 | on_message | yes |
-| C114 | /privacy/ | Send Messages: to post decisions in the log channel. | jevmod/adapters/discord_bot.py:120 | send | yes |
-| C115 | /privacy/ | Manage Channels: to create the private #jevmod-log channel the first time it needs it. | jevmod/adapters/discord_bot.py:148 | create_text_channel | yes |
-| C116 | /privacy/ | Manage Messages: to delete a message, only when you set a category or rule to delete or timeout. | jevmod/adapters/discord_bot.py:93 | delete | yes |
-| C117 | /privacy/ | Moderate Members: to time a member out, only when you set a category or rule to timeout. | jevmod/adapters/discord_bot.py:96 | timeout | yes |
-| C118 | /privacy/ | Add Reactions: to add the reactions under each log entry. | jevmod/adapters/discord_bot.py:121 | add_reaction | yes |
-| C119 | /privacy/ | Embed Links: the log entry is an embed. | jevmod/adapters/discord_bot.py:112 | Embed | yes |
-| C120 | /privacy/ | Read Message History: to fetch the log entry you reacted to, so it can adjust the threshold. | jevmod/adapters/discord_bot.py:183 | fetch_message | yes |
+| C114 | /privacy/ | Send Messages: to post decisions in the log channel. | jevmod/adapters/discord_bot.py:114 | send | yes |
+| C115 | /privacy/ | Manage Channels: to create the private #jevmod-log channel the first time it needs it. | jevmod/adapters/discord_bot.py:158 | create_text_channel | yes |
+| C116 | /privacy/ | Manage Messages: to delete a message, only when you set a category or rule to delete or timeout. | jevmod/adapters/discord_bot.py:98 | delete | yes |
+| C117 | /privacy/ | Moderate Members: to time a member out, only when you set a category or rule to timeout. | jevmod/adapters/discord_bot.py:98 | timeout | yes |
+| C118 | /privacy/ | Add Reactions: to add the reactions under each log entry. | jevmod/adapters/discord_bot.py:131 | add_reaction | yes |
+| C119 | /privacy/ | Embed Links: the log entry is an embed. | jevmod/adapters/discord_bot.py:122 | Embed | yes |
+| C120 | /privacy/ | Read Message History: to fetch the log entry you reacted to, so it can adjust the threshold. | jevmod/adapters/discord_bot.py:193 | fetch_message | yes |
 | C121 | /privacy/ | Message Content intent: without it Discord does not deliver message text to bots. | jevmod/adapters/discord_bot.py:25 | message_content | yes |
-| C122 | /privacy/ | If a permission is missing, the bot records "missing permissions to act" in the log entry and does nothing else. | jevmod/adapters/discord_bot.py:101 | missing permissions | yes |
+| C122 | /privacy/ | If a permission is missing, the bot records "missing permissions to act" in the log entry and does nothing else. | jevmod/adapters/discord_bot.py:110 | missing permissions | yes |
 | C123 | /privacy/ | The bot has no code path that bans anyone; the only actions it knows are off, flag, delete and timeout. | jevmod/core/policy.py:10 | ACTIONS | yes |
 
 ## Claims on /terms/
@@ -151,7 +151,7 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C132 | /terms/ | jevmod is an independent project by Omar Hernandez and is not affiliated with TypeSafe, Discord, Telegram or Reddit. | DISCLAIMER.md:16 | affiliation | yes |
 | C133 | /terms/ | By default every category except offtopic is set to flag: the message is reported to your log channel and nothing else happens. | jevmod/core/policy.py:25 | DEFAULT_ACTIONS | yes |
 | C134 | /terms/ | The offtopic category is off by default. | jevmod/core/policy.py:30 | offtopic | yes |
-| C135 | /terms/ | The bot deletes a message or times a member out only for a category or rule you have set to delete or timeout with /mod set or /mod rule. | jevmod/adapters/discord_bot.py:223 | timeout | yes |
+| C135 | /terms/ | The bot deletes a message or times a member out only for a category or rule you have set to delete or timeout with /mod set or /mod rule. | jevmod/adapters/discord_bot.py:233 | timeout | yes |
 | C136 | /terms/ | A time out lasts 10 minutes. | jevmod/core/policy.py:47 | timeout_minutes | yes |
 | C137 | /terms/ | The bot never bans anyone: its only actions are off, flag, delete and timeout. | jevmod/core/policy.py:10 | ACTIONS | yes |
 | C138 | /terms/ | Thresholds go from 0.50 to 0.99. | jevmod/core/policy.py:163 | 0.99 | yes |
@@ -162,11 +162,11 @@ Id ranges: C01 to C39 belong to `/`, C40 to C79 to `/developers/`, C80 and up to
 | C143 | /terms/ | The Pro plan costs $3.99 per server per month. | PRODUCT.md:71 | 3.99 | yes |
 | C144 | /terms/ | Pro covers 50,000 judged messages per server per month. | .env.example:41 | 50000 | yes |
 | C145 | /terms/ | Judged means sent to the model: the counter grows only by messages the model receives, so messages skipped by the local filters or answered from the cache do not count. | jevmod/core/service.py:69 | judged_messages | yes |
-| C146 | /terms/ | When a server reaches its quota, judging pauses until the next calendar month and nothing is deleted while paused. | jevmod/adapters/discord_bot.py:162 | Nothing is deleted | yes |
-| C147 | /terms/ | The bot posts one notice in the log channel the first time a month the quota is reached. | jevmod/adapters/discord_bot.py:156 | note_quota_hit | yes |
+| C146 | /terms/ | When a server reaches its quota, judging pauses until the next calendar month and nothing is deleted while paused. | jevmod/adapters/discord_bot.py:172 | Nothing is deleted | yes |
+| C147 | /terms/ | The bot posts one notice in the log channel the first time a month the quota is reached. | jevmod/adapters/discord_bot.py:166 | note_quota_hit | yes |
 | C148 | /terms/ | Pro is a monthly subscription paid through Stripe Checkout, one price per server, started with /mod upgrade. | jevmod/api/billing.py:82 | subscription | yes |
 | C149 | /terms/ | You can cancel at any time from Stripe's billing portal, reached with the same /mod upgrade command once you subscribe. | jevmod/api/billing.py:101 | billing_portal | yes |
-| C150 | /terms/ | When the subscription ends the server returns to the Free plan. | jevmod/api/billing.py:133 | free | yes |
+| C150 | /terms/ | When the subscription ends the server returns to the Free plan. | jevmod/api/billing.py:135 | free | yes |
 | C151 | /terms/ | A period already paid is not refunded, except by writing to the operator through the contact below; refunds are handled by hand. | PRODUCT.md:82 | refunds are manual | yes |
 | C152 | /terms/ | There is no service level agreement; jevmod is not the right tool if you need one. | DISCLAIMER.md:24 | SLA | yes |
 | C153 | /terms/ | If the model cannot be reached, the bot takes no action on that batch of messages and lets them through. | jevmod/core/service.py:67 | error_open | yes |
