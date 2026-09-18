@@ -3,7 +3,20 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CATEGORIES, CATEGORY_NAMES, cacheKey, htmlUnescape, isCombining, normalize, prefilter, pyRepr } from "../src/index.js";
+import {
+  CATEGORIES,
+  CATEGORY_NAMES,
+  DEFAULT_ACTIONS,
+  DEFAULT_THRESHOLDS,
+  EXPERIMENTAL,
+  Policy,
+  cacheKey,
+  htmlUnescape,
+  isCombining,
+  normalize,
+  prefilter,
+  pyRepr,
+} from "../src/index.js";
 
 describe("prefilter", () => {
   it("skips trusted authors, empty and tiny messages, never links", () => {
@@ -80,7 +93,29 @@ describe("categories.json", () => {
       // published package or a checkout without the Python side: nothing to compare against
     }
     if (theirs !== null) expect(ours).toBe(theirs);
-    expect(CATEGORY_NAMES).toEqual(["spam", "scam", "harassment", "nsfw", "offtopic", "selfharm", "doxxing", "minors"]);
+    expect(CATEGORY_NAMES).toEqual([
+      "spam",
+      "scam",
+      "harassment",
+      "nsfw",
+      "offtopic",
+      "selfharm",
+      "doxxing",
+      "minors",
+      "ai_generated",
+    ]);
+    // Every category needs a threshold and an action, or the npm port silently judges what the Python one does
+    // not, or vice versa. This is the check that caught ai_generated missing from both defaults.
+    for (const c of CATEGORY_NAMES) {
+      expect(DEFAULT_THRESHOLDS[c]).toBeGreaterThan(0);
+      expect(DEFAULT_ACTIONS[c]).toBeDefined();
+    }
+    // Experimental categories ship off, and feedback never moves their threshold.
+    for (const c of EXPERIMENTAL) {
+      expect(DEFAULT_ACTIONS[c as (typeof CATEGORY_NAMES)[number]]).toBe("off");
+      const p = new Policy({});
+      expect(p.nudge(c, 0.03)).toBe(DEFAULT_THRESHOLDS[c as (typeof CATEGORY_NAMES)[number]]);
+    }
     for (const c of CATEGORY_NAMES) {
       expect(CATEGORIES[c].instructions).toContain("{m}");
       expect(CATEGORIES[c].criteria.true.length).toBeGreaterThan(0);
