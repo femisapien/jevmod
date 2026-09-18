@@ -146,7 +146,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Co
 | `POST /v1/keys` (admin) | mint a tenant key, stored hashed |
 | `GET /v1/health`, `GET /metrics` | liveness, Prometheus counters |
 
-OpenAPI at `/docs`, a Postman collection in `postman/`. Any chatbot, forum or comment system that can make an HTTP
+OpenAPI at `/docs` on a running server (a static copy at [docs/openapi.json](docs/openapi.json)), a Postman collection at [postman/jevmod.postman_collection.json](postman/jevmod.postman_collection.json). Any chatbot, forum or comment system that can make an HTTP
 call can use it; the bots are adapters over the same service.
 
 ### Examples, one folder per surface
