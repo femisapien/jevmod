@@ -40,8 +40,7 @@ cd /opt/jevmod/deploy/demo && export $(grep DEMO_HOST .env)
 sudo -E docker compose -f docker-compose.traefik.yml up -d --build
 ```
 
-Deployed 2026-09-18 on Omar's Hetzner box as `jevmod-demo` (host `65-108-95-94.sslip.io`, to become
-`jevmod.hernandezbastos.es` once the A record exists).
+Deployed 2026-09-18 on Omar's Hetzner box as `jevmod-demo` (host `jevmod.hernandezbastos.es`, its own TypeSafe key).
 
 ## Day to day
 
