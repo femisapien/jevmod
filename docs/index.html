@@ -51,8 +51,8 @@
   @media (max-width: 640px) { header.hero { padding: 48px 0 48px; } }
   .hero-grid { display: grid; grid-template-columns: 6fr 5fr; gap: 64px; align-items: start; }
   @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 48px; } }
-  .hero-grid h1 { font-size: 56px; }
-  @media (max-width: 640px) { .hero-grid h1 { font-size: 40px; } }
+  .hero-grid h1 { font-size: 48px; max-width: none; }
+  @media (max-width: 640px) { .hero-grid h1 { font-size: 36px; } }
   .try .panel { margin-top: 16px; position: static; }
   .try .panel .q { min-height: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -94,8 +94,8 @@
   @media (max-width: 900px) { .calc { grid-template-columns: 1fr; gap: 48px; } }
   .field { margin-bottom: 32px; }
   .field label { display: block; font-size: 14px; color: var(--body); margin-bottom: 8px; }
-  .field input[type=number] { width: 100%; height: 40px; padding: 0 12px; font: 400 14px var(--mono); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 0; }
-  .field input[type=number]:hover { border-color: #A1A1AA; } .field input[type=number]:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
+  .field input[type=number], .field input[type=text] { width: 100%; height: 40px; padding: 0 12px; font: 400 14px var(--mono); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 0; }
+  .field input[type=number]:hover, .field input[type=text]:hover { border-color: #A1A1AA; } .field input[type=number]:focus, .field input[type=text]:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
   .field input[type=range] { width: 100%; margin: 16px 0 0; accent-color: var(--ink); }
   .field .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
   table.cost { width: 100%; border-collapse: collapse; }
@@ -109,10 +109,11 @@
   @media (max-width: 640px) { table.cost, table.cost tbody, table.cost tr, table.cost td { display: block; } table.cost thead { display: none; } table.cost td { padding: 6px 0; border: 0; } table.cost td.sys { width: auto; padding-right: 0; } table.cost tr { padding: 20px 0; border-bottom: 1px solid var(--line-soft); display: block; } table.cost td.out { text-align: left; padding-left: 0; } }
 
   /* doors */
-  .door { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; padding: 48px 0; border-top: 1px solid var(--line-soft); }
+  .door { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; padding: 48px 0; border-top: 1px solid var(--line-soft); align-items: start; }
+  .door pre { align-self: start; }
   .door:first-of-type { border-top: 0; padding-top: 0; }
   @media (max-width: 900px) { .door { grid-template-columns: 1fr; gap: 24px; padding: 32px 0; } }
-  .door .who { font: 400 12px/1.5 var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 12px; }
+  .door .who { font: 600 14px/1.5 var(--sans); color: var(--ink); margin-bottom: 8px; }
   .door p { max-width: 46ch; }
   .door p + p { margin-top: 12px; }
 
@@ -223,7 +224,7 @@
   <div class="hero-grid">
     <div>
       <h1>A probability for every message. You set the line.</h1>
-      <p class="lead">jevmod moderates Discord, Telegram, Reddit and any app with user content: spam, scam, harassment, five more categories and rules in your own words. One Jev request per batch, thresholds and actions you own, every decision logged with its numbers.</p>
+      <p class="lead">Moderation for Discord, Telegram, Reddit and any app with user text: eight categories, rules in your own words, thresholds you own, every decision logged.</p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
         <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
@@ -253,7 +254,7 @@
         <div class="bars" id="bars"></div>
         <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
       </div>
-      <p id="liveNote" class="cap live-note">Your text is sent to this project's demo server and to TypeSafe's API for judgment, and is kept in the demo log with a hashed IP so the author can see what people try. Do not paste anything private.</p>
+      <p id="liveNote" class="cap live-note">Your text goes to this demo server and to TypeSafe's API, and stays in the demo log with a hashed IP so the author can see what people try. Do not paste anything private.</p>
     </div>
   </div>
 
@@ -270,9 +271,9 @@
       <p class="d">On OpenAI's human-labelled moderation set. <b>Best in every category</b> it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</p>
     </div>
     <div>
-      <div class="k">time</div>
-      <div class="n">1<small>command to try</small></div>
-      <p class="d"><code class="i">jevmod check "text"</code> with your key in the environment. Bots ship <b>flag-only by default</b>; two reactions a day on the log move the thresholds to where your community wants them.</p>
+      <div class="k">coverage</div>
+      <div class="n">8<small>categories, plus your rules in plain English</small></div>
+      <p class="d">spam, scam, harassment, nsfw, off-topic, self-harm, doxxing, minors. One yes/no question each, all in one request. <b>Flag-only by default</b>; two reactions a day on the log move the thresholds.</p>
     </div>
   </div>
 
@@ -295,8 +296,8 @@
         </div>
         <div class="field">
           <label for="gpu">Rented GPU price, $ per hour</label>
-          <input id="gpu" type="number" min="0.05" max="20" step="0.05" value="0.30" inputmode="decimal">
-          <p class="hint">Used for the Llama Guard row. $0.30 is the benchmark's assumption for a consumer-class card; a cloud A10G or L4 is $0.50 to $1.20 an hour at list.</p>
+          <input id="gpu" type="text" value="0.30" inputmode="decimal" autocomplete="off" aria-describedby="gpuHint">
+          <p class="hint" id="gpuHint">Used for the Llama Guard row. $0.30 is the benchmark's assumption for a consumer-class card; a cloud A10G or L4 is $0.50 to $1.20 an hour at list.</p>
         </div>
       </div>
       <table class="cost" aria-live="polite">
@@ -320,7 +321,7 @@
         </tbody>
       </table>
     </div>
-    <p class="note cap">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard were measured in <code class="i">benchmark/</code> on 2,531 public messages (RTX 5080). $0.042 per million input tokens is Jev's list price. $1 per million input tokens is Claude Haiku 4.5's list price; the 1.2 factor is a prompt-overhead estimate and output tokens are not counted. The Llama Guard row bills compute seconds only; a GPU rented by the hour also bills idle time, and does not include ShieldGemma or toxic-bert because they cover two categories.</p>
+    <p class="note cap">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard, measured on 2,531 messages (RTX 5080); Jev $0.042 and Claude Haiku 4.5 $1.00 per million input tokens at list price; the 1.2 factor is prompt overhead. Details in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
   </div>
 </section>
 
@@ -330,7 +331,7 @@
     <p class="sub">Same questions, same thresholds and the same audit log whether a bot, a script or an agent asks. Judgments come from <a href="https://typesafe.ai">Jev</a>, TypeSafe's System One model, so you need their API key.</p>
     <div class="door">
       <div>
-        <div class="who">community owner</div>
+        <div class="who">Community owner</div>
         <h4>Invite a bot and tune it with commands.</h4>
         <p>The Discord bot creates a private log channel and starts flagging. <code class="i">/mod set scam delete 0.7</code> changes a threshold, <code class="i">/mod rule</code> adds a rule in plain language. React on a log entry to mark a false positive and the threshold moves a notch.</p>
         <p>Telegram has <code class="i">/mod_status</code>, <code class="i">/mod_set</code>, <code class="i">/mod_rule</code>, <code class="i">/mod_topic</code> and <code class="i">/mod_log</code>. The Reddit adapter is configured by environment variables only.</p>
@@ -342,7 +343,7 @@ jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit<
     </div>
     <div class="door">
       <div>
-        <div class="who">developer</div>
+        <div class="who">Developer</div>
         <h4>A function, a CLI or one HTTP call.</h4>
         <p>Python and npm packages ask Jev the questions in <code class="i">categories.json</code>. The CLI exits 1 when something triggers, so it fits a shell script or a CI job. The HTTP API is one Docker image with SQLite on a volume.</p>
       </div>
@@ -360,7 +361,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
     </div>
     <div class="door">
       <div>
-        <div class="who">agent</div>
+        <div class="who">Agent</div>
         <h4>An MCP server and a skill.</h4>
         <p>A coding agent registers <code class="i">jevmod mcp</code> and gets two tools, <code class="i">moderate</code> and <code class="i">categories</code>. <code class="i">AGENTS.md</code> and the Claude Code skill describe how to add moderation to an existing codebase: pick the surface, wire the key, add the tests.</p>
       </div>
@@ -489,7 +490,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
   const fmt$ = v => v < 0.01 ? "$" + v.toFixed(4) : v < 1 ? "$" + v.toFixed(3) : v < 100 ? "$" + v.toFixed(2) : "$" + Math.round(v).toLocaleString("en-US");
   const vol = document.getElementById("vol"), range = document.getElementById("msgsRange"), gpu = document.getElementById("gpu");
   function calc() {
-    const n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, +gpu.value || 0);
+    const n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, parseFloat(String(gpu.value).replace(",", ".")) || 0);
     const jev = n * TOK * JEV_PER_M / 1e6, llm = n * TOK * OVERHEAD * LLM_PER_M / 1e6, lg = n * LG_MS / 3.6e6 * g;
     document.getElementById("m-jev").textContent = `${fmtN(n)} x 1,005 tokens x $0.042 / 1M`;
     document.getElementById("o-jev").innerHTML = `${fmt$(jev)}<small>${fmt$(jev / Math.max(n, 1) * 1000)} per 1,000</small>`;
