@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="1000" height="500" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="jevmod request flow: prefilter, cache, batch, one Jev request, probabilities, policy, action, audit log">
+<title>jevmod request flow: prefilter, cache, batch, one Jev request, probabilities, policy, action, audit log</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a9099"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf83"/></marker></defs>
+<rect width="1000" height="500" fill="#131416"/>
+<text x="32" y="40" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">request flow</text>
+<text x="32" y="68" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#a3a8b1" text-anchor="start">What happens to one message. Anything the prefilter or the cache answers never leaves the machine.</text>
+<rect x="32" y="104" width="140" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="46" y="130" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">message</text>
+<text x="46" y="151" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">text, topic</text>
+<line x1="176" y1="136" x2="190" y2="136" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="194" y="104" width="176" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="208" y="130" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">prefilter</text>
+<text x="208" y="151" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">8+ letters, untrusted</text>
+<line x1="374" y1="136" x2="388" y2="136" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="392" y="104" width="150" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="406" y="130" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">cache</text>
+<text x="406" y="151" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">same text, reuse</text>
+<line x1="546" y1="136" x2="560" y2="136" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="564" y="104" width="160" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="578" y="130" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">batch</text>
+<text x="578" y="151" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">2 s, up to 50 msgs</text>
+<line x1="728" y1="136" x2="742" y2="136" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="746" y="104" width="190" height="64" rx="6" fill="#191b1e" stroke="#2fbf83" stroke-width="1.5"/>
+<text x="760" y="130" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">one Jev request</text>
+<text x="760" y="151" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">all enabled categories</text>
+<path d="M282,168 L282,226" fill="none" stroke="#8a9099" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+<path d="M467,168 L467,226" fill="none" stroke="#8a9099" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+<rect x="32" y="230" width="440" height="64" rx="6" fill="#131416" stroke="#34383e" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="46" y="256" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">not sent to Jev</text>
+<text x="46" y="277" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">under 8 letters and no link, trusted author, repeat</text>
+<path d="M841,168 L841,226" fill="none" stroke="#2fbf83" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#arrow-accent)"/>
+<rect x="500" y="230" width="436" height="64" rx="6" fill="#131416" stroke="#2fbf83" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="514" y="256" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">Jev unreachable: fail open</text>
+<text x="514" y="277" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">action none, reason "error_open", one warning per batch</text>
+<path d="M936,136 L968,136 L968,388 L940,388" fill="none" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="746" y="356" width="190" height="64" rx="6" fill="#191b1e" stroke="#2fbf83" stroke-width="1.5"/>
+<text x="760" y="382" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">probabilities</text>
+<text x="760" y="403" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">one per category</text>
+<line x1="742" y1="388" x2="728" y2="388" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="554" y="356" width="170" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="568" y="382" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">policy</text>
+<text x="568" y="403" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">thresholds, rules</text>
+<line x1="550" y1="388" x2="536" y2="388" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="342" y="356" width="190" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="356" y="382" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">action</text>
+<text x="356" y="403" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag, delete, timeout</text>
+<line x1="338" y1="388" x2="324" y2="388" stroke="#8a9099" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="140" y="356" width="180" height="64" rx="6" fill="#191b1e" stroke="#34383e" stroke-width="1.5"/>
+<text x="154" y="382" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8eaed" text-anchor="start">audit log</text>
+<text x="154" y="403" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">probabilities + action</text>
+<text x="32" y="462" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">Measured on the benchmark: 1,005 input tokens per judged message with seven categories, 22 ms per message in batches of 25.</text>
+</svg>

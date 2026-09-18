@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 998 508" width="998" height="508" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="jevmod coverage: eight categories and custom rules on every surface">
+<title>jevmod coverage: eight categories and custom rules on every surface</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a9099"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf83"/></marker></defs>
+<rect width="998" height="508" fill="#131416"/>
+<text x="32" y="40" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#8a9099" text-anchor="start">coverage</text>
+<text x="32" y="68" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#a3a8b1" text-anchor="start">One set of questions (categories.json) on every surface. Default action and threshold in the second column.</text>
+<text x="306.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">Discord</text>
+<text x="394.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">Telegram</text>
+<text x="482.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">Reddit</text>
+<text x="570.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">CLI</text>
+<text x="658.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">Python</text>
+<text x="746.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">npm</text>
+<text x="834.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">HTTP</text>
+<text x="922.0" y="120" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="13" font-weight="400" fill="#a3a8b1" text-anchor="middle">MCP</text>
+<line x1="32" y1="132" x2="966" y2="132" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="154" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">spam</text>
+<text x="126" y="154" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.85</text>
+<rect x="300.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="143" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="166" x2="966" y2="166" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="188" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">scam</text>
+<text x="126" y="188" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.75</text>
+<rect x="300.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="177" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="200" x2="966" y2="200" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="222" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">harassment</text>
+<text x="126" y="222" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.75</text>
+<rect x="300.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="211" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="234" x2="966" y2="234" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="256" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">nsfw</text>
+<text x="126" y="256" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.80</text>
+<rect x="300.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="245" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="268" x2="966" y2="268" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="290" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">offtopic</text>
+<text x="126" y="290" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">off, needs topic</text>
+<rect x="300.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="388.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="476.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="564.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="652.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="740.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="828.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<rect x="916.0" y="279" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<line x1="32" y1="302" x2="966" y2="302" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="324" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">selfharm</text>
+<text x="126" y="324" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.80, never punish</text>
+<rect x="300.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="313" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="336" x2="966" y2="336" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="358" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">doxxing</text>
+<text x="126" y="358" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.80</text>
+<rect x="300.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="347" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="370" x2="966" y2="370" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="392" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">minors</text>
+<text x="126" y="392" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.70</text>
+<rect x="300.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="381" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="404" x2="966" y2="404" stroke="#2a2d32" stroke-width="1"/>
+<text x="32" y="426" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="14" font-weight="500" fill="#e8eaed" text-anchor="start">rule:&lt;name&gt;</text>
+<text x="126" y="426" font-family="'Geist Mono', Consolas, 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#8a9099" text-anchor="start">flag 0.80, up to 5</text>
+<rect x="300.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="388.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="476.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="564.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="652.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="740.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="828.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<rect x="916.0" y="415" width="12" height="12" rx="2" fill="#2fbf83"/>
+<line x1="32" y1="438" x2="966" y2="438" stroke="#2a2d32" stroke-width="1"/>
+<rect x="32" y="462" width="12" height="12" rx="2" fill="#2fbf83"/>
+<text x="52" y="472" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">on by default</text>
+<rect x="160" y="462" width="12" height="12" rx="2" fill="none" stroke="#2fbf83" stroke-width="1.5"/>
+<text x="180" y="472" font-family="Geist, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#8a9099" text-anchor="start">available, off until a channel topic is set</text>
+</svg>

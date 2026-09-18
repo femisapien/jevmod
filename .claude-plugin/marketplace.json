@@ -1,0 +1,16 @@
+{
+  "name": "jevmod",
+  "description": "Content moderation powered by Jev (TypeSafe): skills and an MCP server so a coding agent can add spam/scam/harassment/nsfw/self-harm/doxxing/minors moderation to any codebase.",
+  "owner": {
+    "name": "Omar Hernandez"
+  },
+  "plugins": [
+    {
+      "name": "jevmod",
+      "source": "./plugin",
+      "description": "jevmod-integrate adds moderation to an existing codebase (Python SDK, npm, HTTP API or MCP; key handling; a real test). jevmod-moderate screens text or datasets with `jevmod check` or the MCP tools. Registers the `jevmod mcp` stdio server.",
+      "category": "moderation",
+      "tags": ["moderation", "content-safety", "typesafe", "jev", "discord", "mcp"]
+    }
+  ]
+}

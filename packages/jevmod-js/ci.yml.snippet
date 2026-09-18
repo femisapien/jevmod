@@ -1,0 +1,22 @@
+# Paste into the root workflow under `jobs:`. Needs the repository secret TYPESAFE_API_KEY; without it the
+# live tests skip and only the offline ones run.
+  jevmod-js:
+    name: npm package (jevmod)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/jevmod-js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/jevmod-js/package-lock.json
+      - run: npm ci
+      - run: npm run sync-categories && git diff --exit-code -- src/categories.json
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: npx vitest run
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}

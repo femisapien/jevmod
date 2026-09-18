@@ -1,5 +1,6 @@
-"""`python -m jevmod` / `jevmod`: `check` judges text from the terminal; `api`, `discord`, `telegram`, `reddit`
-start that role (default role from JEVMOD_ROLE, then `api`)."""
+"""`python -m jevmod` / `jevmod`: `check` judges text from the terminal, `init` stores the key, `mcp` serves the
+MCP tools over stdio; `api`, `discord`, `telegram`, `reddit` start that role (default role from JEVMOD_ROLE, then
+`api`)."""
 
 from __future__ import annotations
 
@@ -25,8 +26,12 @@ def run_role(role: str) -> None:
         from .adapters.reddit_bot import run
 
         run()
+    elif role == "mcp":
+        from .mcp_server import main as run
+
+        run()
     else:
-        raise SystemExit(f"unknown role {role!r}; use check | api | discord | telegram | reddit")
+        raise SystemExit(f"unknown role {role!r}; use check | init | mcp | api | discord | telegram | reddit")
 
 
 def main() -> None:

@@ -32,6 +32,8 @@ from typing import Any
 
 from typesafe_sdk import Noul, NoulAnswer, RetryPolicy, TypeSafeClient
 
+from .keys import get_api_key
+
 # The questions live in categories.json so every implementation (Python, npm, MCP) asks Jev exactly the same thing.
 CATEGORIES: dict[str, dict[str, Any]] = json.loads(
     (Path(__file__).with_name("categories.json")).read_text(encoding="utf-8")
@@ -98,6 +100,7 @@ def prefilter(m: Message, min_chars: int = 8) -> str | None:
 class Judge:
     def __init__(self, client: TypeSafeClient | None = None, cache_ttl_s: int = 86400, timeout_s: float = 20.0) -> None:
         self.client = client or TypeSafeClient(
+            api_key=get_api_key(),
             retry=RetryPolicy(
                 max_retries=3, backoff_initial=0.5, backoff_max=8.0, http_statuses={429, 500, 502, 503, 504, 529}
             ),

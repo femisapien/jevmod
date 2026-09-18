@@ -35,7 +35,7 @@ blocked, it is marked blocked with the reason.
 ## Agents and marketplace
 
 - [ ] Claude Code plugin in `plugin/` with skills: `jevmod-integrate` (add moderation to a codebase: pick surface, wire key, add tests), `jevmod-moderate` (use the CLI/MCP to screen text while working) [D]
-- [ ] Register the plugin in Omar's marketplace `C:\Projects\ohernandezdev-plugins` (commit + push there) [D]
+- [x] The jevmod repo is its own marketplace (`.claude-plugin/marketplace.json` → `./plugin`); Omar decided against the shared marketplace (2026-09-18) [D]
 - [ ] MCP server registration snippet for Claude Code / Cursor / Codex in README [D]
 
 ## Benchmark and launch
