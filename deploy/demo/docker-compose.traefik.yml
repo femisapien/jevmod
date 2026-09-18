@@ -1,6 +1,10 @@
-# Public demo behind an existing Traefik (Coolify's proxy): no ports published, TLS from the `letsencrypt` resolver.
+# Public site + demo behind an existing Traefik (Coolify's proxy): no ports published, TLS from the `letsencrypt`
+# resolver, one certificate per host (HTTP-01), so a wildcard DNS record is enough and no DNS API is needed.
+#   DEMO_HOST   canonical host, e.g. jevmod.dev
+#   ALT_HOST_1  redirects permanently to the canonical host, e.g. www.jevmod.dev
+#   ALT_HOST_2  another one, e.g. jevmod.hernandezbastos.es (the old host); set both, repeat DEMO_HOST if unused
 #   cd deploy/demo && cp ../../.env.example .env   (fill it)
-#   DEMO_HOST=jevmod.example.com docker compose -f docker-compose.traefik.yml up -d --build
+#   export $(grep -E "^(DEMO_HOST|ALT_HOST_1|ALT_HOST_2)=" .env) && sudo -E docker compose -f docker-compose.traefik.yml up -d --build
 services:
   demo:
     build: ../..
@@ -23,13 +27,14 @@ services:
       traefik.http.routers.jevmod-demo-http.priority: "10"
       traefik.http.routers.jevmod-demo-http.middlewares: jevmod-demo-https
       traefik.http.middlewares.jevmod-demo-https.redirectscheme.scheme: https
+      traefik.http.middlewares.jevmod-demo-https.redirectscheme.permanent: "true"
       traefik.http.routers.jevmod-demo-https.entrypoints: https
       traefik.http.routers.jevmod-demo-https.rule: Host(`${DEMO_HOST}`) && PathPrefix(`/demo/`)
       traefik.http.routers.jevmod-demo-https.priority: "10"
       traefik.http.routers.jevmod-demo-https.tls: "true"
       traefik.http.routers.jevmod-demo-https.tls.certresolver: letsencrypt
       traefik.http.services.jevmod-demo.loadbalancer.server.port: "8080"
-  # The landing page itself (docs/) on the same host; /demo/* goes to the demo, everything else here.
+  # The landing page (docs/) with nginx on the canonical host; /demo/* goes to the demo container (priority 10 > 1).
   site:
     image: nginx:alpine
     container_name: jevmod-site
@@ -44,12 +49,27 @@ services:
       traefik.http.routers.jevmod-site-http.priority: "1"
       traefik.http.routers.jevmod-site-http.middlewares: jevmod-site-https
       traefik.http.middlewares.jevmod-site-https.redirectscheme.scheme: https
+      traefik.http.middlewares.jevmod-site-https.redirectscheme.permanent: "true"
       traefik.http.routers.jevmod-site-https.entrypoints: https
       traefik.http.routers.jevmod-site-https.rule: Host(`${DEMO_HOST}`)
       traefik.http.routers.jevmod-site-https.priority: "1"
       traefik.http.routers.jevmod-site-https.tls: "true"
       traefik.http.routers.jevmod-site-https.tls.certresolver: letsencrypt
       traefik.http.services.jevmod-site.loadbalancer.server.port: "80"
+      # Alternate hosts get their own certificate and a permanent redirect to the canonical host.
+      traefik.http.routers.jevmod-alt-http.entrypoints: http
+      traefik.http.routers.jevmod-alt-http.rule: Host(`${ALT_HOST_1}`) || Host(`${ALT_HOST_2}`)
+      traefik.http.routers.jevmod-alt-http.priority: "5"
+      traefik.http.routers.jevmod-alt-http.middlewares: jevmod-canonical
+      traefik.http.routers.jevmod-alt-https.entrypoints: https
+      traefik.http.routers.jevmod-alt-https.rule: Host(`${ALT_HOST_1}`) || Host(`${ALT_HOST_2}`)
+      traefik.http.routers.jevmod-alt-https.priority: "5"
+      traefik.http.routers.jevmod-alt-https.tls: "true"
+      traefik.http.routers.jevmod-alt-https.tls.certresolver: letsencrypt
+      traefik.http.routers.jevmod-alt-https.middlewares: jevmod-canonical
+      traefik.http.middlewares.jevmod-canonical.redirectregex.regex: ^https?://[^/]+/(.*)
+      traefik.http.middlewares.jevmod-canonical.redirectregex.replacement: https://${DEMO_HOST}/$${1}
+      traefik.http.middlewares.jevmod-canonical.redirectregex.permanent: "true"
 networks:
   coolify:
     external: true

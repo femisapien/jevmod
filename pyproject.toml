@@ -28,7 +28,8 @@ dev = ["pytest", "ruff", "mypy", "httpx"]
 jevmod = "jevmod.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/ohernandezdev/jevmod"
+Homepage = "https://jevmod.dev"
+Repository = "https://github.com/ohernandezdev/jevmod"
 
 [tool.setuptools.packages.find]
 include = ["jevmod*"]

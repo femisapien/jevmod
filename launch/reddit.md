@@ -1,7 +1,7 @@
 # Reddit posts (drafts)
 
 Targets, in order: r/Discord_Bots (main), r/selfhosted, r/Python (the package angle), r/opensource. One post per
-subreddit, adapted; do not cross-post the same text the same day. Repo: https://github.com/ohernandezdev/jevmod. Site and live demo: https://jevmod.hernandezbastos.es.
+subreddit, adapted; do not cross-post the same text the same day. Repo: https://github.com/ohernandezdev/jevmod. Site and live demo: https://jevmod.dev.
 
 ---
 
@@ -30,7 +30,7 @@ I benchmarked it against Llama Guard 3, ShieldGemma and toxic-bert on 2,531 publ
 Self-host with Docker in one command, or `pip install "jevmod[discord]"`. Telegram and Reddit adapters are in the same package. MIT.
 
 Repo: https://github.com/ohernandezdev/jevmod
-Live demo (paste a message, see the probabilities, nothing to install): https://jevmod.hernandezbastos.es
+Live demo (paste a message, see the probabilities, nothing to install): https://jevmod.dev
 
 Happy to answer anything, and if it flags something dumb on your server I want the example.
 

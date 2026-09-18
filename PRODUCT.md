@@ -63,5 +63,5 @@ blocked, it is marked blocked with the reason.
 
 ## Notes
 
-- The landing is served from https://jevmod.hernandezbastos.es (nginx behind Traefik on the VPS). GitHub Pages is optional; the repo went public on 2026-09-18.
+- The landing is served from https://jevmod.dev (nginx behind Traefik on the VPS). GitHub Pages is optional; the repo went public on 2026-09-18.
 - npm package not published to the registry yet (`npm publish` from packages/jevmod-js at launch); PyPI likewise (`python -m build && twine upload`).
