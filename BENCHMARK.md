@@ -108,7 +108,7 @@ probabilities, measured on the same runs:
 The shape matters more than the number: above 0.9 the probabilities match the observed rate within a few points
 (harassment bin 0.9: 183 messages, mean p 0.96, observed 84%; nsfw: 229 messages, 0.97 vs 92%). Between 0.5 and
 0.85 they run high (harassment bin 0.8: mean p 0.85, observed 51%; bin 0.5: 0.55 vs 17%). That is why the shipped
-thresholds sit at 0.75 to 0.85 and why "flag" is the default action: a 0.6 is a maybe, not a 60%.
+thresholds sit mostly at 0.75 to 0.85 (minors 0.70, off-topic 0.90) and why "flag" is the default action: a 0.6 is a maybe, not a 60%.
 
 ## Caveats
 

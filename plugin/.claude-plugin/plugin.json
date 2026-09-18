@@ -1,6 +1,6 @@
 {
   "name": "jevmod",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Content moderation powered by Jev (TypeSafe): add spam/scam/harassment/nsfw/selfharm/doxxing/minors screening and plain-language rules to a codebase (Python SDK, npm, HTTP API or MCP), or screen text, inputs and datasets from the terminal while working. Registers the `jevmod mcp` server.",
   "author": {
     "name": "Omar Hernandez",
