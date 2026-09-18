@@ -1,7 +1,7 @@
 # Twitter/X thread (draft)
 
 Post as a thread; one tweet per block. Attach `docs/jevmod.gif` to tweet 1 and the benchmark table screenshot to
-tweet 5. Replace LINK with the repo URL once public.
+tweet 5. Repo: https://github.com/ohernandezdev/jevmod. Site and live demo: https://jevmod.hernandezbastos.es.
 
 ---
 
@@ -10,9 +10,8 @@ I built jevmod: open-source moderation for Discord, Telegram, Reddit, or any app
 
 One call, eight probabilities: spam, scam, harassment, nsfw, off-topic, self-harm, doxxing, minors. Plus rules you write in plain English.
 
-$0.04 per 1,000 messages. MIT.
-
-LINK
+$0.04 per 1,000 messages. MIT. Try it in the browser, no signup:
+https://jevmod.hernandezbastos.es
 
 ---
 
@@ -69,8 +68,10 @@ I red-teamed the judge with 98 adversarial messages (fullwidth unicode, zalgo, S
 ---
 
 **9/**
-Repo, docs, benchmark, Docker image, npm and pip packages:
+Repo, benchmark, Docker image, pip package (npm coming):
+https://github.com/ohernandezdev/jevmod
 
-LINK
+Try it live, no signup, nothing installed:
+https://jevmod.hernandezbastos.es
 
 If you run a community and try it, I want to hear what it got wrong. That is what the ❌ button is for.

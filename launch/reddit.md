@@ -1,7 +1,7 @@
 # Reddit posts (drafts)
 
 Targets, in order: r/Discord_Bots (main), r/selfhosted, r/Python (the package angle), r/opensource. One post per
-subreddit, adapted; do not cross-post the same text the same day. Replace LINK with the repo URL once public.
+subreddit, adapted; do not cross-post the same text the same day. Repo: https://github.com/ohernandezdev/jevmod. Site and live demo: https://jevmod.hernandezbastos.es.
 
 ---
 
@@ -29,7 +29,8 @@ I benchmarked it against Llama Guard 3, ShieldGemma and toxic-bert on 2,531 publ
 
 Self-host with Docker in one command, or `pip install "jevmod[discord]"`. Telegram and Reddit adapters are in the same package. MIT.
 
-LINK
+Repo: https://github.com/ohernandezdev/jevmod
+Live demo (paste a message, see the probabilities, nothing to install): https://jevmod.hernandezbastos.es
 
 Happy to answer anything, and if it flags something dumb on your server I want the example.
 
@@ -45,7 +46,7 @@ It is not a local model: judgment comes from TypeSafe's Jev API (you bring the k
 
 `docker compose up -d` and a Postman collection to poke it. MIT.
 
-LINK
+https://github.com/ohernandezdev/jevmod
 
 ---
 
@@ -67,4 +68,4 @@ The interesting engineering bit: the questions are one yes/no question (TypeSafe
 
 Benchmark against Llama Guard 3 / ShieldGemma / toxic-bert included. MIT.
 
-LINK
+https://github.com/ohernandezdev/jevmod
