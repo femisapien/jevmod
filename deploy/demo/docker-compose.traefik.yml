@@ -43,6 +43,7 @@ services:
     environment:
       JEVMOD_ROLE: discord
       JEVMOD_DB: /data/jevmod.sqlite
+      JEVMOD_KEEP_TEXT_CHARS: "0"   # hosted bot: never store message text, only ids, categories, probabilities
     env_file: .env
     volumes: ["jevmod-demo-data:/data"]
     restart: unless-stopped
