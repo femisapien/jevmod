@@ -50,10 +50,15 @@ def main() -> None:
     try:
         with OUT.open("a", encoding="utf-8") as f:
             for i, it in enumerate(todo):
+                text = it["text"][:2000]
                 scores, ms_total, toks = {}, 0, 0
                 for name, policy in POLICIES.items():
                     t1 = time.perf_counter()
-                    resp = srv.complete(PROMPT.format(text=it["text"][:2000], policy=policy), n_predict=1, n_probs=8)
+                    try:
+                        resp = srv.complete(PROMPT.format(text=text, policy=policy), n_predict=1, n_probs=8)
+                    except Exception:  # context overflow on number-heavy texts: retry short
+                        text = it["text"][:600]
+                        resp = srv.complete(PROMPT.format(text=text, policy=policy), n_predict=1, n_probs=8)
                     ms_total += int((time.perf_counter() - t1) * 1000)
                     toks += resp.get("tokens_evaluated", 0)
                     probs = first_token_probs(resp)

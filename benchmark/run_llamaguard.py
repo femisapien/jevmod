@@ -65,8 +65,13 @@ def main() -> None:
     try:
         with OUT.open("a", encoding="utf-8") as f:
             for i, it in enumerate(todo):
+                text = it["text"][:2000]
                 t1 = time.perf_counter()
-                resp = srv.complete(PROMPT.format(cats=CATS, text=it["text"][:3000]), n_predict=24)
+                try:
+                    resp = srv.complete(PROMPT.format(cats=CATS, text=text), n_predict=24)
+                except Exception:  # context overflow on number-heavy texts: retry short
+                    text = it["text"][:600]
+                    resp = srv.complete(PROMPT.format(cats=CATS, text=text), n_predict=24)
                 ms = int((time.perf_counter() - t1) * 1000)
                 text = resp.get("content", "").strip()
                 probs = first_token_probs(resp)
