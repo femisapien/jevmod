@@ -132,7 +132,7 @@ hold the TypeSafe key. Express middleware in `packages/jevmod-js/examples/`. Det
 ### HTTP API
 
 ```bash
-JEVMOD_ADMIN_TOKEN=... jevmod api                     # or: docker compose up -d
+JEVMOD_ADMIN_TOKEN=... jevmod api                     # binds 127.0.0.1; JEVMOD_HOST=0.0.0.0 to expose (Docker does)
 curl -X POST localhost:8080/v1/keys -H "Authorization: Bearer $JEVMOD_ADMIN_TOKEN" \
      -H "Content-Type: application/json" -d '{"tenant":"my-app"}'          # {"api_key":"jm_...", shown once}
 curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Content-Type: application/json" \

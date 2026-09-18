@@ -7,13 +7,28 @@ from __future__ import annotations
 import os
 import sys
 
+REQUIRED_TOKEN = {"discord": "DISCORD_TOKEN", "telegram": "TELEGRAM_TOKEN", "reddit": "REDDIT_CLIENT_ID"}
+TOKEN_HINT = {
+    "DISCORD_TOKEN": "Developer Portal → Bot → Reset Token",
+    "TELEGRAM_TOKEN": "@BotFather → /newbot",
+    "REDDIT_CLIENT_ID": "https://www.reddit.com/prefs/apps (script app)",
+}
+
 
 def run_role(role: str) -> None:
     role = role.lower()
+    needed = REQUIRED_TOKEN.get(role)
+    if needed and not os.environ.get(needed):  # before the adapter imports and creates its SQLite file
+        raise SystemExit(f"set {needed} ({TOKEN_HINT[needed]})")
     if role == "api":
         import uvicorn
 
-        uvicorn.run("jevmod.api.server:app", host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), log_level="info")
+        uvicorn.run(
+            "jevmod.api.server:app",
+            host=os.environ.get("JEVMOD_HOST", "127.0.0.1"),
+            port=int(os.environ.get("PORT", "8080")),
+            log_level="info",
+        )
     elif role == "discord":
         from .adapters.discord_bot import main as run
 
@@ -29,7 +44,12 @@ def run_role(role: str) -> None:
     elif role == "demo":
         import uvicorn
 
-        uvicorn.run("jevmod.api.demo:app", host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), log_level="info")
+        uvicorn.run(
+            "jevmod.api.demo:app",
+            host=os.environ.get("JEVMOD_HOST", "127.0.0.1"),
+            port=int(os.environ.get("PORT", "8080")),
+            log_level="info",
+        )
     elif role == "mcp":
         from .mcp_server import main as run
 

@@ -298,7 +298,7 @@
     <div>
       <div class="k">coverage</div>
       <div class="n">8<small>categories, plus your rules in plain English</small></div>
-      <p class="d">spam, scam, harassment, nsfw, off-topic, self-harm, doxxing, minors. One yes/no question each, all in one request. <b>Flag-only by default</b>; two reactions a day on the log move the thresholds.</p>
+      <p class="d">spam, scam, harassment, nsfw, off-topic, self-harm, doxxing, minors. One yes/no question each, all in one request. <b>Flag-only by default</b>; react ❌ or ✅ on a log entry and that category's threshold moves a notch.</p>
     </div>
   </div>
 
@@ -316,7 +316,7 @@
         <div class="field">
           <label for="vol">Messages judged per month</label>
           <input id="vol" type="number" min="100" max="100000000" step="100" value="20000" inputmode="numeric">
-          <input id="msgsRange" type="range" min="2" max="7" step="0.01" value="4.3" aria-label="Messages per month, logarithmic slider">
+          <input id="msgsRange" type="range" min="2" max="7" step="0.01" value="4.30103" aria-label="Messages per month, logarithmic slider">
           <p class="hint">Messages that reach Jev. jevmod never sends messages under eight letters without a link, from trusted authors, or repeats of judged text, so your bill is for a subset of traffic.</p>
         </div>
         <div class="field">
@@ -408,13 +408,13 @@ cat comments.txt | jevmod check --rule "No politics." -
 JEVMOD_ADMIN_TOKEN=... jevmod api
 curl -X POST localhost:8080/v1/keys -H "Authorization: Bearer $JEVMOD_ADMIN_TOKEN" \
      -H "Content-Type: application/json" -d '{"tenant":"my-app"}'   <span class="c"># -&gt; {"api_key":"jm_..."}</span>
-curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
+curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Content-Type: application/json" \
      -d '{"messages":[{"id":"a","text":"..."}]}'</pre></div>
         <div class="code resp"><button class="copy" type="button" aria-label="Copy code">copy</button><pre><span class="c"># response</span>
 {"request_id":"9f1c...","decisions":[{"message_id":"a","action":"flag","category":"scam","probability":0.99,
   "scores":{"spam":0.98,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},
   "judged":true,"reason":"jev"}],
- "usage":{"judged_this_month":1,"jev_requests_this_month":1,"input_tokens_this_month":1005}}</pre></div>
+ "usage":{"judged_this_month":1,"jev_requests_this_month":1,"input_tokens_this_month":1193}}</pre></div>
       </div>
     </div>
 
@@ -456,14 +456,14 @@ claude mcp add jevmod -- jevmod mcp
         <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
       </div>
     </div>
-    <p class="note small">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit at 0.75 to 0.85.</p>
+    <p class="note small">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit mostly at 0.75 to 0.85 (minors 0.70, off-topic 0.90).</p>
   </div>
 </section>
 
 <section id="bench">
   <div class="wrap">
     <h2>Against three local classifiers.</h2>
-    <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. jevmod has the best AUROC in every category it was compared on (harassment and sexual content against three models; self-harm and minors against Llama Guard, the only other system with those labels) and ties ShieldGemma at 0.939 on "any category" of the OpenAI set. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
+    <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. On OpenAI's human-labelled set jevmod has the best AUROC in every category it was compared on (harassment and sexual content against three models; self-harm and minors against Llama Guard, the only other system with those labels); on Civil Comments toxic-bert wins, having been trained on it, and ties ShieldGemma at 0.939 on "any category" of the OpenAI set. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
     <p class="swipe cap">Swipe the table sideways for the other systems.</p>
     <div class="tbl">
       <table class="bench">
