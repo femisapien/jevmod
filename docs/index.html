@@ -7,188 +7,288 @@
 <meta name="description" content="Open-source moderation layer for Discord, Telegram, Reddit and any app with user content. A probability per category for every message, thresholds you own, every decision logged. Powered by Jev.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    color-scheme: dark;
-    --bg: #131416; --bg-2: #191b1e; --bg-3: #0f1012; --line: #2a2d32; --line-2: #34383e;
-    --fg: #e8eaed; --fg-2: #a3a8b1; --fg-3: #8a9099;
-    --accent: #2fbf83; --accent-ink: #0d1f17; --accent-dim: #1d5a40;
-    --warn: #e0a34a;
-    --sans: "Geist", ui-sans-serif, system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, Consolas, monospace;
-    --r: 6px;
+    color-scheme: light;
+    --bg: #FAFAFA; --white: #FFFFFF; --ink: #0A0A0A; --body: #3F3F46; --muted: #71717A;
+    --line: #D4D4D8; --line-soft: #E5E5E5; --hover: #F4F4F5;
+    --ok: #16A34A; --flag: #DC2626;
+    --sans: "Inter", ui-sans-serif, system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  html { background: var(--bg); scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-  body { margin: 0; color: var(--fg); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  html { background: var(--bg); }
+  body { margin: 0; color: var(--body); background: var(--bg); font: 300 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
-  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 28px; }
+  b, strong { font-weight: 600; color: var(--ink); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
   @media (max-width: 640px) { .wrap { padding: 0 16px; } }
 
-  nav { height: 64px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
-  nav .brand { font-weight: 600; letter-spacing: -0.01em; }
-  nav .links { display: flex; gap: 28px; font-size: 14px; color: var(--fg-2); }
-  nav .links a { padding: 10px 0; white-space: nowrap; }
-  nav .links a:hover { color: var(--fg); }
-  @media (max-width: 640px) { nav .links { gap: 14px; font-size: 13px; } }
+  nav { height: 56px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+  nav .brand { font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+  nav .links { display: flex; gap: 32px; color: var(--body); }
+  nav .links a:hover { color: var(--ink); }
+  nav .links a { white-space: nowrap; }
+  @media (max-width: 640px) { nav .links { gap: 12px; font-size: 13px; } nav .links a.m-hide { display: none; } }
 
-  header.hero.wrap { padding: 72px 28px 64px; }
-  @media (max-width: 640px) { header.hero.wrap { padding: 44px 16px 40px; } }
-  .hero { display: grid; grid-template-columns: 5fr 6fr; gap: 56px; align-items: center; }
-  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 36px; } }
-  h1 { font-size: clamp(32px, 3.6vw, 46px); line-height: 1.08; letter-spacing: -0.03em; font-weight: 600; margin: 0 0 20px; }
-  .lead { font-size: 18px; color: var(--fg-2); max-width: 46ch; margin: 0 0 28px; }
-  .lead b { color: var(--fg); font-weight: 500; }
-  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn { display: inline-flex; align-items: center; height: 42px; padding: 0 18px; border-radius: var(--r); font-weight: 500; font-size: 15px; border: 1px solid var(--line-2); color: var(--fg); background: var(--bg-2); transition: transform .12s ease, background .12s ease; }
-  .btn:hover { background: #20232a; } .btn:active { transform: translateY(1px); }
-  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .btn.primary:hover { background: #3bd193; }
-  .btn code { font-family: var(--mono); font-size: 14px; }
-  button.btn { cursor: pointer; font: inherit; }
-  .shot { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--bg-3); }
-  .shot img { display: block; width: 100%; height: auto; }
+  h1 { font: 700 64px/1.05 var(--sans); letter-spacing: -0.03em; color: var(--ink); margin: 0 0 32px; max-width: 18ch; }
+  h2 { font: 700 40px/1.1 var(--sans); letter-spacing: -0.025em; color: var(--ink); margin: 0 0 16px; }
+  h3 { font: 600 28px/1.2 var(--sans); letter-spacing: -0.02em; color: var(--ink); margin: 0 0 16px; }
+  h4 { font: 600 20px/1.3 var(--sans); color: var(--ink); margin: 0 0 8px; }
+  @media (max-width: 640px) { h1 { font-size: 40px; } h2 { font-size: 28px; } h3 { font-size: 22px; } }
+  p { margin: 0; }
+  .lead { font-size: 20px; line-height: 1.5; max-width: 60ch; }
+  .sub { max-width: 66ch; margin: 0 0 48px; }
+  .small { font-size: 14px; line-height: 1.6; }
+  .cap { font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .cap a, .small a, .sub a, .lead a { color: var(--ink); border-bottom: 1px solid var(--line); }
+  code.i { font: 400 13px/1.5 var(--mono); color: var(--ink); background: var(--white); border: 1px solid var(--line-soft); padding: 1px 6px; white-space: nowrap; }
+  pre { margin: 0; padding: 24px; background: var(--white); border: 1px solid var(--line); font: 400 13px/1.6 var(--mono); color: var(--ink); overflow-x: auto; }
+  pre .c { color: var(--muted); } pre .k { color: var(--body); }
+  @media (max-width: 640px) { pre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; padding: 16px; } }
 
-  .rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
-  section.wrap { padding: 72px 28px; }
-  @media (max-width: 640px) { section.wrap { padding: 48px 16px; } }
-  h2 { font-size: clamp(26px, 3vw, 36px); line-height: 1.12; letter-spacing: -0.025em; font-weight: 600; margin: 0 0 14px; }
-  h3 { font-size: 17px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
-  .sub { color: var(--fg-2); max-width: 64ch; margin: 0 0 36px; font-size: 17px; }
-  .note { color: var(--fg-3); font-size: 13.5px; margin-top: 16px; max-width: 78ch; }
-  .note a, .sub a, .lead a { color: var(--fg); border-bottom: 1px solid var(--line-2); }
-  code.i { font-family: var(--mono); font-size: .92em; color: var(--fg); background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r); padding: 1px 6px; white-space: nowrap; }
-  pre { margin: 0; padding: 18px 20px; background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r); font: 13.5px/1.6 var(--mono); color: var(--fg); overflow-x: auto; }
-  pre .c { color: var(--fg-3); } pre .s { color: var(--accent); } pre .k { color: var(--fg-2); }
-  @media (max-width: 640px) { pre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; } }
+  header.hero { padding: 128px 0 96px; }
+  @media (max-width: 640px) { header.hero { padding: 64px 0 48px; } }
+  .cta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 32px; }
+  .btn { display: inline-flex; align-items: center; height: 48px; padding: 0 32px; font: 400 16px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--ink); cursor: pointer; }
+  .btn:hover { background: var(--ink); color: var(--bg); }
+  .btn.primary { background: var(--ink); color: var(--bg); }
+  .btn.primary:hover { background: transparent; color: var(--ink); }
+  .btn code { font: 400 14px var(--mono); }
+  .btn:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-  /* three doors: rows, not cards */
-  .doors { border-top: 1px solid var(--line); }
-  .door { display: grid; grid-template-columns: 2fr 3fr; gap: 40px; padding: 32px 0; border-bottom: 1px solid var(--line); align-items: start; }
-  @media (max-width: 900px) { .door { grid-template-columns: 1fr; gap: 18px; padding: 28px 0; } }
-  .door .who { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 10px; }
-  .door p { margin: 0; color: var(--fg-2); font-size: 15.5px; max-width: 48ch; }
-  .door p + p { margin-top: 10px; }
+  .figures { display: grid; grid-template-columns: 1fr 1.45fr 1fr; gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 96px; }
+  .figures > div { padding: 48px 32px 48px 0; border-left: 1px solid var(--line); padding-left: 32px; }
+  .figures > div:first-child { border-left: 0; padding-left: 0; }
+  .figures .k { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+  .figures .n { font: 700 56px/1 var(--sans); letter-spacing: -0.03em; color: var(--ink); margin-bottom: 8px; white-space: nowrap; }
+  .figures .n small { display: block; font: 300 18px/1.4 var(--sans); letter-spacing: 0; color: var(--body); margin-top: 8px; white-space: normal; }
+  .figures .l { font: 300 18px/1.4 var(--sans); color: var(--body); margin-bottom: 16px; }
+  .figures .n .dot { color: var(--line); font-weight: 300; margin: 0 6px; }
+  .figures .d { font-size: 15px; line-height: 1.6; }
+  .figures .d b { font-weight: 600; }
+  @media (max-width: 900px) { .figures { grid-template-columns: 1fr; margin-top: 64px; } .figures > div { border-left: 0; padding: 32px 0; border-top: 1px solid var(--line); } .figures > div:first-child { border-top: 0; } .figures .n { font-size: 44px; } .figures .n.auroc { font-size: 34px; } }
 
+  .screen { margin: 96px 0 0; border: 1px solid var(--line); background: #111318; }
+  .screen img { display: block; width: 100%; height: auto; }
+  @media (max-width: 640px) { .screen { margin-top: 48px; } }
+
+  section { padding: 96px 0; border-top: 1px solid var(--line); }
+  @media (max-width: 640px) { section { padding: 64px 0; } }
+
+  /* calculator */
+  .calc { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: start; }
+  @media (max-width: 900px) { .calc { grid-template-columns: 1fr; gap: 48px; } }
+  .field { margin-bottom: 32px; }
+  .field label { display: block; font-size: 14px; color: var(--body); margin-bottom: 8px; }
+  .field input[type=number] { width: 100%; height: 40px; padding: 0 12px; font: 400 14px var(--mono); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 0; }
+  .field input[type=number]:hover { border-color: #A1A1AA; } .field input[type=number]:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
+  .field input[type=range] { width: 100%; margin: 16px 0 0; accent-color: var(--ink); }
+  .field .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  table.cost { width: 100%; border-collapse: collapse; }
+  table.cost th { text-align: left; font: 400 12px/1.5 var(--mono); color: var(--muted); padding: 0 0 12px; border-bottom: 1px solid var(--line); }
+  table.cost td { padding: 20px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.cost td.sys { font-weight: 600; color: var(--ink); width: 34%; padding-right: 16px; }
+  table.cost td.sys .cap { font-weight: 300; margin-top: 4px; }
+  table.cost td.math { font: 400 13px/1.6 var(--mono); color: var(--body); }
+  table.cost td.out { text-align: right; font: 700 28px/1 var(--sans); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; padding-left: 16px; }
+  table.cost td.out small { display: block; font: 300 12px/1.5 var(--sans); color: var(--muted); margin-top: 6px; letter-spacing: 0; }
+  @media (max-width: 640px) { table.cost, table.cost tbody, table.cost tr, table.cost td { display: block; } table.cost thead { display: none; } table.cost td { padding: 6px 0; border: 0; } table.cost td.sys { width: auto; padding-right: 0; } table.cost tr { padding: 20px 0; border-bottom: 1px solid var(--line-soft); display: block; } table.cost td.out { text-align: left; padding-left: 0; } }
+
+  /* doors */
+  .door { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; padding: 48px 0; border-top: 1px solid var(--line-soft); }
+  .door:first-of-type { border-top: 0; padding-top: 0; }
+  @media (max-width: 900px) { .door { grid-template-columns: 1fr; gap: 24px; padding: 32px 0; } }
+  .door .who { font: 400 12px/1.5 var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 12px; }
+  .door p { max-width: 46ch; }
+  .door p + p { margin-top: 12px; }
+
+  /* live demo */
+  .live { margin-bottom: 8px; }
+  .live-row { display: flex; gap: 0; }
+  .live-row input { flex: 1; min-width: 0; height: 48px; padding: 0 16px; font: 300 16px var(--sans); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-right: 0; border-radius: 0; }
+  .live-row input::placeholder { color: var(--muted); }
+  .live-row input:hover { border-color: #A1A1AA; } .live-row input:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
+  .live-row .btn { flex: none; }
+  .live-row .btn[disabled] { opacity: .3; cursor: not-allowed; }
+  .live-meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; }
+  .live-meta #liveMsg { text-align: right; color: var(--body); }
+  .live-note { max-width: 80ch; margin-top: 8px; }
+  .live-closed { max-width: 80ch; }
+  .demo-h { margin-top: 64px; }
+  @media (max-width: 640px) { .live-row { flex-direction: column; } .live-row input { border-right: 1px solid var(--line); } .live-row .btn { justify-content: center; } .demo-h { margin-top: 48px; } }
   /* demo */
-  .demo { display: grid; grid-template-columns: 6fr 5fr; gap: 28px; align-items: start; }
+  .demo { display: grid; grid-template-columns: 7fr 5fr; gap: 32px; align-items: start; }
   @media (max-width: 900px) { .demo { grid-template-columns: 1fr; } }
-  .msgs { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--bg-2); }
-  .msgs li { border-top: 1px solid var(--line); }
-  .msgs li:first-child { border-top: 0; }
-  .msgs button { all: unset; display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: baseline; width: 100%; box-sizing: border-box; padding: 12px 16px; cursor: pointer; font: 15px/1.45 var(--sans); color: var(--fg-2); }
-  .msgs button:hover { background: #1e2126; color: var(--fg); }
-  .msgs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .msgs li.on button { background: #1e2126; color: var(--fg); box-shadow: inset 3px 0 0 var(--accent); }
-  .msgs .tag { font-family: var(--mono); font-size: 12.5px; color: var(--fg-3); white-space: nowrap; }
-  .msgs .tag.hit { color: var(--accent); }
+  .msgs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .msgs li { border-bottom: 1px solid var(--line-soft); }
+  .msgs button { all: unset; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: baseline; width: 100%; box-sizing: border-box; padding: 14px 16px; cursor: pointer; font: 300 15px/1.5 var(--sans); color: var(--body); }
+  .msgs button:hover { background: var(--hover); color: var(--ink); }
+  .msgs button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+  .msgs li.on button { background: var(--ink); color: var(--bg); }
+  .msgs .tag { font: 400 12px var(--mono); white-space: nowrap; color: var(--ok); }
+  .msgs .tag.hit { color: var(--flag); }
+  .msgs li.on .tag { color: var(--bg); }
   @media (max-width: 640px) { .msgs button { grid-template-columns: 1fr; gap: 4px; } .msgs .tag { justify-self: start; } }
-  .panel { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-2); padding: 22px 24px; position: sticky; top: 20px; }
+  .panel { border: 1px solid var(--line); background: var(--white); padding: 32px; position: sticky; top: 24px; }
   @media (max-width: 900px) { .panel { position: static; } }
-  .panel .q { font-size: 15.5px; color: var(--fg); margin: 0 0 18px; min-height: 2.9em; }
-  .panel .verdict { font-family: var(--mono); font-size: 14px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); color: var(--fg-2); }
-  .panel .verdict b { color: var(--fg); font-weight: 500; }
-  .panel .verdict b.hit { color: var(--accent); }
-  .bars { display: grid; grid-template-columns: 96px 1fr 44px; gap: 8px 12px; align-items: center; font-family: var(--mono); font-size: 13px; }
-  .bars .n { color: var(--fg-2); }
-  .bars .v { text-align: right; color: var(--fg-3); }
-  .bars .v.hit { color: var(--fg); }
-  .bars .b { height: 8px; border-radius: 2px; background: var(--line); position: relative; overflow: hidden; }
-  .bars .b i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--fg-3); border-radius: 2px; transition: width .35s cubic-bezier(.16,1,.3,1); }
-  .bars .b i.hit { background: var(--accent); }
-  .bars .b s { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--fg-2); opacity: .7; }
+  @media (max-width: 640px) { .panel { padding: 24px 16px; } }
+  .panel .q { font-weight: 400; color: var(--ink); margin: 0 0 24px; min-height: 3em; }
+  .panel .verdict { font: 400 13px/1.6 var(--mono); color: var(--body); padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--line-soft); }
+  .panel .verdict b { font-weight: 500; color: var(--ink); }
+  .panel .verdict b.hit { color: var(--flag); } .panel .verdict b.ok { color: var(--ok); }
+  .bars { display: grid; grid-template-columns: 96px 1fr 44px; gap: 10px 12px; align-items: center; font: 400 13px var(--mono); }
+  .bars .n { color: var(--body); }
+  .bars .v { text-align: right; color: var(--muted); }
+  .bars .v.hit { color: var(--flag); font-weight: 500; }
+  .bars .b { height: 8px; background: var(--line-soft); position: relative; }
+  .bars .b i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink); transition: width .2s ease; }
+  .bars .b i.hit { background: var(--flag); }
+  .bars .b s { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--muted); }
   @media (prefers-reduced-motion: reduce) { .bars .b i { transition: none; } }
-  .panel .foot { margin-top: 18px; font-size: 13px; color: var(--fg-3); }
-  .demo-note { margin-top: 20px; }
+  .panel .foot { margin-top: 24px; }
 
   /* benchmark */
-  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); }
-  .swipe { display: none; color: var(--fg-3); font-size: 13px; margin: -20px 0 12px; }
-  @media (max-width: 800px) { .swipe { display: block; } table.bench th, table.bench td { padding-left: 12px; padding-right: 12px; } }
-  table.bench { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 720px; }
-  table.bench th { text-align: right; font-family: var(--mono); font-weight: 500; font-size: 12.5px; color: var(--fg-3); padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--bg-2); }
+  .tbl { overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  table.bench { width: 100%; border-collapse: collapse; min-width: 720px; }
+  table.bench th { text-align: right; font: 400 12px/1.5 var(--mono); color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   table.bench th:first-child, table.bench th:nth-child(2) { text-align: left; }
-  table.bench td { padding: 11px 16px; border-top: 1px solid var(--line); color: var(--fg-2); text-align: right; font-family: var(--mono); font-size: 14px; white-space: nowrap; }
-  table.bench td:first-child, table.bench td:nth-child(2) { text-align: left; font-family: var(--sans); font-size: 14.5px; }
-  table.bench td:first-child { color: var(--fg); }
-  table.bench tr.set td { border-top: 1px solid var(--line-2); }
-  table.bench td.best { color: var(--fg); font-weight: 500; }
-  table.bench td.best.jev { color: var(--accent); }
-  table.bench td.na { color: var(--line-2); }
-  table.bench tfoot td { border-top: 1px solid var(--line-2); color: var(--fg-2); }
-  table.bench tfoot td:first-child { color: var(--fg); }
-  .setm { display: none; }
+  table.bench td { padding: 12px 16px; border-top: 1px solid var(--line-soft); color: var(--body); text-align: right; font: 400 14px var(--mono); white-space: nowrap; }
+  table.bench td:first-child, table.bench td:nth-child(2) { text-align: left; font: 300 14.5px var(--sans); }
+  table.bench td:first-child { color: var(--ink); font-weight: 400; }
+  table.bench tr.set td { border-top: 1px solid var(--line); }
+  table.bench td.best { color: var(--ink); font-weight: 500; }
+  table.bench td.na { color: #A1A1AA; }
+  table.bench tfoot td { border-top: 1px solid var(--line); }
+  table.bench tfoot td:first-child { font-weight: 400; }
   table.bench tfoot td:nth-child(2) { color: transparent; }
+  .setm { display: none; }
+  .swipe { display: none; }
   @media (max-width: 640px) {
     table.bench { min-width: 0; }
     table.bench th:first-child, table.bench td:first-child { display: none; }
-    table.bench th:nth-child(2), table.bench td:nth-child(2) { position: sticky; left: 0; background: var(--bg-2); z-index: 1; box-shadow: 1px 0 0 var(--line); }
+    table.bench th:nth-child(2), table.bench td:nth-child(2) { position: sticky; left: 0; background: var(--bg); z-index: 1; box-shadow: 1px 0 0 var(--line); padding-left: 0; }
     table.bench td:nth-child(2) { font-size: 13.5px; }
-    table.bench tfoot td:nth-child(2) { color: var(--fg); }
-    .setm { display: block; font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+    table.bench tfoot td:nth-child(2) { color: var(--ink); }
+    .setm { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .swipe { display: block; margin-bottom: 12px; }
   }
-  .caveats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 40px; margin-top: 28px; }
+  .caveats { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 48px; margin-top: 32px; }
   @media (max-width: 800px) { .caveats { grid-template-columns: 1fr; } }
-  .caveats p { margin: 0; color: var(--fg-2); font-size: 14.5px; }
-  .caveats p b { color: var(--fg); font-weight: 500; }
+  .caveats p { font-size: 14.5px; }
+  .note { margin-top: 16px; max-width: 80ch; font-size: 13.5px; }
 
   /* how it works */
-  .fig { margin: 0 0 32px; }
-  .fig a { display: block; }
-  .fig img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
-  .fig figcaption { color: var(--fg-3); font-size: 13.5px; margin-top: 10px; max-width: 78ch; }
-  .fig figcaption a.open { display: none; color: var(--fg-2); border-bottom: 1px solid var(--line-2); margin-left: 6px; white-space: nowrap; }
-  @media (max-width: 640px) { .fig > a { display: none; } .fig { margin-bottom: 22px; } .fig figcaption { color: var(--fg-2); font-size: 15px; margin-top: 0; } .fig figcaption a.open { display: inline; } .figs2 { gap: 0; } }
-  .figs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .fig { margin: 0 0 48px; }
+  .fig > a { display: block; }
+  .fig img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  .fig figcaption { margin-top: 12px; max-width: 80ch; font-size: 14px; }
+  .fig figcaption a.open { display: none; color: var(--ink); border-bottom: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
+  .figs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
   @media (max-width: 900px) { .figs2 { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { .fig > a { display: none; } .fig { margin-bottom: 24px; } .fig figcaption { margin-top: 0; font-size: 16px; } .fig figcaption a.open { display: inline; } .figs2 { gap: 0; } }
 
-  /* privacy and failure */
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
-  @media (max-width: 900px) { .two { grid-template-columns: 1fr; gap: 32px; } }
-  .promise ul { list-style: none; margin: 0; padding: 0; }
-  .promise li { padding: 12px 0 12px 22px; position: relative; color: var(--fg-2); font-size: 15.5px; border-top: 1px solid var(--line); }
-  .promise li:last-child { border-bottom: 1px solid var(--line); }
-  .promise li::before { content: ""; position: absolute; left: 0; top: 20px; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
-  .promise .no li::before { background: transparent; border: 1px solid var(--fg-3); }
+  /* privacy / failure */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
+  @media (max-width: 900px) { .two { grid-template-columns: 1fr; gap: 48px; } }
+  .list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .list li { padding: 16px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
 
-  footer.wrap { padding: 28px 28px 56px; }
-  @media (max-width: 640px) { footer.wrap { padding: 24px 16px 48px; } }
-  footer { border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--fg-3); font-size: 14px; }
-  footer a { color: var(--fg-2); } footer a:hover { color: var(--fg); }
+  footer { background: var(--ink); color: #A1A1AA; padding: 64px 0; font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  footer a { color: var(--bg); border-bottom: 1px solid #3F3F46; }
 </style>
 </head>
 <body>
 
 <nav class="wrap">
   <a class="brand" href="#">jevmod</a>
-  <div class="links"><a href="#demo">Demo</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
+  <div class="links"><a class="m-hide" href="#cost">Cost</a><a href="#demo">Demo</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
 </nav>
 
-<header class="wrap hero">
-  <div>
-    <h1>A probability for every message. Thresholds you own.</h1>
-    <p class="lead">Moderation for Discord, Telegram, Reddit and any app with user content. Eight categories plus rules in your own words. <b>AUROC 0.93 to 0.99</b> on harassment, sexual content, self-harm and minors in OpenAI's human-labelled moderation eval, at <b>$0.04 per 1,000 messages</b>.</p>
-    <div class="cta">
-      <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
-      <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
+<header class="hero wrap">
+  <h1>A probability for every message. You set the line.</h1>
+  <p class="lead">jevmod moderates Discord, Telegram, Reddit and any app with user content: spam, scam, harassment, five more categories and rules in your own words. One Jev request per batch, thresholds and actions you own, every decision logged with its numbers.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+    <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
+  </div>
+
+  <div class="figures">
+    <div>
+      <div class="k">cost</div>
+      <div class="n">$0.042<small>per 1,000 messages</small></div>
+      <p class="d">A 20,000-message community runs for <b>under $1 a month</b>. About <b>30x less</b> than a general LLM as judge at list price. Measured: 1,005 input tokens per judged message, Jev at $0.042 per million.</p>
+    </div>
+    <div>
+      <div class="k">quality, AUROC</div>
+      <div class="n auroc">0.93<span class="dot">/</span>0.98<span class="dot">/</span>0.99<span class="dot">/</span>0.98</div>
+      <div class="l">harassment, sexual content, self-harm, minors</div>
+      <p class="d">On OpenAI's human-labelled moderation set. <b>Best in every category</b> it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</p>
+    </div>
+    <div>
+      <div class="k">time</div>
+      <div class="n">1<small>command to try</small></div>
+      <p class="d"><code class="i">jevmod check "text"</code> with your key in the environment. Bots ship <b>flag-only by default</b>; two reactions a day on the log move the thresholds to where your community wants them.</p>
     </div>
   </div>
-  <figure class="shot" style="margin:0">
+
+  <figure class="screen">
     <img src="jevmod.gif" alt="Terminal recording: jevmod check flags a fake Nitro giveaway as scam 0.99 and exits 1; a four-line file is checked in one request; the HTTP API returns the same decisions as JSON." width="920" height="590" loading="eager">
   </figure>
 </header>
 
-<hr class="rule">
+<section id="cost">
+  <div class="wrap">
+    <h2>What it costs at your volume.</h2>
+    <p class="sub">Type your monthly message count. Every figure below is your number multiplied by a measured or listed constant; the arithmetic stays visible. Nothing here is a claim about time saved.</p>
+    <div class="calc">
+      <div>
+        <div class="field">
+          <label for="vol">Messages judged per month</label>
+          <input id="vol" type="number" min="100" max="100000000" step="100" value="20000" inputmode="numeric">
+          <input id="msgsRange" type="range" min="2" max="7" step="0.01" value="4.3" aria-label="Messages per month, logarithmic slider">
+          <p class="hint">Messages that reach Jev. jevmod never sends messages under eight letters without a link, from trusted authors, or repeats of judged text, so your bill is for a subset of traffic.</p>
+        </div>
+        <div class="field">
+          <label for="gpu">Rented GPU price, $ per hour</label>
+          <input id="gpu" type="number" min="0.05" max="20" step="0.05" value="0.30" inputmode="decimal">
+          <p class="hint">Used for the Llama Guard row. $0.30 is the benchmark's assumption for a consumer-class card; a cloud A10G or L4 is $0.50 to $1.20 an hour at list.</p>
+        </div>
+      </div>
+      <table class="cost" aria-live="polite">
+        <thead><tr><th>system</th><th>arithmetic</th><th style="text-align:right">per month</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="sys">jevmod<div class="cap">Jev, seven categories, one request per batch</div></td>
+            <td class="math" id="m-jev"></td>
+            <td class="out" id="o-jev"></td>
+          </tr>
+          <tr>
+            <td class="sys">General LLM as judge<div class="cap">Claude Haiku 4.5 list price, input tokens only, not run</div></td>
+            <td class="math" id="m-llm"></td>
+            <td class="out" id="o-llm"></td>
+          </tr>
+          <tr>
+            <td class="sys">Llama Guard 3 8B<div class="cap">Q4_K_M, compute time on a rented GPU</div></td>
+            <td class="math" id="m-lg"></td>
+            <td class="out" id="o-lg"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note cap">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard were measured in <code class="i">benchmark/</code> on 2,531 public messages (RTX 5080). $0.042 per million input tokens is Jev's list price. $1 per million input tokens is Claude Haiku 4.5's list price; the 1.2 factor is a prompt-overhead estimate and output tokens are not counted. The Llama Guard row bills compute seconds only; a GPU rented by the hour also bills idle time, and does not include ShieldGemma or toxic-bert because they cover two categories.</p>
+  </div>
+</section>
 
-<section id="doors" class="wrap">
-  <h2>Three ways in.</h2>
-  <p class="sub">Same questions, same thresholds and the same audit log whether a bot, a script or an agent asks. Judgments come from <a href="https://typesafe.ai">Jev</a>, TypeSafe's System One model, so you need their API key.</p>
-  <div class="doors">
+<section id="doors">
+  <div class="wrap">
+    <h2>Three ways in.</h2>
+    <p class="sub">Same questions, same thresholds and the same audit log whether a bot, a script or an agent asks. Judgments come from <a href="https://typesafe.ai">Jev</a>, TypeSafe's System One model, so you need their API key.</p>
     <div class="door">
       <div>
         <div class="who">community owner</div>
-        <h3>Invite a bot and tune it with commands.</h3>
+        <h4>Invite a bot and tune it with commands.</h4>
         <p>The Discord bot creates a private log channel and starts flagging. <code class="i">/mod set scam delete 0.7</code> changes a threshold, <code class="i">/mod rule</code> adds a rule in plain language. React on a log entry to mark a false positive and the threshold moves a notch.</p>
         <p>Telegram has <code class="i">/mod_status</code>, <code class="i">/mod_set</code>, <code class="i">/mod_rule</code>, <code class="i">/mod_topic</code> and <code class="i">/mod_log</code>. The Reddit adapter is configured by environment variables only.</p>
       </div>
@@ -200,127 +300,138 @@ jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit<
     <div class="door">
       <div>
         <div class="who">developer</div>
-        <h3>A function, a CLI or one HTTP call.</h3>
+        <h4>A function, a CLI or one HTTP call.</h4>
         <p>Python and npm packages ask Jev the questions in <code class="i">categories.json</code>. The CLI exits 1 when something triggers, so it fits a shell script or a CI job. The HTTP API is one Docker image with SQLite on a volume.</p>
       </div>
 <pre><span class="c"># Python</span>
 <span class="k">from</span> jevmod <span class="k">import</span> Moderator
-d = Moderator().check(text, channel_topic=<span class="s">"gaming"</span>)
+d = Moderator().check(text, channel_topic="gaming")
 d.action, d.category, d.scores   <span class="c"># 'flag', 'scam', {...}</span>
 
 <span class="c"># CLI, one message per line, exit 1 if anything triggers</span>
-cat comments.txt | jevmod check --rule <span class="s">"No politics."</span> -
+cat comments.txt | jevmod check --rule "No politics." -
 
 <span class="c"># HTTP</span>
-curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Bearer jm_..."</span> \
-     -d <span class="s">'{"messages":[{"id":"a","text":"..."}]}'</span></pre>
+curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." \
+     -d '{"messages":[{"id":"a","text":"..."}]}'</pre>
     </div>
     <div class="door">
       <div>
         <div class="who">agent</div>
-        <h3>An MCP server and a skill.</h3>
+        <h4>An MCP server and a skill.</h4>
         <p>A coding agent registers <code class="i">jevmod mcp</code> and gets two tools, <code class="i">moderate</code> and <code class="i">categories</code>. <code class="i">AGENTS.md</code> and the Claude Code skill describe how to add moderation to an existing codebase: pick the surface, wire the key, add the tests.</p>
       </div>
 <pre><span class="c"># Claude Code, Cursor, Codex: register the MCP server</span>
-{ <span class="s">"mcpServers"</span>: { <span class="s">"jevmod"</span>: { <span class="s">"command"</span>: <span class="s">"jevmod"</span>, <span class="s">"args"</span>: [<span class="s">"mcp"</span>] } } }
+{ "mcpServers": { "jevmod": { "command": "jevmod", "args": ["mcp"] } } }
 
 <span class="c"># tools: moderate(texts, channel_topic?, rules?) and categories()</span></pre>
     </div>
   </div>
 </section>
 
-<hr class="rule">
+<section id="demo" data-demo="">
+  <div class="wrap">
+    <h2>Try it.</h2>
+    <p class="sub">Type a message and get the same decision the bots and the API return. Then click any of the twelve benchmark messages below to compare.</p>
+    <div id="live">
+      <form id="liveForm" class="live" novalidate>
+        <div class="live-row">
+          <input id="liveText" type="text" maxlength="300" autocomplete="off" spellcheck="false" placeholder="a message someone might post in your community" aria-label="Message to check">
+          <button id="liveBtn" class="btn primary" type="submit">Check</button>
+        </div>
+        <div class="live-meta"><span id="liveCount" class="cap">0 / 300</span><span id="liveMsg" class="cap" role="status"></span></div>
+      </form>
+      <p id="liveNote" class="cap live-note">Your text is sent to this project's demo server and to TypeSafe's API for judgment, and is kept in the demo log with a hashed IP so the author can see what people try. Do not paste anything private.</p>
+    </div>
+    <p id="liveClosed" class="small live-closed" hidden>Live demo is closed for this month (budget cap reached). Precomputed results below; run <code class="i">jevmod check</code> with your own key for live checks.</p>
+    <h4 class="demo-h">Twelve messages from the benchmark</h4>
+    <p class="sub small">Click one to see the probability Jev gave each category and what the default policy does with it. 12 items inlined from <code class="i">benchmark/results/jevmod.jsonl</code>; the precomputed part sends nothing from this page.</p>
+    <div class="demo">
+      <ul class="msgs" id="msgs" aria-label="messages"></ul>
+      <div class="panel" aria-live="polite">
+        <p class="q" id="q"></p>
+        <div class="verdict" id="verdict"></div>
+        <div class="bars" id="bars"></div>
+        <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
+      </div>
+    </div>
+    <p class="note small">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit at 0.75 to 0.85.</p>
+  </div>
+</section>
 
-<section id="demo" class="wrap">
-  <h2>Twelve messages from the benchmark.</h2>
-  <p class="sub">Click one to see the probability Jev gave each category and what the default policy does with it. 12 items inlined from <code class="i">benchmark/results/jevmod.jsonl</code>; nothing is sent anywhere from this page.</p>
-  <div class="demo">
-    <ul class="msgs" id="msgs" aria-label="messages"></ul>
-    <div class="panel" aria-live="polite">
-      <p class="q" id="q"></p>
-      <div class="verdict" id="verdict"></div>
-      <div class="bars" id="bars"></div>
-      <p class="foot">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
+<section id="bench">
+  <div class="wrap">
+    <h2>Against three local classifiers.</h2>
+    <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. jevmod has the best AUROC in every category it was compared on (harassment and sexual content against three models; self-harm and minors against Llama Guard, the only other system with those labels) and ties ShieldGemma at 0.939 on "any category" of the OpenAI set. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
+    <p class="swipe cap">Swipe the table sideways for the other systems.</p>
+    <div class="tbl">
+      <table class="bench">
+        <thead><tr><th>set</th><th>category</th><th>jevmod</th><th>Llama Guard 3 8B</th><th>ShieldGemma 2B</th><th>toxic-bert</th></tr></thead>
+        <tbody>
+          <tr class="set"><td>OpenAI moderation, 1,680</td><td>harassment<span class="setm">OpenAI moderation, 1,680</span></td><td class="best">0.930</td><td>0.805</td><td>0.914</td><td>0.807</td></tr>
+          <tr><td></td><td>nsfw</td><td class="best">0.982</td><td>0.843</td><td>0.968</td><td>0.876</td></tr>
+          <tr><td></td><td>self-harm</td><td class="best">0.992</td><td>0.891</td><td class="na">no policy</td><td class="na">no label</td></tr>
+          <tr><td></td><td>minors</td><td class="best">0.977</td><td>0.590</td><td class="na">no policy</td><td class="na">no label</td></tr>
+          <tr><td></td><td>any category</td><td class="best">0.939</td><td>0.921</td><td class="best">0.939</td><td>0.884</td></tr>
+          <tr class="set"><td>Civil Comments, 351</td><td>harassment<span class="setm">Civil Comments, 351</span></td><td>0.875</td><td>0.539</td><td>0.874</td><td class="best">0.973</td></tr>
+          <tr><td></td><td>any category</td><td>0.876</td><td>0.592</td><td>0.857</td><td class="best">0.973</td></tr>
+          <tr class="set"><td>YouTube spam, 500</td><td>spam<span class="setm">YouTube spam, 500</span></td><td class="best">0.994</td><td>0.500</td><td class="na">no policy</td><td class="na">no label</td></tr>
+          <tr><td></td><td>any category</td><td class="best">0.960</td><td>0.755</td><td>0.589</td><td>0.418</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>cost per 1,000 messages</td><td>cost / 1,000</td><td>$0.042</td><td>$0.004</td><td>$0.011</td><td>$0.0006</td></tr>
+          <tr><td>latency per message</td><td>latency</td><td>22 ms, batched 25</td><td>49 ms</td><td>130 ms</td><td>8 ms</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="caveats">
+      <p><b>Cost.</b> jevmod: about 1,005 input tokens per judged message with seven categories, $0.042 per 1,000 judged messages at Jev's list price of $0.042 per million tokens. Local models: GPU time on an RTX 5080 at $0.30 per hour, from measured latency; hardware, hosting and your time are not in that number.</p>
+      <p><b>Where jevmod loses.</b> toxic-bert was trained on Civil Comments and wins there by a wide margin. Llama Guard returns a hard label, so its per-category AUROC is close to a coin flip by construction; compare it on the "any category" row. ShieldGemma has policies for harassment and sexual content only. YouTube labels are loose: many "spam" comments are plain self-promotion.</p>
+    </div>
+    <p class="note cap">Not measured, for scale: a general LLM as judge on the same text, 1,005 tokens x 1.2 prompt overhead x $1 per million input tokens (Claude Haiku 4.5 list price), is about $1.2 per 1,000 messages before output tokens.</p>
+    <p class="note cap">The full table with F1 at default thresholds, precision and recall is in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>. A separate 98-message red-team suite (unicode evasion, Spanish, Portuguese, French, German, Russian and Japanese, prompt injection, gaming slang) runs as a regression test against the real API.</p>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2>One service, one request per batch.</h2>
+    <p class="sub">Every surface is an adapter over the same core. Messages that a local rule can settle never leave the machine; the rest go to Jev together, and every probability lands in the audit log.</p>
+    <figure class="fig">
+      <a href="diagrams/architecture.svg"><img src="diagrams/architecture.svg" alt="Architecture: Discord, Telegram, Reddit, CLI, Python, npm, HTTP and MCP feed one ModerationService, which calls the Judge, which sends one request to Jev. A SQLite store keeps policy, usage and the audit log." width="1000" height="560" loading="lazy"></a>
+      <figcaption>Only the message text and the channel topic are sent to Jev. Author names and ids stay local. <a class="open" href="diagrams/architecture.svg">open diagram</a></figcaption>
+    </figure>
+    <figure class="fig">
+      <a href="diagrams/flow.svg"><img src="diagrams/flow.svg" alt="Request flow: message, prefilter, cache, batch for two seconds, one Jev request, probabilities, policy, action, audit log. Messages under eight letters, from trusted authors or already judged are not sent. If Jev is unreachable the action is none with reason error_open." width="1000" height="500" loading="lazy"></a>
+      <figcaption>Text is NFKC-normalised and stripped of combining marks before judging and caching, so fullwidth, zalgo and zero-width tricks meet the same thresholds as plain text. <a class="open" href="diagrams/flow.svg">open diagram</a></figcaption>
+    </figure>
+    <div class="figs2">
+      <figure class="fig">
+        <a href="diagrams/coverage.svg"><img src="diagrams/coverage.svg" alt="Coverage matrix: spam, scam, harassment, nsfw, selfharm, doxxing, minors and custom rules are on by default on every surface; offtopic is available and turns on when a channel topic is set." width="998" height="508" loading="lazy"></a>
+        <figcaption>The questions live in one file, so every implementation asks Jev exactly the same thing. <a class="open" href="diagrams/coverage.svg">open diagram</a></figcaption>
+      </figure>
+      <figure class="fig">
+        <a href="diagrams/failure.svg"><img src="diagrams/failure.svg" alt="Failure policy: if Jev is unreachable, jevmod fails open, acts on nothing and logs one warning per batch. If the optional monthly quota (JEVMOD_MONTHLY_QUOTA, unlimited by default) is reached, judging pauses, the owner is told once, and nothing is deleted." width="1000" height="330" loading="lazy"></a>
+        <figcaption>Nothing is deleted while Jev is down or a quota pause is on. The quota is off unless you set <code class="i">JEVMOD_MONTHLY_QUOTA</code>. Flag-only is the default until you turn on delete or timeout. <a class="open" href="diagrams/failure.svg">open diagram</a></figcaption>
+      </figure>
     </div>
   </div>
-  <p class="note demo-note">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit at 0.75 to 0.85.</p>
 </section>
 
-<hr class="rule">
-
-<section id="bench" class="wrap">
-  <h2>Against three local classifiers.</h2>
-  <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. jevmod has the best AUROC in every category it was compared on (harassment and sexual content against three models; self-harm and minors against Llama Guard, the only other system with those labels) and ties ShieldGemma at 0.939 on "any category" of the OpenAI set. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
-  <p class="swipe">Swipe the table sideways for the other systems.</p>
-  <div class="tbl">
-    <table class="bench">
-      <thead><tr><th>set</th><th>category</th><th>jevmod</th><th>Llama Guard 3 8B</th><th>ShieldGemma 2B</th><th>toxic-bert</th></tr></thead>
-      <tbody>
-        <tr class="set"><td>OpenAI moderation, 1,680</td><td>harassment<span class="setm">OpenAI moderation, 1,680</span></td><td class="best jev">0.930</td><td>0.805</td><td>0.914</td><td>0.807</td></tr>
-        <tr><td></td><td>nsfw</td><td class="best jev">0.982</td><td>0.843</td><td>0.968</td><td>0.876</td></tr>
-        <tr><td></td><td>self-harm</td><td class="best jev">0.992</td><td>0.891</td><td class="na">no policy</td><td class="na">no label</td></tr>
-        <tr><td></td><td>minors</td><td class="best jev">0.977</td><td>0.590</td><td class="na">no policy</td><td class="na">no label</td></tr>
-        <tr><td></td><td>any category</td><td class="best jev">0.939</td><td>0.921</td><td class="best">0.939</td><td>0.884</td></tr>
-        <tr class="set"><td>Civil Comments, 351</td><td>harassment<span class="setm">Civil Comments, 351</span></td><td>0.875</td><td>0.539</td><td>0.874</td><td class="best">0.973</td></tr>
-        <tr><td></td><td>any category</td><td>0.876</td><td>0.592</td><td>0.857</td><td class="best">0.973</td></tr>
-        <tr class="set"><td>YouTube spam, 500</td><td>spam<span class="setm">YouTube spam, 500</span></td><td class="best jev">0.994</td><td>0.500</td><td class="na">no policy</td><td class="na">no label</td></tr>
-        <tr><td></td><td>any category</td><td class="best jev">0.960</td><td>0.755</td><td>0.589</td><td>0.418</td></tr>
-      </tbody>
-      <tfoot>
-        <tr><td>cost per 1,000 messages</td><td>cost / 1,000</td><td>$0.042</td><td>$0.004</td><td>$0.011</td><td>$0.0006</td></tr>
-        <tr><td>latency per message</td><td>latency</td><td>22 ms, batched 25</td><td>49 ms</td><td>130 ms</td><td>8 ms</td></tr>
-      </tfoot>
-    </table>
-  </div>
-  <div class="caveats">
-    <p><b>Cost.</b> jevmod: about 1,005 input tokens per judged message with seven categories, $0.042 per 1,000 judged messages at Jev's list price of $0.042 per million tokens. Local models: GPU time on an RTX 5080 at $0.30 per hour, from measured latency; hardware, hosting and your time are not in that number.</p>
-    <p><b>Where jevmod loses.</b> toxic-bert was trained on Civil Comments and wins there by a wide margin. Llama Guard returns a hard label, so its per-category AUROC is close to a coin flip by construction; compare it on the "any category" row. ShieldGemma has policies for harassment and sexual content only. YouTube labels are loose: many "spam" comments are plain self-promotion.</p>
-  </div>
-  <p class="note">Not measured, for scale: a general LLM as judge on the same text, 1,005 tokens x 1.2 prompt overhead x $1 per million input tokens (Claude Haiku 4.5 list price), is about $1.2 per 1,000 messages before output tokens.</p>
-  <p class="note">The full table with F1 at default thresholds, precision and recall is in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>. A separate 98-message red-team suite (unicode evasion, Spanish, Portuguese, French, German, Russian and Japanese, prompt injection, gaming slang) runs as a regression test against the real API.</p>
-</section>
-
-<hr class="rule">
-
-<section id="how" class="wrap">
-  <h2>One service, one request per batch.</h2>
-  <p class="sub">Every surface is an adapter over the same core. Messages that a local rule can settle never leave the machine; the rest go to Jev together, and every probability lands in the audit log.</p>
-  <figure class="fig">
-    <a href="diagrams/architecture.svg"><img src="diagrams/architecture.svg" alt="Architecture: Discord, Telegram, Reddit, CLI, Python, npm, HTTP and MCP feed one ModerationService, which calls the Judge, which sends one request to Jev. A SQLite store keeps policy, usage and the audit log." width="1000" height="560" loading="lazy"></a>
-    <figcaption>Only the message text and the channel topic are sent to Jev. Author names and ids stay local. <a class="open" href="diagrams/architecture.svg">open diagram</a></figcaption>
-  </figure>
-  <figure class="fig">
-    <a href="diagrams/flow.svg"><img src="diagrams/flow.svg" alt="Request flow: message, prefilter, cache, batch for two seconds, one Jev request, probabilities, policy, action, audit log. Messages under eight letters, from trusted authors or already judged are not sent. If Jev is unreachable the action is none with reason error_open." width="1000" height="500" loading="lazy"></a>
-    <figcaption>Text is NFKC-normalised and stripped of combining marks before judging and caching, so fullwidth, zalgo and zero-width tricks meet the same thresholds as plain text. <a class="open" href="diagrams/flow.svg">open diagram</a></figcaption>
-  </figure>
-  <div class="figs2">
-    <figure class="fig">
-      <a href="diagrams/coverage.svg"><img src="diagrams/coverage.svg" alt="Coverage matrix: spam, scam, harassment, nsfw, selfharm, doxxing, minors and custom rules are on by default on every surface; offtopic is available and turns on when a channel topic is set." width="998" height="508" loading="lazy"></a>
-      <figcaption>The questions live in one file, so every implementation asks Jev exactly the same thing. <a class="open" href="diagrams/coverage.svg">open diagram</a></figcaption>
-    </figure>
-    <figure class="fig">
-      <a href="diagrams/failure.svg"><img src="diagrams/failure.svg" alt="Failure policy: if Jev is unreachable, jevmod fails open, acts on nothing and logs one warning per batch. If the optional monthly quota (JEVMOD_MONTHLY_QUOTA, unlimited by default) is reached, judging pauses, the owner is told once, and nothing is deleted." width="1000" height="330" loading="lazy"></a>
-      <figcaption>Nothing is deleted while Jev is down or a quota pause is on. The quota is off unless you set <code class="i">JEVMOD_MONTHLY_QUOTA</code>. Flag-only is the default until you turn on delete or timeout. <a class="open" href="diagrams/failure.svg">open diagram</a></figcaption>
-    </figure>
-  </div>
-</section>
-
-<hr class="rule">
-
-<section class="wrap promise">
-  <div class="two">
+<section id="policy">
+  <div class="wrap two">
     <div>
-      <h2>What leaves your machine</h2>
-      <ul>
+      <h3>What leaves your machine</h3>
+      <ul class="list">
         <li>The message text and the channel topic, sent to TypeSafe's API for judgment. Their terms apply to that service.</li>
         <li>Nothing else. Author names and ids are never sent. There is no telemetry.</li>
         <li>Locally, a decision log with category, probabilities, action and the first 300 characters of the text, kept 30 days. <code class="i">/mod forget</code> or <code class="i">DELETE /v1/tenant</code> removes everything at once.</li>
         <li>Members whose message is removed get a direct message saying an automated system did it and how to appeal to the moderators.</li>
       </ul>
     </div>
-    <div class="no">
-      <h2>What happens when it fails</h2>
-      <ul>
+    <div>
+      <h3>What happens when it fails</h3>
+      <ul class="list">
         <li>Jev unreachable: decisions come back with <code class="i">reason="error_open"</code>, nothing is acted on, one warning per batch is logged.</li>
         <li>Optional monthly quota reached (<code class="i">JEVMOD_MONTHLY_QUOTA</code>, unlimited by default): judging pauses, the owner is told once, nothing is deleted while paused.</li>
         <li>A wrong call: react on the log entry and the threshold for that category moves a notch, so the bot follows your community's line.</li>
@@ -330,13 +441,39 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
   </div>
 </section>
 
-<footer class="wrap">
-  <span>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</span>
-  <a href="https://github.com/ohernandezdev/jevmod">github.com/ohernandezdev/jevmod</a>
+<footer>
+  <div class="wrap">
+    <span>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</span>
+    <a href="https://github.com/ohernandezdev/jevmod">github.com/ohernandezdev/jevmod</a>
+  </div>
 </footer>
 
 <script>
-  // Precomputed results: benchmark/data/items.jsonl (text) + benchmark/results/jevmod.jsonl (scores), run 2026-09-18.
+  // ---- calculator: visitor's volume x measured or listed constants -------------------------------------------
+  const TOK = 1005;            // measured input tokens per judged message, benchmark/report.py
+  const JEV_PER_M = 0.042;     // Jev list price, $ per million input tokens
+  const LLM_PER_M = 1.0;       // Claude Haiku 4.5 list price, $ per million input tokens
+  const OVERHEAD = 1.2;        // prompt overhead estimate for a general LLM judge
+  const LG_MS = 49;            // measured ms per message, Llama Guard 3 8B Q4_K_M on an RTX 5080
+  const fmtN = n => n.toLocaleString("en-US");
+  const fmt$ = v => v < 0.01 ? "$" + v.toFixed(4) : v < 1 ? "$" + v.toFixed(3) : v < 100 ? "$" + v.toFixed(2) : "$" + Math.round(v).toLocaleString("en-US");
+  const vol = document.getElementById("vol"), range = document.getElementById("msgsRange"), gpu = document.getElementById("gpu");
+  function calc() {
+    const n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, +gpu.value || 0);
+    const jev = n * TOK * JEV_PER_M / 1e6, llm = n * TOK * OVERHEAD * LLM_PER_M / 1e6, lg = n * LG_MS / 3.6e6 * g;
+    document.getElementById("m-jev").textContent = `${fmtN(n)} x 1,005 tokens x $0.042 / 1M`;
+    document.getElementById("o-jev").innerHTML = `${fmt$(jev)}<small>${fmt$(jev / Math.max(n, 1) * 1000)} per 1,000</small>`;
+    document.getElementById("m-llm").textContent = `${fmtN(n)} x 1,005 tokens x 1.2 x $1.00 / 1M`;
+    document.getElementById("o-llm").innerHTML = `${fmt$(llm)}<small>${jev > 0 ? (llm / jev).toFixed(0) + "x jevmod" : ""}</small>`;
+    document.getElementById("m-lg").textContent = `${fmtN(n)} x 49 ms x $${g.toFixed(2)} / 3,600,000 ms`;
+    document.getElementById("o-lg").innerHTML = `${fmt$(lg)}<small>${(n * LG_MS / 3.6e6).toFixed(2)} GPU hours of compute</small>`;
+  }
+  vol.addEventListener("input", () => { if (+vol.value > 0) range.value = Math.log10(+vol.value); calc(); });
+  range.addEventListener("input", () => { const v = Math.pow(10, +range.value); vol.value = v < 10000 ? Math.round(v / 100) * 100 : Math.round(v / 1000) * 1000; calc(); });
+  gpu.addEventListener("input", calc);
+  calc();
+
+  // ---- demo: benchmark/data/items.jsonl (text) + benchmark/results/jevmod.jsonl (scores), run 2026-09-18 -----
   const TH = { spam: 0.85, scam: 0.75, harassment: 0.75, nsfw: 0.80, selfharm: 0.80, doxxing: 0.80, minors: 0.70 };
   const CATS = Object.keys(TH);
   const ITEMS = [
@@ -353,16 +490,11 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
     { id: "oai770", set: "OpenAI moderation", text: "Yeah. Politicians don’t voice their true interests, or they’d be telling the public how they want to have their balls stomped on by a red leather dom.", s: { spam: 0.02, scam: 0.01, harassment: 0.63, nsfw: 0.83, selfharm: 0.01, doxxing: 0.02, minors: 0.02 } },
     { id: "yt73", set: "YouTube", text: "Thank you. Please give your email.", s: { spam: 0.19, scam: 0.54, harassment: 0.02, nsfw: 0.02, selfharm: 0.01, doxxing: 0.79, minors: 0.27 } },
   ];
-  function decide(s) {
-    let best = null;
-    for (const c of CATS) if (s[c] >= TH[c] && (!best || s[c] > s[best])) best = c;
-    return best;
-  }
+  function decide(s) { let best = null; for (const c of CATS) if (s[c] >= TH[c] && (!best || s[c] > s[best])) best = c; return best; }
   const list = document.getElementById("msgs"), q = document.getElementById("q"), verdict = document.getElementById("verdict"), bars = document.getElementById("bars");
   bars.innerHTML = CATS.map(c => `<span class="n">${c}</span><span class="b"><s style="left:${TH[c] * 100}%"></s><i data-c="${c}"></i></span><span class="v" data-v="${c}">0.00</span>`).join("");
   ITEMS.forEach((it, i) => {
-    const hit = decide(it.s);
-    const li = document.createElement("li");
+    const hit = decide(it.s), li = document.createElement("li");
     li.innerHTML = `<button type="button" data-i="${i}"><span>${it.text.replace(/</g, "&lt;")}</span><span class="tag ${hit ? "hit" : ""}">${hit ? hit + " " + it.s[hit].toFixed(2) : "ok"}</span></button>`;
     list.appendChild(li);
   });
@@ -371,17 +503,63 @@ curl -X POST localhost:8080/v1/moderate -H <span class="s">"Authorization: Beare
     [...list.children].forEach((li, k) => li.classList.toggle("on", k === i));
     q.textContent = it.text;
     verdict.innerHTML = hit
-      ? `action <b class="hit">flag</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${it.s[hit].toFixed(2)}</b> &nbsp; <span style="color:var(--fg-3)">${it.set}</span>`
-      : `action <b>none</b> &nbsp; nothing over its threshold &nbsp; <span style="color:var(--fg-3)">${it.set}</span>`;
+      ? `action <b class="hit">flag</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${it.s[hit].toFixed(2)}</b><br><span style="color:var(--muted)">${it.set}</span>`
+      : `action <b class="ok">none</b> &nbsp; nothing over its threshold<br><span style="color:var(--muted)">${it.set}</span>`;
     for (const c of CATS) {
-      const over = it.s[c] >= TH[c];
-      const bar = bars.querySelector(`i[data-c="${c}"]`), val = bars.querySelector(`[data-v="${c}"]`);
+      const over = it.s[c] >= TH[c], bar = bars.querySelector(`i[data-c="${c}"]`), val = bars.querySelector(`[data-v="${c}"]`);
       bar.style.width = (it.s[c] * 100) + "%"; bar.classList.toggle("hit", over);
       val.textContent = it.s[c].toFixed(2); val.classList.toggle("hit", over);
     }
   }
   list.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(+b.dataset.i); });
   show(1);
+
+
+  // ---- live demo: one health check on load, then only what the visitor submits ----------------------------------
+  const DEMO_URL = (document.getElementById("demo").dataset.demo || "").replace(/\/$/, "");
+  const live = document.getElementById("live"), liveClosed = document.getElementById("liveClosed"),
+        liveForm = document.getElementById("liveForm"), liveText = document.getElementById("liveText"),
+        liveCount = document.getElementById("liveCount"), liveBtn = document.getElementById("liveBtn"), liveMsg = document.getElementById("liveMsg");
+  function closeLive() { live.hidden = true; liveClosed.hidden = false; }
+  if (!DEMO_URL) closeLive();
+  else fetch(DEMO_URL + "/demo/health", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(h => { if (!h.open) closeLive(); }).catch(closeLive);
+  liveText.addEventListener("input", () => { liveCount.textContent = `${liveText.value.length} / 300`; });
+  function tailFor(d) {
+    if (d.reason === "cache") return "cached, cost $0";
+    if (d.judged) return `live, budget left $${(+d.budget_left_usd).toFixed(4)}`;
+    return `skipped: ${String(d.reason || "").replace(/_/g, " ")}`;
+  }
+  function showLive(d, text) {
+    [...list.children].forEach(li => li.classList.remove("on"));
+    q.textContent = text;
+    const hit = d.action !== "none" && d.category ? d.category : null;
+    verdict.innerHTML = hit
+      ? `action <b class="hit">${d.action}</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${(+d.probability).toFixed(2)}</b><br><span style="color:var(--muted)">${tailFor(d)}</span>`
+      : `action <b class="ok">none</b> &nbsp; ${d.judged ? "nothing over its threshold" : "not judged"}<br><span style="color:var(--muted)">${tailFor(d)}</span>`;
+    for (const c of CATS) {
+      const v = d.scores && c in d.scores ? +d.scores[c] : 0, over = v >= TH[c];
+      const bar = bars.querySelector(`i[data-c="${c}"]`), val = bars.querySelector(`[data-v="${c}"]`);
+      bar.style.width = (v * 100) + "%"; bar.classList.toggle("hit", over);
+      val.textContent = v.toFixed(2); val.classList.toggle("hit", over);
+    }
+  }
+  liveForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const text = liveText.value.trim();
+    if (!text) { liveMsg.textContent = "Type something first."; return; }
+    liveBtn.disabled = true; liveMsg.textContent = "asking Jev";
+    try {
+      const r = await fetch(DEMO_URL + "/demo/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      if (r.status === 429) { liveMsg.textContent = "Slow down: 6 checks a minute, 40 a day per visitor."; return; }
+      if (r.status === 503) { liveMsg.textContent = "The demo budget for this month is used up. Run jevmod check with your own key."; closeLive(); return; }
+      if (!r.ok) { liveMsg.textContent = `The demo server answered ${r.status}.`; return; }
+      const d = await r.json();
+      showLive(d, text);
+      liveMsg.textContent = tailFor(d);
+      document.querySelector(".panel").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch { liveMsg.textContent = "Could not reach the demo server."; }
+    finally { liveBtn.disabled = false; }
+  });
 
   document.getElementById("copy").addEventListener("click", async (e) => {
     const code = e.currentTarget.querySelector("code");
