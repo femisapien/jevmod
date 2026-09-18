@@ -7,6 +7,8 @@ You set the thresholds and the actions. Every decision is logged with its number
 It runs on [Jev](https://typesafe.ai), TypeSafe's System One model: you ask yes/no questions about a message and
 get probabilities back, no text generation. About **$0.04 per 1,000 messages** with all categories on.
 
+Site, live demo and cost calculator: **https://jevmod.dev**
+
 ![jevmod check and the HTTP API in a terminal](docs/jevmod.gif)
 
 ```
