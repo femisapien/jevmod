@@ -54,7 +54,7 @@ def main() -> int:
         if len(toks) != len(srcs):  # one token for every source in the row
             toks = [tokens.strip()] * len(srcs)
         new: list[str] = []
-        for src, token in zip(srcs, toks):
+        for src, token in zip(srcs, toks, strict=True):
             citation, did, problem = repoint(src, token)
             new.append(citation)
             moved += did

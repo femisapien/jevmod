@@ -1,357 +1,11 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "jevmod",
-    "description": "Moderation decisions for user content: spam, scam, harassment, adult, off-topic and your own rules. Powered by Jev (TypeSafe). Probabilities, thresholds you own, decisions you can audit.",
-    "version": "0.2.0"
-  },
-  "paths": {
-    "/v1/health": {
-      "get": {
-        "summary": "Health",
-        "operationId": "health_v1_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Health V1 Health Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "summary": "Metrics",
-        "operationId": "metrics_metrics_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/moderate": {
-      "post": {
-        "summary": "Moderate",
-        "operationId": "moderate_v1_moderate_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ModerateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModerateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/policy": {
-      "get": {
-        "summary": "Get Policy",
-        "operationId": "get_policy_v1_policy_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Policy V1 Policy Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "Put Policy",
-        "operationId": "put_policy_v1_policy_put",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PolicyIn"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Put Policy V1 Policy Put"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/decisions": {
-      "get": {
-        "summary": "Decisions",
-        "operationId": "decisions_v1_decisions_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  },
-                  "title": "Response Decisions V1 Decisions Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/tenant": {
-      "delete": {
-        "summary": "Delete Tenant",
-        "description": "GDPR: forget this tenant's policy, usage and decision log.",
-        "operationId": "delete_tenant_v1_tenant_delete",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "boolean"
-                  },
-                  "title": "Response Delete Tenant V1 Tenant Delete"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/keys": {
-      "post": {
-        "summary": "Create Key",
-        "operationId": "create_key_v1_keys_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/KeyRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Create Key V1 Keys Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
   "components": {
     "schemas": {
       "DecisionOut": {
         "properties": {
-          "message_id": {
-            "type": "string",
-            "title": "Message Id"
-          },
           "action": {
-            "type": "string",
-            "title": "Action"
+            "title": "Action",
+            "type": "string"
           },
           "category": {
             "anyOf": [
@@ -364,27 +18,30 @@
             ],
             "title": "Category"
           },
+          "judged": {
+            "title": "Judged",
+            "type": "boolean"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
           "probability": {
-            "type": "number",
-            "title": "Probability"
+            "title": "Probability",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
           },
           "scores": {
             "additionalProperties": {
               "type": "number"
             },
-            "type": "object",
-            "title": "Scores"
-          },
-          "judged": {
-            "type": "boolean",
-            "title": "Judged"
-          },
-          "reason": {
-            "type": "string",
-            "title": "Reason"
+            "title": "Scores",
+            "type": "object"
           }
         },
-        "type": "object",
         "required": [
           "message_id",
           "action",
@@ -394,7 +51,8 @@
           "judged",
           "reason"
         ],
-        "title": "DecisionOut"
+        "title": "DecisionOut",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -402,69 +60,69 @@
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
-            "type": "array",
-            "title": "Detail"
+            "title": "Detail",
+            "type": "array"
           }
         },
-        "type": "object",
-        "title": "HTTPValidationError"
+        "title": "HTTPValidationError",
+        "type": "object"
       },
       "InMessage": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "your id for the message; echoed back",
-            "default": ""
-          },
-          "text": {
-            "type": "string",
-            "maxLength": 8000,
-            "title": "Text"
-          },
           "author": {
-            "type": "string",
+            "default": "",
             "title": "Author",
-            "default": ""
-          },
-          "channel_topic": {
-            "type": "string",
-            "title": "Channel Topic",
-            "description": "what the channel/thread is about; used by offtopic",
-            "default": ""
+            "type": "string"
           },
           "author_trusted": {
-            "type": "boolean",
-            "title": "Author Trusted",
+            "default": false,
             "description": "true skips judgment (moderators, verified staff)",
-            "default": false
+            "title": "Author Trusted",
+            "type": "boolean"
+          },
+          "channel_topic": {
+            "default": "",
+            "description": "what the channel/thread is about; used by offtopic",
+            "title": "Channel Topic",
+            "type": "string"
+          },
+          "id": {
+            "default": "",
+            "description": "your id for the message; echoed back",
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 8000,
+            "title": "Text",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "text"
         ],
-        "title": "InMessage"
+        "title": "InMessage",
+        "type": "object"
       },
       "KeyRequest": {
         "properties": {
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
           "tenant": {
-            "type": "string",
             "maxLength": 80,
             "minLength": 1,
-            "title": "Tenant"
-          },
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "default": ""
+            "title": "Tenant",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "tenant"
         ],
-        "title": "KeyRequest"
+        "title": "KeyRequest",
+        "type": "object"
       },
       "ModerateRequest": {
         "properties": {
@@ -472,63 +130,49 @@
             "items": {
               "$ref": "#/components/schemas/InMessage"
             },
-            "type": "array",
             "maxItems": 50,
             "minItems": 1,
-            "title": "Messages"
+            "title": "Messages",
+            "type": "array"
           }
         },
-        "type": "object",
         "required": [
           "messages"
         ],
-        "title": "ModerateRequest"
+        "title": "ModerateRequest",
+        "type": "object"
       },
       "ModerateResponse": {
         "properties": {
-          "request_id": {
-            "type": "string",
-            "title": "Request Id"
-          },
           "decisions": {
             "items": {
               "$ref": "#/components/schemas/DecisionOut"
             },
-            "type": "array",
-            "title": "Decisions"
+            "title": "Decisions",
+            "type": "array"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
           },
           "usage": {
             "additionalProperties": {
               "type": "integer"
             },
-            "type": "object",
-            "title": "Usage"
+            "title": "Usage",
+            "type": "object"
           }
         },
-        "type": "object",
         "required": [
           "request_id",
           "decisions",
           "usage"
         ],
-        "title": "ModerateResponse"
+        "title": "ModerateResponse",
+        "type": "object"
       },
       "PolicyIn": {
         "properties": {
-          "thresholds": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "number"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Thresholds"
-          },
           "actions": {
             "anyOf": [
               {
@@ -542,20 +186,6 @@
               }
             ],
             "title": "Actions"
-          },
-          "rules": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rules"
           },
           "rule_actions": {
             "anyOf": [
@@ -571,6 +201,34 @@
             ],
             "title": "Rule Actions"
           },
+          "rules": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules"
+          },
+          "thresholds": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thresholds"
+          },
           "timeout_minutes": {
             "anyOf": [
               {
@@ -583,11 +241,18 @@
             "title": "Timeout Minutes"
           }
         },
-        "type": "object",
-        "title": "PolicyIn"
+        "title": "PolicyIn",
+        "type": "object"
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -599,32 +264,367 @@
                 }
               ]
             },
-            "type": "array",
-            "title": "Location"
+            "title": "Location",
+            "type": "array"
           },
           "msg": {
-            "type": "string",
-            "title": "Message"
+            "title": "Message",
+            "type": "string"
           },
           "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
+            "title": "Error Type",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "loc",
           "msg",
           "type"
         ],
-        "title": "ValidationError"
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Moderation decisions for user content. One request per batch to Jev (TypeSafe) returns a probability for each of 9 categories (spam, scam, harassment, nsfw, offtopic, selfharm, doxxing, minors, ai_generated) plus any rules you write in your own words. Thresholds and actions are yours; every decision is logged so you can audit it. ai_generated is experimental and off by default.",
+    "title": "jevmod",
+    "version": "0.2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/metrics": {
+      "get": {
+        "operationId": "metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Metrics"
+      }
+    },
+    "/v1/decisions": {
+      "get": {
+        "operationId": "decisions_v1_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Decisions V1 Decisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decisions"
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "operationId": "health_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health V1 Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/v1/keys": {
+      "post": {
+        "operationId": "create_key_v1_keys_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Create Key V1 Keys Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Key"
+      }
+    },
+    "/v1/moderate": {
+      "post": {
+        "operationId": "moderate_v1_moderate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Moderate"
+      }
+    },
+    "/v1/policy": {
+      "get": {
+        "operationId": "get_policy_v1_policy_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy V1 Policy Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy"
+      },
+      "put": {
+        "operationId": "put_policy_v1_policy_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Policy V1 Policy Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Policy"
+      }
+    },
+    "/v1/tenant": {
+      "delete": {
+        "description": "GDPR: forget this tenant's policy, usage and decision log.",
+        "operationId": "delete_tenant_v1_tenant_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete Tenant V1 Tenant Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Tenant"
       }
     }
   }
