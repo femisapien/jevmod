@@ -43,13 +43,20 @@ blocked, it is marked blocked with the reason.
 - [x] Finish Llama Guard 3 run; `BENCHMARK.md` with the four-system table, cost/latency, what each dataset is, caveats (toxic-bert trained on Civil Comments; YouTube labels loose) [E]
 - [x] `launch/twitter.md` thread and `launch/reddit.md` post (r/Discord_Bots, r/selfhosted, r/Python): value, numbers, GIF, repo link [E]
 - [x] LICENSE MIT + `DISCLAIMER.md` (no warranty, not affiliated with TypeSafe/Discord/Telegram/Reddit, operator responsible for actions and legal compliance) [E]
-- [ ] Final anti-slop review (in progress 2026-09-18) of README and landing by a fresh agent; fix findings [E]
+- [x] Final anti-slop review 2026-09-18: 30 findings, all applied (quota off by default, key order, honest benchmark claims, calibration measured, mobile landing, init --forget, X-Request-Id header, reddit compose, npm repository field) of README and landing by a fresh agent; fix findings [E]
 
 ## Rules for everyone
 
 - Real tests against Jev (`TYPESAFE_API_KEY` in env), no mocks; `ruff`, `mypy` clean; Node: `tsc` strict, vitest.
 - Never write a key into any file. Never touch another owner's directory. Do not commit; the coordinator commits.
 - English in code and docs. Plain sentences, no marketing adjectives, no emoji walls, no "🚀". Numbers only when measured.
+
+## Launch gate (do these the day of the launch, in this order)
+
+1. `npm publish` from `packages/jevmod-js` and `python -m build && twine upload` from the root, so `pip install jevmod` and `npm install jevmod` work before anyone reads them.
+2. Make the repo public; enable Pages (Settings → Pages → main, /docs); replace LINK in launch/*.md with the repo URL.
+3. Rotate the TypeSafe key if it was ever pasted anywhere; update `gh secret set TYPESAFE_API_KEY`.
+4. Post the Twitter thread with docs/jevmod.gif, then r/Discord_Bots; the other subreddits on later days.
 
 ## Notes
 
