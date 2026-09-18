@@ -41,6 +41,8 @@ def test_normalize_defeats_fullwidth_enclosed_and_zalgo():
     )
     assert normalize("Ⓕⓡⓔⓔ ⓝⓘⓣⓡⓞ") == "Free nitro"
     assert normalize("f̸̈r̷̓e̶̔e̵̊ nitro") == "free nitro"
+    assert normalize("I&#39;m A SUBSCRIBER &amp; fan﻿") == "I'm A SUBSCRIBER & fan"
+    assert normalize("fr​ee ni‍tro") == "free nitro"  # zero-width characters inside words
 
 
 def test_prefilter_counts_characters_not_words():

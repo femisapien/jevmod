@@ -21,6 +21,7 @@ agree once the state is a dict. 429/529 are retried with exponential backoff and
 from __future__ import annotations
 
 import hashlib
+import html
 import re
 import time
 import unicodedata
@@ -130,9 +131,11 @@ _ENCLOSED = {cp + k: chr(ord("A") + k) for cp in (0x1F130, 0x1F150, 0x1F170) for
 
 
 def normalize(text: str) -> str:
-    """NFKC (fullwidth, enclosed letters, ligatures → plain), drop combining marks (zalgo), collapse whitespace."""
-    t = unicodedata.normalize("NFKC", text.translate(_ENCLOSED))
-    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    """HTML entities → text (scraped comments carry `&#39;`), NFKC (fullwidth, enclosed letters, ligatures → plain),
+    drop combining marks (zalgo), collapse whitespace."""
+    t = unicodedata.normalize("NFKC", html.unescape(text).translate(_ENCLOSED))
+    # drop combining marks (zalgo) and format characters (zero-width spaces/joiners used to split words, BOM)
+    t = "".join(ch for ch in t if not unicodedata.combining(ch) and unicodedata.category(ch) != "Cf")
     return " ".join(t.split())
 
 

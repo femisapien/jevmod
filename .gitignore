@@ -3,3 +3,5 @@ __pycache__/
 *.sqlite
 .env
 *.egg-info/
+benchmark/data/
+benchmark/results/
