@@ -52,7 +52,7 @@ blocked, it is marked blocked with the reason.
 - English in code and docs. Plain sentences, no marketing adjectives, no emoji walls, no "🚀". Numbers only when measured.
 
 - [x] Public demo endpoint `jevmod demo` (budget cap, per-IP limits, CORS allow-list, visitor log with admin stats) + `deploy/demo/` (Caddy HTTPS on a VPS) 2026-09-18
-- [ ] Landing redesign: light theme, StudioBlank design system, value-first hero, cost calculator, live try-it box [C, in progress]
+- [x] Landing redesign 2026-09-18: light theme on the StudioBlank system, value-first hero, cost calculator, live try-it box (data-demo on section#demo)
 
 ## Launch gate (do these the day of the launch, in this order)
 
