@@ -57,11 +57,11 @@ blocked, it is marked blocked with the reason.
 ## Launch gate (do these the day of the launch, in this order)
 
 1. `npm publish` from `packages/jevmod-js` and `python -m build && twine upload` from the root, so `pip install jevmod` and `npm install jevmod` work before anyone reads them.
-2. Deploy the demo on the Hetzner VPS (deploy/demo/README.md), put its URL in `data-demo` on the landing. Make the repo public; enable Pages (Settings → Pages → main, /docs); replace LINK in launch/*.md with the repo URL.
+2. Done 2026-09-18: demo and landing live at jevmod.hernandezbastos.es; repo public. Remaining:  enable Pages (Settings → Pages → main, /docs); replace LINK in launch/*.md with the repo URL.
 3. Rotate the TypeSafe key if it was ever pasted anywhere; update `gh secret set TYPESAFE_API_KEY`.
 4. Post the Twitter thread with docs/jevmod.gif, then r/Discord_Bots; the other subreddits on later days.
 
 ## Notes
 
-- GitHub Pages cannot be enabled while the repo is private on a free personal plan; enable it at launch when the repo goes public (Settings → Pages → branch main, folder /docs).
+- The landing is served from https://jevmod.hernandezbastos.es (nginx behind Traefik on the VPS). GitHub Pages is optional; the repo went public on 2026-09-18.
 - npm package not published to the registry yet (`npm publish` from packages/jevmod-js at launch); PyPI likewise (`python -m build && twine upload`).
