@@ -3,8 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>jevmod</title>
-<meta name="description" content="A Discord bot that rates every message for spam, scams, harassment and five more, flags to a private channel and deletes only if you turn that on. Open source, powered by Jev.">
+<title>jevmod, message scoring for Discord moderators</title>
+<meta name="description" content="jevmod rates every Discord message for spam, scams, harassment and four more, flags them to a private channel and deletes only if you turn that on. Open source, run it yourself. The hosted bot is not open yet.">
+<link rel="canonical" href="https://jevmod.dev/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="jevmod">
+<meta property="og:url" content="https://jevmod.dev/">
+<meta property="og:title" content="jevmod, message scoring for Discord moderators">
+<meta property="og:description" content="Rates every Discord message for spam, scams, harassment and four more. Flags to a private channel. Deletes only if you turn that on. Open source.">
+<meta property="og:image" content="https://jevmod.dev/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="jevmod, message scoring for Discord moderators">
+<meta name="twitter:description" content="Rates every Discord message for spam, scams, harassment and four more. Flags to a private channel. Deletes only if you turn that on. Open source.">
+<meta name="twitter:image" content="https://jevmod.dev/og.png">
 <link rel="alternate" type="text/plain" href="/llms.txt">
 <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site.css">
@@ -22,10 +35,14 @@
   <h1 class="display">A score for every message. You decide what happens.</h1>
   <div class="grid-5-7">
     <div class="stack">
-      <p class="lead"><span data-claim="C01">Rates every message in your Discord server for spam, scams, harassment and five more.</span> Flags to a private channel. <span data-claim="C02">Deletes only if you turn that on.</span></p>
-      <div id="hosted" class="cta" data-invite="https://discord.com/oauth2/authorize?client_id=1550544449199800410&amp;scope=bot%20applications.commands&amp;permissions=1099511721040">
+      <p class="lead"><span data-claim="C01">Rates every message in your Discord server for spam, scams, harassment and four more.</span> Flags to a private channel. <span data-claim="C02">Deletes only if you turn that on.</span></p>
+      <!-- The hosted bot is not running, so there is no invite to offer. When it runs, put this back as
+           data-invite on #hosted: https://discord.com/oauth2/authorize?client_id=1550544449199800410&amp;scope=bot%20applications.commands&amp;permissions=1099511721040 -->
+      <div id="hosted" class="cta">
         <a id="inviteBtn" class="btn primary" href="#">Add to Discord</a>
+        <a class="link" href="/developers/#self-host">Run it yourself</a>
       </div>
+      <p class="small muted" data-claim="C01b">The hosted bot is not running yet, so there is nothing to add to a server today. A copy you run yourself works now. It needs a Discord bot token and a TypeSafe key.</p>
     </div>
     <div id="demo" data-demo="https://jevmod.dev">
       <div id="live">
@@ -60,11 +77,11 @@
   <div class="wrap grid-5-7">
     <div class="stack">
       <h2 data-claim="C03">It flags. It does not act until you say so.</h2>
-      <p class="prose">The bot creates a private #jevmod-log channel. <span data-claim="C04">Every flagged message appears there with its category, its probability and the message.</span> <span data-claim="C05">Members see nothing.</span></p>
+      <p class="prose">The bot creates a private #jevmod-log channel. <span data-claim="C04">A flagged message appears there with its category, its probability and the message.</span> <span data-claim="C04b">Nothing is posted when the bot cannot create or reach that channel, and nothing is judged at all while the server is over its monthly quota or the model is unreachable.</span> <span data-claim="C05">Members see nothing.</span></p>
     </div>
     <figure class="shot">
-      <img src="/img/log-flag.svg" width="1600" height="1000" alt="The #jevmod-log channel in Discord. One log entry reads scam p=0.99, flag, then the fake Nitro giveaway message, its author and channel, a footer with the top three scores, and two reactions below it." loading="lazy">
-      <figcaption>A flagged message as it appears in the log channel.</figcaption>
+      <img src="/img/log-flag.svg" width="1600" height="1000" alt="A drawing of the #jevmod-log channel in Discord. One log entry reads scam p=0.99, flag, then the fake Nitro giveaway message, its author and channel, a footer with the top three scores, and two reactions below it." loading="lazy">
+      <figcaption>A drawing of a flagged message in the log channel, not a screen capture.</figcaption>
     </figure>
   </div>
 </section>
@@ -72,8 +89,8 @@
 <section id="judges" class="section">
   <div class="wrap stack">
     <div class="stack-s">
-      <h2 data-claim="C06">Nine questions. One number each.</h2>
-      <p class="lead" data-claim="C07">Every message gets a probability from 0 to 1 for each of these. Over the line for that category, it is flagged.</p>
+      <h2 data-claim="C06">Nine questions. Seven asked by default.</h2>
+      <p class="lead" data-claim="C07">Every category you have on gets its own probability from 0 to 1. Over the line for that category, the message is flagged. Off-topic and written by a model are off until you turn them on, so a new server gets seven numbers. A message the local filters settle is never sent to the model and gets no numbers at all.</p>
     </div>
     <dl class="defs">
       <div class="def"><dt>Spam</dt><dd>Advertising pushed at the community, referral and invite links, repeated offers, mass mentions.</dd></div>
@@ -84,7 +101,7 @@
       <div class="def"><dt>Self-harm</dt><dd>A member saying they want to die, disappear or hurt themselves. It flags so a moderator can reach out.</dd></div>
       <div class="def"><dt>Doxxing</dt><dd>A home address, phone number, real name or workplace of a real person, or asking others to find them.</dd></div>
       <div class="def"><dt>Minors</dt><dd data-claim="C09">Sexual comments about someone under 18, or an adult building private trust with a child.</dd></div>
-      <div class="def"><dt>Written by a model <span class="muted">(experimental)</span></dt><dd data-claim="C39">A message that reads as assistant output rather than someone typing. Off by default; <code>/mod set ai_generated flag</code> turns it on. We measured it: it separates model output from real chat almost perfectly, but it also flags members who write in an encyclopedic register, so it only ever flags and never moves its own line.</dd></div>
+      <div class="def"><dt>Written by a model <span class="muted">(experimental)</span></dt><dd data-claim="C39">A message that reads as assistant output rather than someone typing. Off by default; <code>/mod set ai_generated flag</code> turns it on. On our test set it separates model output from real chat almost perfectly, AUROC 0.971. A real channel is not that test set: at a realistic 2 in 100 rate of pasted model text, we project that only 19 to 37 of every 100 flags would be right, so most flags would be wrong. It also flags members who write in an encyclopedic register. An experimental category can only flag: jevmod refuses to set it to delete or time out, and the reactions never move its line.</dd></div>
     </dl>
     <p class="prose" data-claim="C10">Add up to five rules in your own words: <em>No politics. News about the game is fine.</em></p>
   </div>
@@ -103,32 +120,35 @@
         <div class="prose">
           <h3>What it can do</h3>
           <p>Flag is the default. Delete needs the Manage Messages permission. <span data-claim="C14">Time out, 10 minutes, needs Moderate Members.</span> <span data-claim="C15">It cannot ban anyone.</span></p>
-          <p><span data-claim="C16">Roles you mark as trusted are never judged.</span> A member whose message is removed gets a direct message saying an automated system did it and how to appeal to your moderators.</p>
+          <p><span data-claim="C16">Roles you mark as trusted are never judged, and neither is anyone who can Manage Messages.</span> A member whose message is removed gets a direct message saying an automated system did it and how to appeal to your moderators.</p>
         </div>
       </div>
       <figure class="shot">
-        <img src="/img/mod-status.svg" width="1600" height="1200" alt="The reply to /mod status in Discord: one row per category with its action and line, the custom rules, the trusted roles, and this month's usage against the plan's limit." loading="lazy">
-        <figcaption><code>/mod status</code> shows each category, its line, its action and this month's usage.</figcaption>
+        <img src="/img/mod-status.svg" width="1600" height="1200" alt="A drawing of the reply to /mod status in Discord: one row per category with its action and line, the custom rules, the trusted roles, and this month's usage against the plan's limit." loading="lazy">
+        <figcaption>A drawing, not a screen capture: <code>/mod status</code> shows each category, its line, its action and this month's usage.</figcaption>
       </figure>
     </div>
     <figure class="shot">
-      <img src="/img/reaction-nudge.svg" width="1600" height="600" alt="A log entry with a cross reaction added by a moderator, and the bot's reply underneath: noted: threshold for scam is now 0.78." loading="lazy">
-      <figcaption data-claim="C17">A <code>❌</code> on a log entry. The bot answers: noted: threshold for scam is now 0.78.</figcaption>
+      <img src="/img/reaction-nudge.svg" width="1600" height="600" alt="A drawing of a log entry with a cross reaction added by a moderator, and the bot's reply underneath: noted: threshold for scam is now 0.78." loading="lazy">
+      <figcaption data-claim="C17">A drawing of a <code>❌</code> on a log entry. The bot answers: noted: threshold for scam is now 0.78.</figcaption>
     </figure>
   </div>
 </section>
 
 <section id="proof" class="section">
   <div class="wrap stack">
-    <h2 data-claim="C18">Tested on 2,531 public messages with human labels.</h2>
+    <h2 data-claim="C18">Measured on 2,531 public messages with human labels.</h2>
+    <p class="prose" data-claim="C18b">The four numbers below come from 1,680 of those messages, OpenAI's moderation set. The other 851 are 351 Civil Comments and 500 YouTube spam comments.</p>
     <div class="stats">
-      <div class="stat" data-claim="C19"><span class="stat-n">0.93</span><span class="stat-l">harassment</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
-      <div class="stat" data-claim="C20"><span class="stat-n">0.98</span><span class="stat-l">sexual content</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
-      <div class="stat" data-claim="C21"><span class="stat-n">0.99</span><span class="stat-l">self-harm</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
-      <div class="stat" data-claim="C22"><span class="stat-n">0.98</span><span class="stat-l">minors</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
+      <div class="stat" data-claim="C19"><span class="stat-n">0.93</span><span class="stat-l">harassment</span><span class="stat-d">AUROC. At the line it ships with it catches 78 of every 100.</span></div>
+      <div class="stat" data-claim="C20"><span class="stat-n">0.98</span><span class="stat-l">sexual content</span><span class="stat-d">AUROC. At the line it ships with it catches 89 of every 100.</span></div>
+      <div class="stat" data-claim="C21"><span class="stat-n">0.99</span><span class="stat-l">self-harm</span><span class="stat-d">AUROC. At the line it ships with it catches 59 of every 100.</span></div>
+      <div class="stat" data-claim="C22"><span class="stat-n">0.98</span><span class="stat-l">minors</span><span class="stat-d">AUROC. At the line it ships with it catches 41 of every 100.</span></div>
     </div>
     <div class="prose">
-      <p><span data-claim="C23">AUROC measures how well the scores rank messages: 1.0 is a perfect ranking, 0.5 a coin flip.</span> <span data-claim="C24">On OpenAI's moderation set jevmod has the best AUROC in every category it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</span> It loses on Civil Comments to toxic-bert, which was trained on that set.</p>
+      <p><span data-claim="C23">AUROC measures how well the scores rank messages: 1.0 is a perfect ranking, 0.5 a coin flip.</span> <span data-claim="C23b">It says nothing about how much gets caught, because that depends on the line, and the lines jevmod ships with are high. On the YouTube spam set it catches 36 of every 100.</span> Moving a line down with <code>/mod set</code>, or with the <code>❌</code> and <code>✅</code> reactions, catches more and costs more false positives.</p>
+      <p><span data-claim="C24">On OpenAI's moderation set jevmod has the best AUROC in every category it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</span> <span data-claim="C24b">On the any-violation row it ties with ShieldGemma 2B, both at 0.939.</span> It loses on Civil Comments to toxic-bert, which was trained on that set.</p>
+      <p data-claim="C24c">Five categories have numbers here: harassment, sexual content, self-harm, minors and spam. Scam, doxxing and off-topic have no labelled public set in this benchmark, so they were not measured. Written by a model was measured separately.</p>
       <p>The full table, with cost and latency per system, is on the <a href="/developers/#benchmark">developers page</a>.</p>
     </div>
   </div>
@@ -140,7 +160,7 @@
     <div class="defs">
       <div class="def"><dt>Ban anyone.</dt><dd data-claim="C26">It has no ban permission and no ban command.</dd></div>
       <div class="def"><dt>Delete while unsure.</dt><dd data-claim="C27">If the model does not answer, the bot does nothing with that batch. Nothing is removed on a guess.</dd></div>
-      <div class="def"><dt>Store your messages.</dt><dd><span data-claim="C28">The hosted bot keeps message ids, categories and probabilities for flagged messages, never the text.</span> <span data-claim="C29">Messages that pass are not stored at all.</span></dd></div>
+      <div class="def"><dt>Store your messages.</dt><dd><span data-claim="C28">The hosted bot runs with <code>JEVMOD_KEEP_TEXT_CHARS</code> set to 0, so it stores no message text.</span> <span data-claim="C28b">A copy you run yourself keeps the first 300 characters of a flagged message until you set that variable to 0.</span> <span data-claim="C29">Messages that pass are not stored at all.</span></dd></div>
       <div class="def"><dt>Send who wrote it.</dt><dd><span data-claim="C30">Only the text and the channel topic go to the model.</span> Names and ids stay in your server.</dd></div>
     </div>
   </div>
@@ -148,20 +168,22 @@
 
 <section id="price" class="section">
   <div class="wrap stack">
-    <h2 data-claim="C31">Free for 5,000 judged messages a month. Pro is $3.99.</h2>
+    <h2 data-claim="C31">Free for 5,000 judged messages a month. Pro is $3.99 a month. You cannot buy it yet.</h2>
     <table class="plans">
       <thead><tr><th scope="col">Plan</th><th scope="col">Free</th><th scope="col">Pro</th><th scope="col">Run it yourself</th></tr></thead>
       <tbody>
-        <tr data-claim="C32"><th scope="row">Price</th><td data-plan="Free">$0</td><td data-plan="Pro">$3.99 per server per month</td><td data-plan="Yourself">$0, plus what you pay TypeSafe for the model</td></tr>
+        <tr data-claim="C32"><th scope="row">Price</th><td data-plan="Free">$0</td><td data-plan="Pro">$3.99 per server per month, not on sale yet</td><td data-plan="Yourself">$0, plus what you pay TypeSafe for the model</td></tr>
         <tr data-claim="C33"><th scope="row">Judged messages a month</th><td data-plan="Free">5,000</td><td data-plan="Pro">50,000</td><td data-plan="Yourself">No limit, with your own key</td></tr>
         <tr><th scope="row">Who holds the model key</th><td data-plan="Free">jevmod</td><td data-plan="Pro">jevmod</td><td data-plan="Yourself">You</td></tr>
         <tr data-claim="C34"><th scope="row">Where the data lives</th><td data-plan="Free">jevmod's server, 30 days</td><td data-plan="Pro">jevmod's server, 30 days</td><td data-plan="Yourself">Your machine</td></tr>
-        <tr><th scope="row">Cancel</th><td data-plan="Free">Nothing to cancel</td><td data-plan="Pro">Any time. <code>/mod upgrade</code> opens the Stripe portal</td><td data-plan="Yourself">Nothing to cancel</td></tr>
+        <tr data-claim="C32b"><th scope="row">Cancel</th><td data-plan="Free">Nothing to cancel</td><td data-plan="Pro">Any time, in Stripe's billing portal. Once a server is on Pro, <code>/mod upgrade</code> opens that portal</td><td data-plan="Yourself">Nothing to cancel</td></tr>
       </tbody>
     </table>
     <div class="prose">
-      <p>Judged means sent to the model. <span data-claim="C35">Messages under eight letters without a link, from trusted roles, or identical to one already judged are settled locally and do not count.</span></p>
-      <p><span data-claim="C36">For each flagged message the hosted bot keeps the message id, the author id, the category and the probabilities for 30 days, never the text.</span> <span data-claim="C37">Messages that pass are not kept.</span> <span data-claim="C38"><code>/mod forget</code> deletes everything, and so does kicking the bot.</span></p>
+      <p><span data-claim="C31b"><code>/mod upgrade</code> is the command that starts a subscription. On a Free server it opens Stripe Checkout; once the server is on Pro the same command opens the billing portal instead.</span> <span data-claim="C31c">Today that command answers that there is nothing to pay, because no Stripe keys are set on the server.</span></p>
+      <p>Judged means sent to the model. <span data-claim="C35">Messages under eight letters without a link, and messages from trusted authors, are settled locally and do not count.</span> <span data-claim="C35b">Neither does a repeat of text the bot judged before with the same channel topic and the same categories on. That cache lives in the running bot's memory, holds an answer for 24 hours, and is empty again after a restart.</span></p>
+      <p><span data-claim="C36">For each flagged message the hosted bot writes one row and keeps it 30 days: a timestamp, the server, a request id, the message id, the author id, the first 80 characters of the channel topic, the category, its probability, the action taken, and the probability of every category asked.</span> <span data-claim="C36b">The row has a text column too, and the hosted bot leaves it empty.</span> The full list is on the <a href="/privacy/">privacy page</a>. <span data-claim="C37">Messages that pass are not kept.</span></p>
+      <p><span data-claim="C38"><code>/mod forget</code> deletes everything stored about your server, and so does kicking the bot.</span> <span data-claim="C38b">Neither one touches Stripe. Cancel a Pro subscription in the billing portal first, or it keeps charging.</span></p>
       <p class="small">Details in <a href="/privacy/">Privacy</a> and <a href="/terms/">Terms</a>.</p>
     </div>
   </div>
@@ -169,8 +191,8 @@
 
 <section id="start" class="section">
   <div class="wrap stack">
-    <h2>Add it, and it starts flagging.</h2>
-    <p class="lead">Invite it with the permissions listed on the privacy page. It creates #jevmod-log and posts there. <code>/mod status</code> shows the lines.</p>
+    <h2>Run it yourself, and it starts flagging.</h2>
+    <p class="lead"><span data-claim="C38c">The hosted bot is not open yet, so the way to use jevmod today is to run the container in your own Discord server.</span> It asks for the permissions listed on the privacy page, creates #jevmod-log and posts there. <code>/mod status</code> shows the lines.</p>
     <div class="cta">
       <a id="inviteBtn2" class="btn primary" href="#">Add to Discord</a>
       <a class="link" href="/developers/#self-host">Or run it yourself</a>

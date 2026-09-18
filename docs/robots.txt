@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /thanks.html
+Disallow: /cancelled.html
+
+Sitemap: https://jevmod.dev/sitemap.xml

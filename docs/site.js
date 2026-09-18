@@ -3,7 +3,8 @@
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
 
-  /* ---- hosted invite buttons: one function for #inviteBtn and #inviteBtn2 ---- */
+  /* ---- hosted invite buttons: one function for #inviteBtn and #inviteBtn2.
+         No data-invite on #hosted means the hosted bot is not running, so the button says so and does nothing. ---- */
   function inviteToggle() {
     var host = $("hosted");
     var inv = host ? (host.dataset.invite || "").trim() : "";
@@ -17,7 +18,7 @@
         b.removeAttribute("aria-disabled");
         b.classList.add("primary");
       } else {
-        b.textContent = "Add to Discord, coming soon";
+        b.textContent = "Add to Discord, not open yet";
         b.removeAttribute("href");
         b.setAttribute("aria-disabled", "true");
         b.classList.remove("primary");

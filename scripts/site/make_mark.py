@@ -109,6 +109,25 @@ for n in (512, 256, 128, 64, 32):
     print("wrote", n)
 
 
+def ico(path: Path, sizes: tuple[int, ...] = (16, 32, 48, 64)) -> None:
+    """A .ico whose entries are whole PNGs, which every browser since IE 11 reads."""
+    fit = fit_to_circle()
+    blobs = []
+    for n in sizes:
+        tmp = path.with_suffix(f".{n}.png")
+        png(tmp, n, render(n, fit))
+        blobs.append(tmp.read_bytes())
+        tmp.unlink()
+    offset = 6 + 16 * len(sizes)
+    head = struct.pack("<HHH", 0, 1, len(sizes))
+    entries = b""
+    for n, blob in zip(sizes, blobs, strict=True):
+        entries += struct.pack("<BBBBHHII", n % 256, n % 256, 0, 0, 1, 32, len(blob), offset)
+        offset += len(blob)
+    path.write_bytes(head + entries + b"".join(blobs))
+    print("wrote ico")
+
+
 def svg(path: Path) -> None:
     """The same geometry as vector, so the mark can be resized without re-rendering."""
     k, tx, ty = fit_to_circle()
@@ -130,3 +149,9 @@ def svg(path: Path) -> None:
 
 
 svg(out / "jevmod-mark.svg")
+
+# The site uses the same mark, so the tab icon and the Discord avatar are one thing.
+docs = Path(__file__).resolve().parents[2] / "docs"
+if docs.is_dir():
+    svg(docs / "favicon.svg")
+    ico(docs / "favicon.ico")

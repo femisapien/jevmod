@@ -1,44 +1,46 @@
 # jevmod
 
-> Open-source content moderation powered by Jev (TypeSafe's System One model). One request per batch of messages, a probability per category (spam, scam, harassment, nsfw, offtopic, selfharm, doxxing, minors) and per plain-language rule, a policy that turns probabilities into flag/delete/timeout. Python SDK, CLI, HTTP API, MCP server, npm package, and Discord/Telegram/Reddit bots over the same core. MIT.
+> Open-source content moderation powered by Jev (TypeSafe's System One model). One request per batch of messages, a probability per category (spam, scam, harassment, nsfw, offtopic, selfharm, doxxing, minors, and ai_generated as an opt-in experimental one) and per plain-language rule, a policy that turns probabilities into flag/delete/timeout. Python SDK, CLI, HTTP API, MCP server, npm package, and Discord/Telegram/Reddit bots over the same core. MIT.
 
-Key facts: flag-only by default; the hosted bot stores no message text (JEVMOD_KEEP_TEXT_CHARS=0); fails open when Jev is unreachable; about $0.000045 per judged message; probabilities move about plus or minus 0.03 between runs; only message text and channel topic are sent to TypeSafe; the key is `TYPESAFE_API_KEY` (keyring, environment or .env, never in code).
+Key facts: flag-only by default; fails open when Jev is unreachable; about $0.000045 per judged message; probabilities move about plus or minus 0.03 between runs; only message text and channel topic are sent to TypeSafe; the key is `TYPESAFE_API_KEY` (keyring, environment or .env, never in code), and without it nothing runs.
+
+How much message text is kept is a setting, not a property of the software: `JEVMOD_KEEP_TEXT_CHARS` is 300 by default, and the container behind jevmod.dev sets it to 0, so that one stores no message text.
 
 ## Start here
 
 - [Site for community owners](https://jevmod.dev/): what the hosted Discord bot does, what it never does, plans and the live demo.
 - [Site for developers](https://jevmod.dev/developers/): quickstart for CLI, Python, npm, HTTP and MCP, the benchmark table and the cost calculator.
 - [Privacy](https://jevmod.dev/privacy/) and [Terms](https://jevmod.dev/terms/): written from the code, with the exact data the hosted bot stores and the Discord permissions it asks for.
-- [README](../README.md): the three doors (community owner, developer, self-host), commands, categories, the red-team scoreboard.
-- [AGENTS.md](../AGENTS.md): exact API signatures, where things live, tests, coding rules, the integration recipe in short form. Read this if you are an agent.
-- [BENCHMARK.md](../BENCHMARK.md): jevmod against Llama Guard 3, ShieldGemma and toxic-bert on public datasets, with cost and latency.
+- [README](https://github.com/ohernandezdev/jevmod/blob/main/README.md): the three doors (community owner, developer, self-host), commands, categories, the red-team scoreboard.
+- [AGENTS.md](https://github.com/ohernandezdev/jevmod/blob/main/AGENTS.md): exact API signatures, where things live, tests, coding rules, the integration recipe in short form. Read this if you are an agent.
+- [BENCHMARK.md](https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md): jevmod against Llama Guard 3, ShieldGemma and toxic-bert on public datasets, with cost and latency.
 
 ## Agent skills and plugin
 
-- [plugin/skills/jevmod-integrate/SKILL.md](../plugin/skills/jevmod-integrate/SKILL.md): procedure to add moderation to an existing codebase: pick the surface, store the key, wire the call, add a real test, decision table, gotchas.
-- [plugin/skills/jevmod-moderate/SKILL.md](../plugin/skills/jevmod-moderate/SKILL.md): screen text, inputs and datasets with `jevmod check` (exit codes, --json) or the MCP tools `moderate` and `categories`.
-- [plugin/.mcp.json](../plugin/.mcp.json): the MCP server registration (`jevmod mcp`, stdio) that the Claude Code plugin installs.
-- [plugin/README.md](../plugin/README.md): what the plugin contains and how to install it from the marketplace.
+- [plugin/skills/jevmod-integrate/SKILL.md](https://github.com/ohernandezdev/jevmod/blob/main/plugin/skills/jevmod-integrate/SKILL.md): procedure to add moderation to an existing codebase: pick the surface, store the key, wire the call, add a real test, decision table, gotchas.
+- [plugin/skills/jevmod-moderate/SKILL.md](https://github.com/ohernandezdev/jevmod/blob/main/plugin/skills/jevmod-moderate/SKILL.md): screen text, inputs and datasets with `jevmod check` (exit codes, --json) or the MCP tools `moderate` and `categories`.
+- [plugin/.mcp.json](https://github.com/ohernandezdev/jevmod/blob/main/plugin/.mcp.json): the MCP server registration (`jevmod mcp`, stdio) that the Claude Code plugin installs.
+- [plugin/README.md](https://github.com/ohernandezdev/jevmod/blob/main/plugin/README.md): what the plugin contains and how to install it from the marketplace.
 
 ## Reference
 
-- [jevmod/categories.json](../jevmod/categories.json): the questions and true/false criteria asked to Jev for every category; the single source shared by Python, npm and MCP.
-- [jevmod/judge.py](../jevmod/judge.py): the judgment core; its docstring records the red-team findings (dict state, NFKC, character pre-filter, criteria on every question).
-- [jevmod/core/policy.py](../jevmod/core/policy.py): default thresholds and actions, `Policy`, `Decision`, `decide`.
-- [jevmod/api/server.py](../jevmod/api/server.py): HTTP endpoints and request/response models; OpenAPI at /docs when running.
-- [jevmod/mcp_server.py](../jevmod/mcp_server.py): the MCP tools and their signatures.
-- [.env.example](../.env.example): every environment variable each role reads.
-- [docs/jevmod/](jevmod/): Postman collection requests for the HTTP API, in order of use.
-- [docs/diagrams/](diagrams/): architecture, request flow, coverage matrix and failure policy (SVG).
+- [jevmod/categories.json](https://github.com/ohernandezdev/jevmod/blob/main/jevmod/categories.json): the questions and true/false criteria asked to Jev for every category; the single source shared by Python, npm and MCP.
+- [jevmod/judge.py](https://github.com/ohernandezdev/jevmod/blob/main/jevmod/judge.py): the judgment core; its docstring records the red-team findings (dict state, NFKC, character pre-filter, criteria on every question).
+- [jevmod/core/policy.py](https://github.com/ohernandezdev/jevmod/blob/main/jevmod/core/policy.py): default thresholds and actions, `Policy`, `Decision`, `decide`.
+- [jevmod/api/server.py](https://github.com/ohernandezdev/jevmod/blob/main/jevmod/api/server.py): HTTP endpoints and request/response models; OpenAPI at /docs when running.
+- [jevmod/mcp_server.py](https://github.com/ohernandezdev/jevmod/blob/main/jevmod/mcp_server.py): the MCP tools and their signatures.
+- [.env.example](https://github.com/ohernandezdev/jevmod/blob/main/.env.example): every environment variable each role reads.
+- [OpenAPI document](https://jevmod.dev/openapi.json) and [Postman collection](https://jevmod.dev/jevmod.postman_collection.json): the HTTP API, ready to import.
+- [Architecture diagram](https://jevmod.dev/diagrams/architecture.svg): what reaches the model and what never does.
 
 ## Project
 
-- [PLAN.md](../PLAN.md): phases, decisions and the production readiness checklist.
-- [tests/data/redteam.csv](../tests/data/redteam.csv): 98 labelled adversarial messages used as the regression floor.
-- [DISCLAIMER.md](../DISCLAIMER.md): no warranty, no affiliation with TypeSafe, Discord, Telegram or Reddit; the operator owns the actions.
-- [LICENSE](../LICENSE): MIT.
+- [PLAN.md](https://github.com/ohernandezdev/jevmod/blob/main/PLAN.md): phases, decisions and the production readiness checklist.
+- [tests/data/redteam.csv](https://github.com/ohernandezdev/jevmod/blob/main/tests/data/redteam.csv): 98 labelled adversarial messages used as the regression floor.
+- [DISCLAIMER.md](https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md): no warranty, no affiliation with TypeSafe, Discord, Telegram or Reddit; the operator owns the actions.
+- [LICENSE](https://github.com/ohernandezdev/jevmod/blob/main/LICENSE): MIT.
 
 ## Optional
 
-- [launch/twitter.md](../launch/twitter.md) and [launch/reddit.md](../launch/reddit.md): launch posts with the measured numbers.
-- [PRODUCT.md](../PRODUCT.md): the productisation checklist and its owners.
+- [launch/twitter.md](https://github.com/ohernandezdev/jevmod/blob/main/launch/twitter.md) and [launch/reddit.md](https://github.com/ohernandezdev/jevmod/blob/main/launch/reddit.md): launch posts with the measured numbers.
+- [PRODUCT.md](https://github.com/ohernandezdev/jevmod/blob/main/PRODUCT.md): the productisation checklist and its owners.

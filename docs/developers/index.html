@@ -7,6 +7,16 @@
 <meta name="description" content="jevmod for developers: a Python package, an npm package, a CLI, an HTTP API, an MCP server and three bots over one moderation core. One request per batch, a probability per category. MIT.">
 <link rel="canonical" href="https://jevmod.dev/developers/">
 <link rel="alternate" type="text/plain" href="/llms.txt">
+<meta property="og:type" content="website">
+<meta property="og:title" content="jevmod for developers">
+<meta property="og:description" content="One request per batch. A probability per category. Python, npm, CLI, HTTP and MCP over one moderation core. MIT.">
+<meta property="og:url" content="https://jevmod.dev/developers/">
+<meta property="og:image" content="https://jevmod.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="stylesheet" href="/site.css">
 <script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
 </head>
@@ -43,6 +53,12 @@
 <section id="quickstart" class="section">
   <div class="wrap stack">
     <h2>Three surfaces, the same decision.</h2>
+
+    <div class="prose" data-claim="C157">
+      <p>Everything below needs a TypeSafe API key. Create one at <a href="https://console.typesafe.ai">console.typesafe.ai</a>; the free tier is enough to run the examples on this page.</p>
+      <p><code>jevmod init</code> asks for the key, checks it against the API and stores it in your operating system keyring. <code>TYPESAFE_API_KEY</code> in the environment works everywhere and wins over the keyring; the npm package reads that variable or an <code>apiKey</code> option and nothing else.</p>
+      <p>Without a key <code>jevmod check</code> prints one error line and exits 2, and the Python and npm calls raise instead of returning a decision.</p>
+    </div>
 
     <div>
       <div class="snippet">
@@ -89,7 +105,7 @@ d.action, d.category, d.scores            // same shape as Python and the HTTP A
       </div>
     </div>
 
-    <p class="prose" data-claim="C42">Every check returns all enabled categories at once, in one request. Messages under eight letters without a link, trusted authors and repeats of judged text are never sent.</p>
+    <p class="prose" data-claim="C42">Every check returns all enabled categories at once, in one request. Messages under eight letters without a link and messages from trusted authors are never sent. Text already judged by the same process is answered from a cache that lives in memory and expires after 24 hours; its key is the text, the channel topic and the enabled categories, so a change to any of them is judged again.</p>
   </div>
 </section>
 
@@ -122,13 +138,13 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Co
       </div>
     </div>
 
-    <h3>Six endpoints.</h3>
+    <h3 data-claim="C158">Seven paths, eight operations.</h3>
     <dl class="defs">
       <div class="def"><dt><code>POST /v1/moderate</code></dt><dd data-claim="C43">Up to 50 messages in, one decision each out. The <code>X-Request-Id</code> you send comes back as <code>request_id</code> and as a response header.</dd></div>
       <div class="def"><dt><code>GET/PUT /v1/policy</code></dt><dd>Thresholds, actions and rules for this tenant.</dd></div>
       <div class="def"><dt><code>GET /v1/decisions</code></dt><dd>The audit log.</dd></div>
       <div class="def"><dt><code>DELETE /v1/tenant</code></dt><dd>Forget this tenant.</dd></div>
-      <div class="def"><dt><code>POST /v1/keys</code></dt><dd data-claim="C44">Admin only. Mints a tenant key, stored hashed.</dd></div>
+      <div class="def"><dt><code>POST /v1/keys</code></dt><dd data-claim="C44">Admin only. Mints the tenant key for this jevmod server, the <code>jm_...</code> bearer token the other endpoints ask for, and stores only its hash. It is not the TypeSafe key: the server still needs <code>TYPESAFE_API_KEY</code> to reach the model.</dd></div>
       <div class="def"><dt><code>GET /v1/health</code>, <code>GET /metrics</code></dt><dd>Liveness and Prometheus counters.</dd></div>
     </dl>
     <p class="prose small" data-claim="C45">OpenAPI at <code>/docs</code> on your own jevmod api. A static copy is at <a href="/openapi.json">/openapi.json</a>; a Postman collection at <a href="/jevmod.postman_collection.json">/jevmod.postman_collection.json</a>.</p>
@@ -185,27 +201,28 @@ claude mcp add jevmod -- jevmod mcp
 <section id="benchmark" class="section">
   <div class="wrap stack">
     <h2 data-claim="C48">Tested on 2,531 public messages with human labels.</h2>
+    <p class="prose" data-claim="C160">The four figures below come from one of the three sets: the 1,680 messages of OpenAI's moderation eval. The other 851 messages are in the table further down.</p>
 
     <div class="stats">
-      <div class="stat" data-claim="C49"><span class="stat-n">0.93</span><span class="stat-l">harassment</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
-      <div class="stat" data-claim="C50"><span class="stat-n">0.98</span><span class="stat-l">sexual content</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
-      <div class="stat" data-claim="C51"><span class="stat-n">0.99</span><span class="stat-l">self-harm</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
-      <div class="stat" data-claim="C52"><span class="stat-n">0.98</span><span class="stat-l">minors</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
+      <div class="stat" data-claim="C49"><span class="stat-n">0.93</span><span class="stat-l">harassment</span><span class="stat-d">AUROC, 1,680 OpenAI eval messages</span></div>
+      <div class="stat" data-claim="C50"><span class="stat-n">0.98</span><span class="stat-l">sexual content</span><span class="stat-d">AUROC, 1,680 OpenAI eval messages</span></div>
+      <div class="stat" data-claim="C51"><span class="stat-n">0.99</span><span class="stat-l">self-harm</span><span class="stat-d">AUROC, 1,680 OpenAI eval messages</span></div>
+      <div class="stat" data-claim="C52"><span class="stat-n">0.98</span><span class="stat-l">minors</span><span class="stat-d">AUROC, 1,680 OpenAI eval messages</span></div>
     </div>
 
     <p class="prose" data-claim="C53">Same 2,531 messages for all four systems: 1,680 from OpenAI's moderation eval, 351 from Civil Comments, 500 from the YouTube spam collection. Thresholds are each system's defaults; nobody was tuned on this data.</p>
 
     <table class="plans" data-claim="C54">
-      <caption class="small muted">AUROC per set and category, then cost and latency. Bold is the best in the row.</caption>
+      <caption class="small muted">AUROC and F1 at each system's default threshold, written AUROC / F1, per set and category, then cost and latency. Bold is the best in the row.</caption>
       <thead><tr><th scope="col">set, category</th><th scope="col">jevmod</th><th scope="col">Llama Guard 3 8B</th><th scope="col">ShieldGemma 2B</th><th scope="col">toxic-bert</th></tr></thead>
       <tbody>
-        <tr><th scope="row">OpenAI eval, harassment</th><td data-plan="jevmod"><b>0.930</b></td><td data-plan="Llama Guard">0.805</td><td data-plan="ShieldGemma">0.914</td><td data-plan="toxic-bert">0.807</td></tr>
-        <tr><th scope="row">OpenAI eval, nsfw</th><td data-plan="jevmod"><b>0.982</b></td><td data-plan="Llama Guard">0.843</td><td data-plan="ShieldGemma">0.968</td><td data-plan="toxic-bert">0.876</td></tr>
-        <tr><th scope="row">OpenAI eval, self-harm</th><td data-plan="jevmod"><b>0.992</b></td><td data-plan="Llama Guard">0.891</td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
-        <tr><th scope="row">OpenAI eval, minors</th><td data-plan="jevmod"><b>0.977</b></td><td data-plan="Llama Guard">0.590</td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
-        <tr><th scope="row">OpenAI eval, any violation</th><td data-plan="jevmod"><b>0.939</b></td><td data-plan="Llama Guard">0.921</td><td data-plan="ShieldGemma"><b>0.939</b></td><td data-plan="toxic-bert">0.884</td></tr>
-        <tr><th scope="row">Civil Comments, harassment</th><td data-plan="jevmod">0.875</td><td data-plan="Llama Guard">0.539</td><td data-plan="ShieldGemma">0.874</td><td data-plan="toxic-bert"><b>0.973</b></td></tr>
-        <tr><th scope="row">YouTube, spam</th><td data-plan="jevmod"><b>0.994</b></td><td data-plan="Llama Guard">0.500 <small>no spam category</small></td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
+        <tr><th scope="row">OpenAI eval, harassment</th><td data-plan="jevmod"><b>0.930</b> / <b>0.748</b></td><td data-plan="Llama Guard">0.805 / 0.681</td><td data-plan="ShieldGemma">0.914 / 0.618</td><td data-plan="toxic-bert">0.807 / 0.423</td></tr>
+        <tr><th scope="row">OpenAI eval, nsfw</th><td data-plan="jevmod"><b>0.982</b> / <b>0.871</b></td><td data-plan="Llama Guard">0.843 / 0.780</td><td data-plan="ShieldGemma">0.968 / 0.800</td><td data-plan="toxic-bert">0.876 / 0.549</td></tr>
+        <tr><th scope="row">OpenAI eval, self-harm</th><td data-plan="jevmod"><b>0.992</b> / 0.714</td><td data-plan="Llama Guard">0.891 / <b>0.825</b></td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
+        <tr><th scope="row">OpenAI eval, minors</th><td data-plan="jevmod"><b>0.977</b> / <b>0.519</b></td><td data-plan="Llama Guard">0.590 / 0.248</td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
+        <tr><th scope="row">OpenAI eval, any violation</th><td data-plan="jevmod"><b>0.939</b> / 0.762</td><td data-plan="Llama Guard">0.921 / <b>0.787</b></td><td data-plan="ShieldGemma"><b>0.939</b> / 0.760</td><td data-plan="toxic-bert">0.884 / 0.646</td></tr>
+        <tr><th scope="row">Civil Comments, harassment</th><td data-plan="jevmod">0.875 / 0.659</td><td data-plan="Llama Guard">0.539 / 0.159</td><td data-plan="ShieldGemma">0.874 / 0.601</td><td data-plan="toxic-bert"><b>0.973</b> / <b>0.846</b></td></tr>
+        <tr><th scope="row">YouTube, spam</th><td data-plan="jevmod"><b>0.994</b> / <b>0.534</b></td><td data-plan="Llama Guard">0.500 / 0.000 <small>no spam category</small></td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
         <tr><th scope="row">Cost per 1,000 messages</th><td data-plan="jevmod">$0.042 <small>API list price</small></td><td data-plan="Llama Guard">$0.004 <small>GPU time at $0.30/h</small></td><td data-plan="ShieldGemma">$0.011 <small>GPU time</small></td><td data-plan="toxic-bert">$0.0006 <small>GPU time</small></td></tr>
         <tr><th scope="row">Latency per message</th><td data-plan="jevmod">22 ms <small>batches of 25</small></td><td data-plan="Llama Guard">49 ms</td><td data-plan="ShieldGemma">130 ms <small>4 calls</small></td><td data-plan="toxic-bert">8 ms</td></tr>
       </tbody>
@@ -213,6 +230,10 @@ claude mcp add jevmod -- jevmod mcp
 
     <div class="grid-7-5">
       <div class="prose">
+        <p data-claim="C159">Where it loses at the shipped thresholds: Llama Guard 3 has the better F1 on OpenAI self-harm, 0.825 against 0.714, and on any violation, 0.787 against 0.762. In both rows jevmod ranks better and still acts less, because its lines are set high.</p>
+        <p data-claim="C161">Recall at the thresholds the bots ship with, on the same runs: harassment 0.78, nsfw 0.89, self-harm 0.59, minors 0.41, YouTube spam 0.36.</p>
+        <p data-claim="C162">AUROC says the scores rank messages well. It does not say how much a shipped threshold catches, and the two are different questions: self-harm ranks at 0.992 and still misses two of every five labelled cases at a threshold of 0.80. Lower the line and recall goes up, which is what the reaction feedback loop and <code>PUT /v1/policy</code> are for.</p>
+        <p data-claim="C163">Measured categories: harassment, nsfw, self-harm, minors and spam. The scam, doxxing and offtopic categories have no benchmark rows anywhere, so nothing on this page is evidence about them. The ai_generated category was measured in a separate run on 520 texts, reported in <a href="https://github.com/ohernandezdev/jevmod/blob/main/benchmark/ai_detect/REPORT.md">benchmark/ai_detect/REPORT.md</a>.</p>
         <p data-claim="C55">Where it loses: toxic-bert wins Civil Comments because it was trained on Civil Comments. On text it has not seen, OpenAI's set, it is the weakest of the four.</p>
         <p data-claim="C56">Llama Guard only gives a probability for "unsafe at all"; its per-category numbers use that probability when it named the category and 0 otherwise, which under-reports it. Quantised weights (Q4, Q8) may cost both open models a little against fp16.</p>
         <p data-claim="C57">Calibration was measured on the same runs. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit mostly at 0.75 to 0.85 (minors 0.70, off-topic 0.90). A 0.6 is a maybe, not a 60%.</p>
@@ -234,7 +255,7 @@ claude mcp add jevmod -- jevmod mcp
             <label for="vol">Messages judged per month</label>
             <input id="vol" type="number" min="100" max="100000000" step="100" value="20000" inputmode="numeric">
             <input id="msgsRange" type="range" min="2" max="7" step="0.01" value="4.30103" aria-label="Messages per month, logarithmic slider">
-            <p class="small muted" data-claim="C61">Messages that reach Jev. jevmod never sends messages under eight letters without a link, from trusted authors, or repeats of judged text, so your bill is for a subset of traffic.</p>
+            <p class="small muted" data-claim="C61">Messages that reach Jev. jevmod never sends messages under eight letters without a link or messages from trusted authors, and text the same process judged in the last 24 hours is answered from memory, so your bill is for a subset of traffic.</p>
           </div>
           <div class="field">
             <label for="gpu">Rented GPU price, $ per hour</label>
@@ -273,9 +294,9 @@ claude mcp add jevmod -- jevmod mcp
     <div class="grid-5-7">
       <div class="prose">
         <h2>One image. One variable picks the role.</h2>
-        <p data-claim="C64">Roles: <code>api</code>, <code>discord</code>, <code>telegram</code>, <code>reddit</code>. SQLite on a volume. A $4/month VM, Fly.io or Railway with a volume is enough.</p>
+        <p data-claim="C64">Roles: <code>api</code>, <code>demo</code>, <code>hosted</code>, <code>discord</code>, <code>telegram</code>, <code>reddit</code>. <code>demo</code> serves the try-it endpoint of this site and <code>hosted</code> serves the billing webhook and the admin panel. SQLite on a volume. A $4/month VM, Fly.io or Railway with a volume is enough.</p>
         <p data-claim="C65">Fails open: if Jev is unreachable, decisions come back with <code>reason="error_open"</code> and nothing is acted on. The failure is logged.</p>
-        <p data-claim="C66"><code>JEVMOD_MONTHLY_QUOTA</code> is 0 by default, unlimited. Set it and judging pauses for a tenant after that many judged messages in a month, tells the owner once and deletes nothing.</p>
+        <p data-claim="C66"><code>JEVMOD_MONTHLY_QUOTA</code> is 0 by default, unlimited. Set it and judging pauses for a tenant after that many judged messages in a month, and nothing is deleted while it is paused. Every decision comes back with <code>reason="quota"</code>, and on the API it is up to the caller to notice. The Discord and Telegram bots post one notice the first time it happens in a month.</p>
         <p data-claim="C67"><code>JEVMOD_KEEP_TEXT_CHARS</code> is how many characters of a flagged message the decision log keeps, 300 by default. 0 stores no text at all. Rows older than 30 days are purged on every batch.</p>
       </div>
       <div class="snippet">
@@ -289,8 +310,8 @@ docker compose --profile discord up -d     # add the Discord bot</code></pre>
       </div>
     </div>
     <figure class="shot">
-      <img src="/img/admin-panel.svg" width="2400" height="1400" alt="The /admin panel listing tenants, plans, usage and subscriptions." loading="lazy">
-      <figcaption>The <code>/admin</code> panel on a self-hosted api: tenants, plans, this month's usage and subscriptions.</figcaption>
+      <img src="/img/admin-panel.svg" width="2400" height="1400" alt="A drawing of the /admin panel layout: a table of tenants with their plan, this month's usage and their subscription. Not a screen capture." loading="lazy">
+      <figcaption data-claim="C164">A drawing of the <code>/admin</code> panel layout, not a capture of a running one: tenants, plans, this month's usage and subscriptions. The panel belongs to the <code>hosted</code> role, not to <code>api</code>, and it needs <code>JEVMOD_ADMIN_TOKEN</code>.</figcaption>
     </figure>
   </div>
 </section>

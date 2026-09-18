@@ -4,8 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>jevmod: thanks</title>
+<meta name="description" content="What happens after a jevmod Pro checkout: the plan changes when Stripe's webhook arrives.">
 <meta name="robots" content="noindex">
+<link rel="canonical" href="https://jevmod.dev/thanks.html">
 <link rel="alternate" type="text/plain" href="/llms.txt">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Thanks, jevmod">
+<meta property="og:description" content="What happens after a jevmod Pro checkout: the plan changes when Stripe's webhook arrives.">
+<meta property="og:url" content="https://jevmod.dev/thanks.html">
+<meta property="og:image" content="https://jevmod.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="stylesheet" href="/site.css">
 <script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
 </head>
@@ -16,7 +28,7 @@
 </nav>
 <main class="plain wrap stack">
   <h1 class="display">Thanks. Your server is on Pro.</h1>
-  <p class="lead">The bot switches plans within a minute. <code>/mod status</code> in your server shows the new limit. Manage or cancel the subscription from the link in that message or write to the address in the receipt.</p>
+  <p class="lead" data-claim="C169">Stripe sends jevmod a webhook when the payment clears, and the server moves to Pro when that webhook arrives. <code>/mod status</code> in your server then shows the new limit. <code>/mod upgrade</code> opens Stripe's billing portal, where you can change or cancel the subscription. For anything else, open an issue on <a href="https://github.com/ohernandezdev/jevmod/issues">GitHub</a>.</p>
   <div class="cta"><a class="btn" href="/">Back to jevmod.dev</a></div>
 </main>
 <footer class="site-footer">

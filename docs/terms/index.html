@@ -8,6 +8,16 @@
 <meta name="description" content="Terms for the jevmod software and the hosted Discord bot: license, what the bot does and does not do, plans, billing, availability.">
 <link rel="canonical" href="https://jevmod.dev/terms/">
 <link rel="alternate" type="text/plain" href="/llms.txt">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Terms, jevmod">
+<meta property="og:description" content="Terms for the jevmod software and the hosted Discord bot: license, what the bot does and does not do, plans, billing, availability.">
+<meta property="og:url" content="https://jevmod.dev/terms/">
+<meta property="og:image" content="https://jevmod.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="stylesheet" href="/site.css">
 <script defer src="/site.js"></script>
 <script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
@@ -48,14 +58,15 @@
 
 <section class="section" id="plans">
   <h2>Plans and billing</h2>
+  <p data-claim="C168">Pro is not on sale at the moment. The hosted instance runs without Stripe keys, so <code>/mod upgrade</code> answers that this copy is self-hosted and there is nothing to pay. No plan can be bought and no card is charged today. The paragraphs about Pro below are the terms that apply if it opens.</p>
   <p data-claim="C142">The Free plan covers 5,000 judged messages per server per month.</p>
   <p data-claim="C143">The Pro plan costs $3.99 per server per month.</p>
   <p data-claim="C144">Pro covers 50,000 judged messages per server per month.</p>
   <p data-claim="C145">Judged means sent to the model: the counter grows only by messages the model receives, so messages skipped by the local filters or answered from the cache do not count.</p>
   <p data-claim="C146">When a server reaches its quota, judging pauses until the next calendar month and nothing is deleted while paused.</p>
-  <p data-claim="C147">The bot posts one notice in the log channel the first time a month the quota is reached.</p>
-  <p data-claim="C148">Pro is a monthly subscription paid through Stripe Checkout, one price per server, started with <code>/mod upgrade</code>.</p>
-  <p data-claim="C149">You can cancel at any time from Stripe's billing portal, reached with the same <code>/mod upgrade</code> command once you subscribe.</p>
+  <p data-claim="C147">The bot posts one notice in the log channel the first time the quota is reached in a month, and <code>/mod status</code> shows the count at any time.</p>
+  <p data-claim="C148">If it opens, Pro is a monthly subscription paid through Stripe Checkout, one price per server, started with <code>/mod upgrade</code>.</p>
+  <p data-claim="C149">Once a subscription exists you can cancel it at any time from Stripe's billing portal, reached with the same <code>/mod upgrade</code> command.</p>
   <p data-claim="C150">When the subscription ends the server returns to the Free plan.</p>
   <p data-claim="C151">A period already paid is not refunded, except by writing to the operator through the contact below; refunds are handled by hand.</p>
 </section>

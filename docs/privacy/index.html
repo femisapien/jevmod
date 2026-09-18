@@ -8,6 +8,16 @@
 <meta name="description" content="What the hosted jevmod bot sends to the model, what it stores, what stays in your Discord, and how to delete it. Every statement cites the line of code it comes from.">
 <link rel="canonical" href="https://jevmod.dev/privacy/">
 <link rel="alternate" type="text/plain" href="/llms.txt">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Privacy, jevmod">
+<meta property="og:description" content="What the hosted jevmod bot sends to the model, what it stores, what stays in your Discord, and how to delete it.">
+<meta property="og:url" content="https://jevmod.dev/privacy/">
+<meta property="og:image" content="https://jevmod.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="stylesheet" href="/site.css">
 <script defer src="/site.js"></script>
 <script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
@@ -61,6 +71,7 @@
 <section class="section" id="delete">
   <h2>Deleting data</h2>
   <p data-claim="C98"><code>/mod forget</code> deletes the server's settings, usage counters, decision records, API keys and subscription row.</p>
+  <p data-claim="C167">If the server has a paid subscription, cancel it in Stripe first. <code>/mod forget</code> deletes the subscription row in jevmod's database and never calls Stripe, so a subscription that is still live in Stripe keeps being charged.</p>
   <p data-claim="C99"><code>/mod forget_user @member</code> deletes that member's decision records and replies with how many were removed.</p>
   <p data-claim="C100">Kicking the bot, or the bot leaving the server, deletes everything stored about that server.</p>
   <p data-claim="C101">All <code>/mod</code> commands require the Manage Server permission.</p>
@@ -68,6 +79,7 @@
 
 <section class="section" id="payments">
   <h2>Payments</h2>
+  <p data-claim="C165">Nothing can be paid for today: the hosted instance runs without Stripe keys, so <code>/mod upgrade</code> answers that this copy is self-hosted and there is nothing to pay. The rest of this section describes what happens if payments are turned on.</p>
   <p data-claim="C102">Payment for the Pro plan happens on a Stripe Checkout page opened from <code>/mod upgrade</code>.</p>
   <p data-claim="C103">jevmod stores, per server: the Stripe customer id, the subscription id, the price id, the subscription status and the end of the current period.</p>
   <p data-claim="C104">Stripe notifies jevmod of changes through a webhook; when a subscription is cancelled or stops being active the server goes back to the Free plan.</p>
@@ -77,12 +89,13 @@
 
 <section class="section" id="demo">
   <h2>The demo on this site</h2>
+  <p data-claim="C166">The text you type into the demo is sent to Jev, the model run by TypeSafe, in the same way as a message judged in a server.</p>
   <p data-claim="C106">The demo on the front page accepts up to 300 characters of text.</p>
   <p data-claim="C107">Each check is logged by the operator with the text, the category, the probabilities, a hash of your IP address, the country header set by the proxy, and the number of tokens it cost.</p>
   <p data-claim="C108">The IP address is hashed with SHA-256 and a salt before it is stored; the address itself is not kept.</p>
   <p data-claim="C109">Each address may run 6 checks per minute and 40 per day.</p>
   <p data-claim="C110">The demo has a monthly spend cap, $0.50 by default, and answers with an error once it is reached.</p>
-  <p data-claim="C124">Demo records are deleted 90 days after they are written; the check that does it runs on every request.</p>
+  <p data-claim="C124">Demo records are deleted 90 days after they are written; the deletion runs when the demo is used.</p>
   <p>The demo does not use the bot's database.</p>
 </section>
 
