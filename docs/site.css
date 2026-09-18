@@ -180,8 +180,15 @@ main.textpage, main.prose { max-width: 62ch; font-size: 17px; line-height: 1.65;
 .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); text-decoration-thickness: 1px; }
 .link:hover { text-decoration-color: var(--ink); }
 .prose a, .small a, .lead a, td a, dd a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
-/* inline links keep their line box but get a 44px tall hit area */
-.link, .prose a, .small a, .lead a, td a, dd a { padding-top: 13px; padding-bottom: 13px; }
+/* Inline links keep their own line box. A 44px padded box on a 22px line makes neighbouring links overlap and
+   steal each other's taps (measured with elementFromPoint), so the hit area is a pseudo-element that only
+   reaches half the leading and never covers a sibling. */
+.link, .prose a, .small a, .lead a, td a, dd a { position: relative; }
+.link::after, .prose a::after, .small a::after, .lead a::after, td a::after, dd a::after {
+  content: "";
+  position: absolute;
+  inset: -6px -2px;
+}
 .prose a:hover, .small a:hover, .lead a:hover, td a:hover, dd a:hover { text-decoration-color: var(--ink); }
 
 /* stat */
@@ -230,7 +237,9 @@ table.plans td small, table.plans th small { display: block; font-size: 13px; fo
   table.plans, table.plans tbody, table.plans tr { display: block; width: 100%; }
   table.plans tbody th { display: block; padding: 16px 0 6px; border: 0; }
   table.plans tr { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-  table.plans td { display: grid; grid-template-columns: 5.5em 1fr; gap: 12px; padding: 4px 0; border: 0; }
+  table.plans td { display: grid; grid-template-columns: 8em minmax(0, 1fr); gap: 12px; padding: 4px 0; border: 0; }
+  table.plans td > *, table.plans td > code { grid-column: 2; }
+  table.plans td::before { grid-column: 1; grid-row: 1; }
   table.plans td::before { content: attr(data-plan); color: var(--ink); font-weight: 500; }
 }
 
@@ -267,7 +276,7 @@ table.plans td small, table.plans th small { display: block; font-size: 13px; fo
 .cta { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
 
 /* inline link inside a button row keeps a 44px hit area without the text padding */
-.cta .link { display: inline-flex; align-items: center; min-height: 44px; padding-top: 0; padding-bottom: 0; }
+.cta .link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-top: 0; padding-bottom: 0; }
 
 /* labelled snippets (developers) */
 .snippet > .code-label { margin: 0 0 8px; }
@@ -295,10 +304,11 @@ table.plans td small, table.plans th small { display: block; font-size: 13px; fo
 #o-jev, #o-llm, #o-lg { color: var(--ink); font-weight: 600; }
 
 /* code blocks with copy */
-.code { position: relative; }
+.code { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.code > pre { width: 100%; }
 .code pre {
   margin: 0;
-  padding: 20px 76px 20px 20px;
+  padding: 20px;
   font-size: 13px;
   line-height: 1.6;
   color: var(--ink);
@@ -310,9 +320,7 @@ table.plans td small, table.plans th small { display: block; font-size: 13px; fo
 .code pre code { font: inherit; color: inherit; background: none; border: 0; padding: 0; white-space: pre; }
 .code pre.wrap-text, .code pre.wrap-text code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .code .copy {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+  order: -1;
   height: 44px;
   padding: 0 12px;
   font: 500 13px/1 var(--sans);

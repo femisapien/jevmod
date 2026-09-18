@@ -42,9 +42,14 @@ def _secret(name: str) -> str:
 
 
 def sign_tenant(tenant: str) -> str:
-    """HMAC over the tenant id with the admin token, so `/mod upgrade` links cannot be forged for another guild."""
-    key = (_secret("JEVMOD_ADMIN_TOKEN") or "unset").encode()
-    return hmac.new(key, tenant.encode(), hashlib.sha256).hexdigest()[:24]
+    """HMAC over the tenant id with the admin token, so `/mod upgrade` links cannot be forged for another guild.
+
+    There is deliberately no default key: with a constant fallback anyone could compute a valid signature for any
+    guild id and open that owner's Stripe portal, which lists their invoices and can cancel their subscription."""
+    key = _secret("JEVMOD_ADMIN_TOKEN")
+    if not key:
+        raise RuntimeError("JEVMOD_ADMIN_TOKEN must be set to sign billing links")
+    return hmac.new(key.encode(), tenant.encode(), hashlib.sha256).hexdigest()[:24]
 
 
 def checkout_url(tenant: str) -> str:
@@ -124,6 +129,8 @@ def make_router(store: Store, demo_spend: Any = None) -> APIRouter:
             )
             if tenant:
                 status = "canceled" if kind.endswith("deleted") else str(obj.get("status", ""))
+                # past_due keeps Pro: Stripe is still retrying the card, and Stripe moves the subscription
+                # to `unpaid` or `canceled` when it gives up, which is where access actually ends.
                 active = status in ("active", "trialing", "past_due")
                 store.set_plan(tenant, "pro" if active else "free")
                 item = ((obj.get("items") or {}).get("data") or [{}])[0]

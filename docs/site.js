@@ -108,13 +108,21 @@
   }
 
   function show(d) {
-    var hit = d.action !== "none" && d.category ? d.category : null;
+    /* The server sends the winning category; recorded results carry only scores, so derive it the same way
+       `decide()` does: the category that crosses its own line, highest probability first. */
+    var hit = d.action !== "none" && d.category ? d.category : null, p = +d.probability;
+    if (!hit && d.judged && d.scores) {
+      CATS.forEach(function (c) {
+        var v = +d.scores[c];
+        if (v >= TH[c] && v > p) { hit = c; p = v; }
+      });
+    }
     result.classList.remove("hit", "ok");
     if (!d.judged) {
       result.textContent = "too short to judge, would pass";
       result.classList.add("ok");
     } else if (hit) {
-      result.textContent = LABEL[hit] + " " + (+d.probability).toFixed(2) + ", would be flagged";
+      result.textContent = LABEL[hit] + " " + p.toFixed(2) + ", would be flagged";
       result.classList.add("hit");
     } else {
       result.textContent = "nothing over its line, would pass";
@@ -123,6 +131,56 @@
     paint(d.scores);
     cats.hidden = false;
   }
+
+  /* Recorded once with the real API on 2026-09-18 (`jevmod check --json`) so the example chips still answer
+     when the live demo is closed or unreachable. Registered as a claim in docs/CLAIMS.md. */
+  var RECORDED = {
+    "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro": {
+      "spam": 0.97,
+      "scam": 0.98,
+      "harassment": 0.03,
+      "nsfw": 0.01,
+      "selfharm": 0.01,
+      "doxxing": 0.02,
+      "minors": 0.01
+    },
+    "you're a worthless idiot and everyone here hates you, just leave": {
+      "spam": 0.02,
+      "scam": 0.01,
+      "harassment": 0.99,
+      "nsfw": 0.03,
+      "selfharm": 0.03,
+      "doxxing": 0.01,
+      "minors": 0.01
+    },
+    "Anyone know if the patch fixed the inventory bug?": {
+      "spam": 0.01,
+      "scam": 0.01,
+      "harassment": 0.01,
+      "nsfw": 0.01,
+      "selfharm": 0.01,
+      "doxxing": 0.01,
+      "minors": 0.01
+    },
+    "I don't want to be here anymore. nobody would notice if I was gone": {
+      "spam": 0.01,
+      "scam": 0.01,
+      "harassment": 0.34,
+      "nsfw": 0.02,
+      "selfharm": 0.85,
+      "doxxing": 0.02,
+      "minors": 0.01
+    },
+    "Hat jemand Lust auf eine Runde heute Abend? Brauchen noch einen Heiler.": {
+      "spam": 0.02,
+      "scam": 0.01,
+      "harassment": 0.01,
+      "nsfw": 0.01,
+      "selfharm": 0.01,
+      "doxxing": 0.02,
+      "minors": 0.01
+    }
+  };
 
   function closeLive(reason) {
     closed = true;
@@ -136,6 +194,13 @@
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
     .then(function (h) { if (!h.open) closeLive(); })
     .catch(function () { closeLive(); });
+
+  function showRecorded(text) {
+    var scores = RECORDED[text];
+    if (!scores) { msg.textContent = "The live demo is closed, so this message cannot be checked now."; return; }
+    show({ judged: true, scores: scores, action: null, category: null, probability: 0 });
+    msg.textContent = "recorded on 2026-09-18, not a live check";
+  }
 
   function submit() {
     var text = input.value.trim();
@@ -161,7 +226,7 @@
     var c = e.target.closest(".chip"); if (!c) return;
     Array.prototype.forEach.call(chips.children, function (x) { x.classList.toggle("on", x === c); });
     input.value = c.dataset.text;
-    if (closed) { input.focus(); return; }
+    if (closed) { showRecorded(c.dataset.text); return; }
     submit();
   });
   input.addEventListener("input", function () {

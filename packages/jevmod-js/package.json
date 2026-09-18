@@ -1,6 +1,6 @@
 {
   "name": "jevmod",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Content moderation for user text, powered by Jev (TypeSafe System One): spam, scam, harassment, adult content, off-topic, self-harm, doxxing, minors, plus your own rules in plain language.",
   "license": "MIT",
   "author": "Omar Hernandez",

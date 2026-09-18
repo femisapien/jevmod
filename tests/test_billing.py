@@ -103,3 +103,21 @@ def test_plan_quotas_in_store(tmp_path):
     assert s.quota_for(t) == 0 and not s.over_quota(t)
     s.delete_tenant(t)
     assert s.subscription(t) is None
+
+
+def test_checkout_links_cannot_be_signed_without_an_admin_token(tmp_path, monkeypatch):
+    """With a constant fallback key anyone could sign `?tenant=<any guild>&sig=` and open that owner's Stripe
+    portal, which lists their invoices and can cancel their subscription. Refusing to sign is the safe failure."""
+    monkeypatch.delenv("JEVMOD_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("JEVMOD_DB", str(tmp_path / "x.sqlite"))
+    import importlib
+
+    from jevmod.api import billing
+
+    importlib.reload(billing)
+    with pytest.raises(RuntimeError):
+        billing.sign_tenant("discord:123")
+    monkeypatch.setenv("JEVMOD_ADMIN_TOKEN", "a-secret")
+    importlib.reload(billing)
+    a = billing.sign_tenant("discord:123")
+    assert a and a != billing.sign_tenant("discord:124")

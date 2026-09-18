@@ -21,12 +21,15 @@ from __future__ import annotations
 
 import re
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):  # claims quote the page, which is not cp1252
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CLAIMS = ROOT / "docs" / "CLAIMS.md"
 CLAIM_RE = re.compile(r'data-claim="([^"]+)"')
-ID_RE = re.compile(r"^C\d{2,3}$")
+ID_RE = re.compile(r"^C\d{2,3}[a-z]?$")  # a letter suffix inserts a claim without renumbering the rest
 LINE_RE = re.compile(r"^(?P<path>[^:\s]+):(?P<line>\d+)$")
 TEST_RE = re.compile(r"^(?P<path>[^:\s]+\.py)::(?P<name>\w+)$")
 
@@ -113,6 +116,12 @@ def check_one(cid: str, src: str, token: str, sentence: str) -> str | None:
     return f"{cid}: source {src!r} is not path:line, a test id or an existing file"
 
 
+def claim_order(item: tuple[str, str]) -> tuple[int, str]:
+    """Sort C7 before C10 and C39 before C39b: leading digits numerically, any suffix alphabetically."""
+    m = re.match(r"C(\d+)([a-z]*)$", item[0])
+    return (int(m[1]), m[2]) if m else (10**9, item[0])
+
+
 def main(argv: list[str]) -> int:
     pages = [Path(p) for p in argv] if argv else sorted((ROOT / "docs").rglob("*.html"))
     pages = [p if p.is_absolute() else ROOT / p for p in pages]
@@ -130,7 +139,7 @@ def main(argv: list[str]) -> int:
                 problems.append(f"{cid}: used twice ({on_pages[cid]} and {rel})")
             on_pages[cid] = rel
 
-    for cid, rel in sorted(on_pages.items(), key=lambda kv: int(kv[0][1:])):
+    for cid, rel in sorted(on_pages.items(), key=claim_order):
         if cid not in rows:
             problems.append(f"{cid}: on {rel} but not in CLAIMS.md")
 
