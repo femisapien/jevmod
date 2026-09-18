@@ -56,9 +56,9 @@ blocked, it is marked blocked with the reason.
 
 ## Launch gate (do these the day of the launch, in this order)
 
-1. `npm publish` from `packages/jevmod-js` and `python -m build && twine upload` from the root, so `pip install jevmod` and `npm install jevmod` work before anyone reads them.
+1. Done 2026-09-18: jevmod 0.2.0 on PyPI (trusted publishing) and npm (NPM_TOKEN secret); `release.yml` publishes both on every `v*` tag.
 2. Done 2026-09-18: demo and landing live at jevmod.hernandezbastos.es; repo public. Remaining:  enable Pages (Settings → Pages → main, /docs); replace LINK in launch/*.md with the repo URL.
-3. Rotate the TypeSafe key if it was ever pasted anywhere; update `gh secret set TYPESAFE_API_KEY`.
+3. Launch drafts carry the real links (done). Rotate the TypeSafe key if it was ever pasted anywhere; update `gh secret set TYPESAFE_API_KEY`.
 4. Post the Twitter thread with docs/jevmod.gif, then r/Discord_Bots; the other subreddits on later days.
 
 ## Notes

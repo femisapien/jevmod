@@ -68,7 +68,7 @@ I red-teamed the judge with 98 adversarial messages (fullwidth unicode, zalgo, S
 ---
 
 **9/**
-Repo, benchmark, Docker image, pip package (npm coming):
+Repo, benchmark, Docker image, pip and npm packages:
 https://github.com/ohernandezdev/jevmod
 
 Try it live, no signup, nothing installed:
