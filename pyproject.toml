@@ -30,6 +30,9 @@ Homepage = "https://github.com/ohernandezdev/jevmod"
 [tool.setuptools.packages.find]
 include = ["jevmod*"]
 
+[tool.setuptools.package-data]
+jevmod = ["categories.json"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"

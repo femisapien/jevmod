@@ -1,0 +1,100 @@
+# Benchmark: jevmod against three local moderation models
+
+Run on 2026-09-18 on the same 2,531 messages. Scripts and data recipe in `benchmark/` (data and results are not
+committed; `prepare.py` downloads the public sets, each `run_*.py` is resumable, `report.py` prints the tables).
+
+## What was compared
+
+| system | what it is | how it ran |
+|---|---|---|
+| **jevmod** | Jev (TypeSafe System One), one yes/no question per category with criteria, 7 categories at once | API, batches of 25 messages per request |
+| **Llama Guard 3 8B** | Meta's open moderation model, 14 hazard categories, answers `safe`/`unsafe` + categories | llama.cpp Q4_K_M on an RTX 5080 |
+| **ShieldGemma 2B** | Google's open moderation model, one Yes/No question per policy (harassment, hate, sexual, dangerous) | llama.cpp Q8_0 on an RTX 5080, 4 calls per message |
+| **toxic-bert** | the BERT classifier behind Detoxify, trained on Jigsaw; toxicity/insult/threat/obscene | transformers on an RTX 5080 |
+
+OpenAI's moderation endpoint is not in the table: it needs an OpenAI key. OpenAI published their own numbers on
+the same evaluation set in "A Holistic Approach to Undesired Content Detection in the Real World" (2022).
+
+## Data
+
+| set | messages | what the labels mean |
+|---|---|---|
+| OpenAI moderation eval (`samples-1680`) | 1,680 | human labels for sexual (→ `nsfw`), sexual/minors (→ `minors`), hate + harassment + violence (→ `harassment`), self-harm (→ `selfharm`). 1,158 are clean. |
+| Civil Comments (Jigsaw) | 351 | 101 with toxicity ≥ 0.7 (→ `harassment`), 250 with toxicity ≤ 0.1 (clean). Sampled from the HF test split. |
+| YouTube Spam Collection (UCI) | 500 | 250 comments labelled spam, 250 not. Labels are loose: "I'm a subscriber" and "Thumbs up if you're watching in 2015" count as spam. |
+
+## Quality
+
+AUROC: probability that a random positive scores above a random negative; 0.5 is chance, 1.0 is perfect; it does
+not depend on the threshold. F1 is at each system's default threshold (jevmod: its shipped defaults; others 0.5),
+and "best F1" is the best threshold for that set in hindsight, which is what you would get after tuning on your
+own traffic.
+
+Llama Guard only gives a probability for "unsafe at all"; per-category numbers for it use that probability when
+it named the category and 0 otherwise, which under-reports it on AUROC. ShieldGemma has no self-harm, minors or
+spam policy; toxic-bert has none of those either.
+
+| set | category | system | AUROC | F1 @ default | best F1 (threshold) |
+|---|---|---|---|---|---|
+| OpenAI eval | harassment | **jevmod** | **0.930** | 0.748 | 0.751 (0.80) |
+| | | Llama Guard 3 8B | 0.805 | 0.681 | 0.681 |
+| | | ShieldGemma 2B | 0.914 | 0.618 | 0.663 (0.80) |
+| | | toxic-bert | 0.807 | 0.423 | 0.445 |
+| OpenAI eval | nsfw | **jevmod** | **0.982** | **0.871** | 0.872 (0.85) |
+| | | Llama Guard 3 8B | 0.843 | 0.780 | 0.782 |
+| | | ShieldGemma 2B | 0.968 | 0.800 | 0.851 (0.90) |
+| | | toxic-bert | 0.876 | 0.549 | 0.574 |
+| OpenAI eval | selfharm | **jevmod** | **0.992** | 0.714 | 0.792 (0.35) |
+| | | Llama Guard 3 8B | 0.891 | **0.825** | 0.825 |
+| OpenAI eval | minors | **jevmod** | **0.977** | 0.519 | 0.645 (0.40) |
+| | | Llama Guard 3 8B | 0.590 | 0.248 | 0.248 |
+| OpenAI eval | any violation | jevmod | 0.939 | 0.762 | **0.825** (0.80) |
+| | | Llama Guard 3 8B | 0.921 | **0.787** | 0.793 |
+| | | ShieldGemma 2B | 0.939 | 0.760 | 0.791 |
+| | | toxic-bert | 0.884 | 0.646 | 0.709 |
+| Civil Comments | harassment | jevmod | 0.875 | 0.659 | 0.707 (0.50) |
+| | | Llama Guard 3 8B | 0.539 | 0.159 | 0.159 |
+| | | ShieldGemma 2B | 0.874 | 0.601 | 0.710 |
+| | | toxic-bert | **0.973** | **0.846** | **0.899** (trained on this data) |
+| YouTube | spam | **jevmod** | **0.994** | 0.534 | **0.962** (0.15) |
+| | | Llama Guard 3 8B | 0.500 | 0.000 | no spam category |
+| | | ShieldGemma 2B | | | no spam category |
+| | | toxic-bert | | | no spam category |
+
+Reading it:
+
+- On the serious categories (OpenAI's human-labelled set) jevmod has the best ranking quality in every category:
+  harassment 0.93, sexual 0.98, self-harm 0.99, minors 0.98. Llama Guard is the closest open model on
+  "flagged at all" and on self-harm at its own threshold.
+- jevmod's shipped thresholds are conservative: self-harm at 0.80 misses cases that a 0.35 threshold would catch
+  (F1 0.71 → 0.79); minors at 0.70 has recall 0.41 because OpenAI's label also covers *discussion* of child abuse,
+  while jevmod's question asks about sexualisation or grooming. The ❌/✅ feedback loop in the bots and the
+  `PUT /v1/policy` endpoint exist to move those lines per community.
+- toxic-bert wins Civil Comments because it was trained on Civil Comments. On text it has not seen (OpenAI's set)
+  it is the weakest of the four.
+- Spam: only jevmod has a spam category. Its ranking is near perfect (0.994) but the shipped threshold of 0.85 is
+  too high for YouTube's loose labels; at 0.15 F1 is 0.96. Spam is the category where community calibration
+  matters most.
+
+## Cost and latency
+
+| system | cost per 1,000 messages | latency per message | needs |
+|---|---|---|---|
+| jevmod (Jev, 7 categories) | **$0.042** (2.5 M input tokens for 2,504 messages, list price $0.042/M) | 22 ms amortised in batches of 25 (about 550 ms per request) | an API key |
+| Llama Guard 3 8B Q4 | $0.004 in GPU time at $0.30/h | 49 ms | a 16 GB GPU, 5 GB of weights |
+| ShieldGemma 2B Q8 | $0.011 in GPU time | 130 ms (4 calls) | a GPU, 3 GB |
+| toxic-bert | $0.0006 in GPU time | 8 ms | a GPU or a CPU |
+| Claude Haiku 4.5 as a judge | about $1.20 at list price (not run) | about 1,500 ms | an Anthropic key |
+
+Local models are cheaper per message once you own the GPU and the ops around it. jevmod costs about $1 a month
+for a community with 20,000 judged messages and needs no hardware. A general LLM as judge is about 30× the price
+of Jev for the same text.
+
+## Caveats
+
+- 2,531 messages across three public sets is a sanity benchmark, not a leaderboard. No system was tuned on this
+  data; thresholds are the defaults.
+- All four systems saw the same text after jevmod's normalisation (HTML entities, unicode).
+- Llama Guard and ShieldGemma prompts are the ones published by Meta and Google; quantised weights (Q4/Q8) may
+  cost them a little accuracy against fp16.
+- The messages under 8 letters without a link (27 of 2,531) are never sent to Jev by design and count as clean.

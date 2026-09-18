@@ -22,104 +22,20 @@ from __future__ import annotations
 
 import hashlib
 import html
+import json
 import re
 import time
 import unicodedata
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from typesafe_sdk import Noul, NoulAnswer, RetryPolicy, TypeSafeClient
 
-CATEGORIES: dict[str, dict[str, Any]] = {
-    "spam": {
-        "label": "spam / advertising",
-        "instructions": "Is `{m}.text` spam: unsolicited mass promotion, referral or invite farming, repeated offers, "
-        "link drops with no conversational purpose, or mass mentions to get attention?",
-        "criteria": {
-            "true": "advertising or promotion pushed at the community, repeated or copy-pasted offers, "
-            "referral/affiliate/invite links, mass @mentions, bare shortened links with no context",
-            "false": "a normal conversational message; a one-off personal sale or trade between members; sharing a "
-            "guide, video or project once; quoting spam in order to report it",
-        },
-    },
-    "scam": {
-        "label": "scam / phishing",
-        "instructions": "Is `{m}.text` a scam or phishing attempt aimed at the reader's money, account or credentials?",
-        "criteria": {
-            "true": "fake giveaways (free Nitro, free skins, crypto doubling), links to domains imitating a service "
-            "(discord-gifts, steampowerd, discord-secure), impersonation of staff or support, 'DM me for a deal', "
-            "urgent account-verification threats, requests for money or credentials under false pretenses, in any "
-            "language or script",
-            "false": "a legitimate link to a well-known site, a genuine question about a deal or price, warning "
-            "others about a scam, ordinary trading between members",
-        },
-    },
-    "harassment": {
-        "label": "harassment / abuse",
-        "instructions": "Does `{m}.text` harass, insult, threaten or demean a person or group?",
-        "criteria": {
-            "true": "insults, slurs, threats, telling someone to leave or hurt themselves, dehumanising or targeted "
-            "abuse, in any language (judge the meaning of the words, not the language they are written in)",
-            "false": "friendly banter, competitive trash talk with no target, disagreement, criticism of ideas, an "
-            "ordinary question or invitation to play",
-        },
-    },
-    "nsfw": {
-        "label": "adult / graphic content",
-        "instructions": "Does `{m}.text` contain sexual or graphically violent content inappropriate for a general "
-        "audience community?",
-        "criteria": {
-            "true": "explicit sexual content or solicitation (trading nudes, 'DM for pics'), sexual content involving "
-            "minors, graphic gore",
-            "false": "insults or profanity with no sexual content, romance or dating talk, medical or health talk, "
-            "game violence",
-        },
-    },
-    "offtopic": {
-        "label": "off-topic for the channel",
-        "instructions": "Given `{m}.channel_topic`, is `{m}.text` clearly about something unrelated to that topic?",
-        "criteria": {
-            "true": "a message whose subject has nothing to do with the channel topic (a recipe in a gaming channel, "
-            "job hunting in a support channel) and is not a brief aside",
-            "false": "on-topic content, greetings, questions, short asides and reactions. Spam, insults or rule "
-            "violations are NOT off-topic by themselves: judge only the subject",
-        },
-    },
-    "selfharm": {
-        "label": "self-harm / crisis",
-        "instructions": "Does `{m}.text` express that the author is considering suicide or self-harm, or is in an "
-        "acute personal crisis? (Meant to alert moderators so they can reach out, not to punish.)",
-        "criteria": {
-            "true": "statements of wanting to die, disappear or hurt oneself, saying goodbye, describing a plan, "
-            "hopelessness about one's own life, asking how to self-harm, in any language",
-            "false": "telling someone else to hurt themselves (that is harassment), hyperbole about a game ('this "
-            "boss makes me want to die lol'), song lyrics, discussing the topic in general, venting about a bad day",
-        },
-    },
-    "doxxing": {
-        "label": "doxxing / personal data",
-        "instructions": "Does `{m}.text` reveal or try to obtain private identifying information about a real "
-        "person without their consent?",
-        "criteria": {
-            "true": "home address, phone number, real full name behind a username, workplace, school, ID or "
-            "financial numbers, photos' locations, or asking others to find or share such data about someone",
-            "false": "the author sharing their own city or first name, public figures' public information, "
-            "business contact details, fictional characters, generic talk about privacy",
-        },
-    },
-    "minors": {
-        "label": "sexual content involving minors / grooming",
-        "instructions": "Does `{m}.text` sexualise a minor, solicit sexual content from or about a minor, or show "
-        "grooming behaviour (an adult building private trust with a child for sexual purposes)?",
-        "criteria": {
-            "true": "sexual comments about someone stated or clearly implied to be under 18, requests for their "
-            "photos or private contact, offers of gifts or secrecy to a child, age-checking followed by sexual "
-            "intent, in any language",
-            "false": "adults talking about adults (that is nsfw), parents discussing their kids' games, child "
-            "safety advice, mentions of age with no sexual element",
-        },
-    },
-}
+# The questions live in categories.json so every implementation (Python, npm, MCP) asks Jev exactly the same thing.
+CATEGORIES: dict[str, dict[str, Any]] = json.loads(
+    (Path(__file__).with_name("categories.json")).read_text(encoding="utf-8")
+)["categories"]
 
 LINK_RE = re.compile(
     r"(https?://|hxxps?://|www\.|\S+\[\.\]\S+|\b[\w-]+\.(?:gg|com|net|org|ru|io|xyz|fr|de|jp|br)\b/?)", re.I
