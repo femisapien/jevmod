@@ -456,7 +456,7 @@ def report() -> None:
     print("\n### False positive rate per human stratum (at 0.5, and at the best-F1 threshold of A)\n")
     a_pairs = [(sc[i]["A"], items[i]["label"]) for i in ids]
     a_th = best_f1(a_pairs)[1]
-    print(f"| stratum | n | " + " | ".join(f"{v} @0.5" for v in ["A", "B", "C"]) + f" | A @{a_th:.2f} |")
+    print("| stratum | n | " + " | ".join(f"{v} @0.5" for v in ["A", "B", "C"]) + f" | A @{a_th:.2f} |")
     print("|---|---|---|---|---|---|")
     for s in sorted({items[i]["stratum"] for i in ids if not items[i]["label"]}):
         sub = [i for i in ids if items[i]["stratum"] == s]
@@ -493,15 +493,11 @@ def report() -> None:
             for pi in (0.5, 0.10, 0.05, 0.02, 0.01):
                 denom = pi * tpr + (1 - pi) * fpr_ub
                 cells.append(f"{pi * tpr / denom:.3f}" if denom else "n/a")
-            print(
-                f"| {label} | {th:.2f} | {tpr:.3f} | {fpr:.3f} | {fpr_ub:.3f} | " + " | ".join(cells) + " |"
-            )
+            print(f"| {label} | {th:.2f} | {tpr:.3f} | {fpr:.3f} | {fpr_ub:.3f} | " + " | ".join(cells) + " |")
 
     for v in ["A"]:
         for kind, rev, want in (("false positives", True, 0), ("false negatives", False, 1)):
-            rows = sorted(
-                (i for i in ids if items[i]["label"] == want), key=lambda i: sc[i][v], reverse=rev
-            )[:10]
+            rows = sorted((i for i in ids if items[i]["label"] == want), key=lambda i: sc[i][v], reverse=rev)[:10]
             print(f"\n### 10 worst {kind} ({v})\n")
             print("| p | stratum | provenance | text |")
             print("|---|---|---|---|")
@@ -509,7 +505,7 @@ def report() -> None:
                 t = items[i]["text"].replace("|", "/")[:180]
                 print(f"| {sc[i][v]:.3f} | {items[i]['stratum']} | {items[i]['provenance']} | {t} |")
 
-    print("\n### Cost and latency (measured input tokens, ${:.3f}/M)\n".format(USD_PER_M))
+    print(f"\n### Cost and latency (measured input tokens, ${USD_PER_M:.3f}/M)\n")
     print("| formulation | requests | input tokens | tokens/msg | $ / 1,000 msgs | latency / msg |")
     print("|---|---|---|---|---|---|")
     grand = 0
