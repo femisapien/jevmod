@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-label="Placeholder: the jevmod log embed for a scam message in #jevmod-log">
+  <title>#jevmod-log: scam p=0.99 → flag</title>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #313338; }
+    .h { font-size: 30px; font-weight: 700; fill: #313338; }
+    .muted { fill: #5C5E66; }
+    .name { font-size: 30px; font-weight: 600; fill: #060607; }
+    .ts { font-size: 22px; fill: #5C5E66; }
+    .title { font-size: 30px; font-weight: 700; }
+    .desc { font-size: 28px; }
+    .fname { font-size: 24px; font-weight: 700; }
+    .mention { font-size: 26px; fill: #505CDC; font-weight: 500; }
+    .foot { font-size: 21px; fill: #5C5E66; }
+    .react { font-size: 24px; fill: #313338; }
+    .cap { font-size: 22px; fill: #A1A1AA; }
+  </style>
+  <rect x="0.5" y="0.5" width="1599" height="999" fill="#FAFAFA" stroke="#E4E4E7"/>
+
+  <!-- Discord chat panel, light theme -->
+  <rect x="80" y="80" width="1440" height="840" rx="8" fill="#FFFFFF" stroke="#E3E5E8"/>
+  <!-- channel header -->
+  <text x="120" y="130" class="h"><tspan fill="#80848E">#</tspan> jevmod-log</text>
+  <rect x="352" y="106" width="20" height="16" rx="3" fill="none" stroke="#80848E" stroke-width="2.5"/>
+  <path d="M356 106 v-6 a6 6 0 0 1 12 0 v6" fill="none" stroke="#80848E" stroke-width="2.5"/>
+  <text x="392" y="130" class="ts">private: members see nothing</text>
+  <line x1="80" y1="156" x2="1520" y2="156" stroke="#E3E5E8"/>
+
+  <!-- message from the bot -->
+  <circle cx="160" cy="236" r="40" fill="#2FBF83"/>
+  <text x="160" y="250" text-anchor="middle" font-size="40" font-weight="700" fill="#FFFFFF">j</text>
+  <text x="230" y="232" class="name">jevmod</text>
+  <rect x="338" y="208" width="66" height="30" rx="6" fill="#5865F2"/>
+  <text x="371" y="230" text-anchor="middle" font-size="19" font-weight="600" fill="#FFFFFF">APP</text>
+  <text x="422" y="232" class="ts">Today at 14:32</text>
+
+  <!-- embed -->
+  <rect x="230" y="266" width="1180" height="410" rx="8" fill="#F2F3F5" stroke="#E3E5E8"/>
+  <path d="M238 266 h-4 a4 4 0 0 0 -4 4 v402 a4 4 0 0 0 4 4 h4 z" fill="#2FBF83"/>
+  <text x="262" y="318" class="title">scam  p=0.99  →  flag</text>
+  <text x="262" y="374" class="desc">FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro</text>
+
+  <text x="262" y="440" class="fname">author</text>
+  <rect x="262" y="458" width="150" height="40" rx="6" fill="#E0E3FC"/>
+  <text x="337" y="487" text-anchor="middle" class="mention">@gamer42</text>
+
+  <text x="640" y="440" class="fname">channel</text>
+  <rect x="640" y="458" width="140" height="40" rx="6" fill="#E0E3FC"/>
+  <text x="710" y="487" text-anchor="middle" class="mention">#general</text>
+
+  <line x1="262" y1="536" x2="1380" y2="536" stroke="#E3E5E8"/>
+  <text x="262" y="582" class="foot">scam 0.99 · spam 0.98 · harassment 0.02</text>
+  <text x="262" y="626" class="foot">·   ❌ false positive (raises threshold)  ·  ✅ correct (lowers it a notch)</text>
+
+  <!-- reactions the bot adds itself -->
+  <rect x="230" y="700" width="86" height="48" rx="8" fill="#F2F3F5" stroke="#E3E5E8"/>
+  <text x="252" y="733" class="react">❌ 1</text>
+  <rect x="330" y="700" width="86" height="48" rx="8" fill="#F2F3F5" stroke="#E3E5E8"/>
+  <text x="352" y="733" class="react">✅ 1</text>
+
+  <!-- composer -->
+  <rect x="120" y="820" width="1360" height="64" rx="10" fill="#F2F3F5"/>
+  <text x="150" y="861" font-size="24" fill="#80848E">Message #jevmod-log</text>
+
+  <text x="1500" y="966" text-anchor="end" class="cap">placeholder, replaced by a real capture</text>
+</svg>

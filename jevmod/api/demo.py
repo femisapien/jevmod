@@ -36,6 +36,9 @@ MAX_CHARS = int(os.environ.get("JEVMOD_DEMO_MAX_CHARS", "300"))
 ORIGINS = [o.strip() for o in os.environ.get("JEVMOD_DEMO_ORIGINS", "http://localhost:8000").split(",") if o.strip()]
 DB_PATH = os.environ.get("JEVMOD_DEMO_DB", "jevmod-demo.sqlite")
 SALT = os.environ.get("JEVMOD_DEMO_SALT", "jevmod-demo")
+DEMO_RETENTION_DAYS = int(
+    os.environ.get("JEVMOD_DEMO_RETENTION_DAYS", "90")
+)  # demo log rows older than this are purged
 CATS = [c for c in CATEGORIES if c != "offtopic"]
 
 app = FastAPI(title="jevmod demo", version="0.1.0", docs_url=None, redoc_url=None)
@@ -74,6 +77,14 @@ def month() -> str:
     return time.strftime("%Y-%m")
 
 
+def purge_expired() -> int:
+    """Delete demo rows older than DEMO_RETENTION_DAYS. Called on every check; spend still counts the month."""
+    with _lock:
+        cur = _db.execute("DELETE FROM demo WHERE ts < ?", (time.time() - DEMO_RETENTION_DAYS * 86400,))
+        _db.commit()
+        return cur.rowcount
+
+
 def spent_usd() -> float:
     row = _db.execute("SELECT COALESCE(SUM(tokens), 0) FROM demo WHERE month=? AND cached=0", (month(),)).fetchone()
     return float(row[0]) * JEV_USD_PER_M / 1e6
@@ -107,6 +118,7 @@ def health() -> dict[str, Any]:
 @app.post("/demo/check")
 def check(body: In, request: Request) -> dict[str, Any]:
     ip_hash = _ip(request)
+    purge_expired()
     why = _allow(ip_hash)
     if why:
         raise HTTPException(429, why)

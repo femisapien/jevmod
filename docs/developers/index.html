@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>jevmod for developers</title>
+<meta name="description" content="jevmod for developers: a Python package, an npm package, a CLI, an HTTP API, an MCP server and three bots over one moderation core. One request per batch, a probability per category. MIT.">
+<link rel="canonical" href="https://jevmod.dev/developers/">
+<link rel="alternate" type="text/plain" href="/llms.txt">
+<link rel="stylesheet" href="/site.css">
+<script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
+<style>
+  /* scoped extras for /developers/, not in site.css; agent A may absorb them */
+  #dev-page .cta .link { display: inline-flex; align-items: center; min-height: 44px; }
+  #dev-page .hero .lead { margin-top: 20px; }
+  #dev-page .hero .cta { margin-top: 28px; }
+  #dev-page .snippet > .code-label { margin: 0 0 8px; }
+  #dev-page .snippet + .snippet { margin-top: var(--block); }
+  #dev-page .code pre.wrap-text, #dev-page .code pre.wrap-text code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  #dev-page table.plans caption { text-align: left; padding-bottom: 12px; }
+  #dev-page table.plans td small, #dev-page table.plans th small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+  #dev-page .field { display: grid; gap: 8px; }
+  #dev-page .field + .field { margin-top: 24px; }
+  #dev-page .field label { font-weight: 500; color: var(--ink); }
+  #dev-page .field input[type="number"], #dev-page .field input[type="text"] { width: 100%; max-width: 320px; height: 48px; padding: 0 14px; font: 400 16px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); appearance: none; }
+  #dev-page .field input:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
+  #dev-page .field input[type="range"] { width: 100%; max-width: 320px; height: 44px; margin: 0; accent-color: var(--ink); }
+  #dev-page .field p { margin-top: 4px; max-width: 46ch; }
+  #dev-page #o-jev, #dev-page #o-llm, #dev-page #o-lg { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body id="dev-page">
+
+<nav class="site-nav wrap">
+  <a class="brand" href="/">jevmod</a>
+  <div class="links">
+    <a href="/">Community</a>
+    <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+  </div>
+</nav>
+
+<main>
+
+<section id="top" class="section hero">
+  <div class="wrap stack">
+    <div class="stack-s">
+      <h1 class="display">One request per batch. A probability per category.</h1>
+      <p class="lead" data-claim="C40">Python, npm, CLI, HTTP, MCP and three bots over one core. MIT.</p>
+      <div class="cta">
+        <button id="copy" class="btn primary" type="button" data-copy="pip install jevmod">pip install jevmod</button>
+        <a class="link" href="https://www.npmjs.com/package/jevmod">npm</a>
+        <a class="link" href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+      </div>
+    </div>
+    <figure class="shot">
+      <img src="/jevmod.gif" width="920" height="590" alt="A terminal running jevmod check on four messages, each answered with a category and a probability, then one curl call to POST /v1/moderate returning the same decision as JSON." fetchpriority="high">
+      <figcaption data-claim="C41">Real output: the CLI on four messages, then one HTTP call.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="quickstart" class="section">
+  <div class="wrap stack">
+    <h2>Three surfaces, the same decision.</h2>
+
+    <div>
+      <div class="snippet">
+        <p class="code-label small muted">CLI</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the CLI commands">copy</button>
+          <pre><code>pip install jevmod
+jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"
+# exit 0 clean, 1 triggered, 2 error; --json prints every probability
+cat comments.txt | jevmod check --json --rule "No politics. Game news is fine." -</code></pre>
+        </div>
+      </div>
+
+      <div class="snippet">
+        <p class="code-label small muted">Python</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the Python example">copy</button>
+          <pre><code>from jevmod import Moderator, Policy
+from typesafe_sdk import TypeSafeError
+
+try:
+    d = Moderator().check("FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro", channel_topic="gaming")
+    d.action, d.category, d.probability  # ('flag', 'scam', 0.99)
+    d.scores  # {'spam': 0.98, 'scam': 0.99, 'harassment': 0.02, 'nsfw': 0.01, ...}
+except TypeSafeError:                   # Jev unreachable: fail open on purpose
+    d = None
+
+p = Policy()
+p.set_category("scam", "delete", 0.7)
+p.set_rule("no_politics", "No political discussion. Game news is fine.", action="flag", threshold=0.8)
+Moderator(policy=p).check_many(["...", "..."], channel_topic="support")  # one request for the batch</code></pre>
+        </div>
+      </div>
+
+      <div class="snippet">
+        <p class="code-label small muted">Node 20+</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the Node example">copy</button>
+          <pre><code>npm install jevmod   # or: pnpm add jevmod
+import { Moderator, Policy } from "jevmod";
+const d = await new Moderator().check("FREE NITRO ...", { channelTopic: "gaming" });
+d.action, d.category, d.scores            // same shape as Python and the HTTP API</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <p class="prose" data-claim="C42">Every check returns all enabled categories at once, in one request. Messages under eight letters without a link, trusted authors and repeats of judged text are never sent.</p>
+  </div>
+</section>
+
+<section id="http" class="section">
+  <div class="wrap stack">
+    <h2>One HTTP call from anything.</h2>
+
+    <div>
+      <div class="snippet">
+        <p class="code-label small muted">Request</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the HTTP request">copy</button>
+          <pre><code>JEVMOD_ADMIN_TOKEN=... jevmod api                     # binds 127.0.0.1; JEVMOD_HOST=0.0.0.0 to expose (Docker does)
+curl -X POST localhost:8080/v1/keys -H "Authorization: Bearer $JEVMOD_ADMIN_TOKEN" \
+     -H "Content-Type: application/json" -d '{"tenant":"my-app"}'          # {"api_key":"jm_...", shown once}
+curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Content-Type: application/json" \
+     -d '{"messages":[{"id":"a","text":"FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"}]}'</code></pre>
+        </div>
+      </div>
+
+      <div class="snippet">
+        <p class="code-label small muted">Response</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the response">copy</button>
+          <pre><code>{"request_id":"9f1c...","decisions":[{"message_id":"a","action":"flag","category":"scam","probability":0.99,
+  "scores":{"spam":0.98,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},
+  "judged":true,"reason":"jev"}],
+ "usage":{"judged_this_month":1,"jev_requests_this_month":1,"input_tokens_this_month":1193}}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3>Six endpoints.</h3>
+    <dl class="defs">
+      <div class="def"><dt><code>POST /v1/moderate</code></dt><dd data-claim="C43">Up to 50 messages in, one decision each out. The <code>X-Request-Id</code> you send comes back as <code>request_id</code> and as a response header.</dd></div>
+      <div class="def"><dt><code>GET/PUT /v1/policy</code></dt><dd>Thresholds, actions and rules for this tenant.</dd></div>
+      <div class="def"><dt><code>GET /v1/decisions</code></dt><dd>The audit log.</dd></div>
+      <div class="def"><dt><code>DELETE /v1/tenant</code></dt><dd>Forget this tenant.</dd></div>
+      <div class="def"><dt><code>POST /v1/keys</code></dt><dd data-claim="C44">Admin only. Mints a tenant key, stored hashed.</dd></div>
+      <div class="def"><dt><code>GET /v1/health</code>, <code>GET /metrics</code></dt><dd>Liveness and Prometheus counters.</dd></div>
+    </dl>
+    <p class="prose small" data-claim="C45">OpenAPI at <code>/docs</code> on your own jevmod api. A static copy is at <a href="/openapi.json">/openapi.json</a>; a Postman collection at <a href="/jevmod.postman_collection.json">/jevmod.postman_collection.json</a>.</p>
+  </div>
+</section>
+
+<section id="agents" class="section">
+  <div class="wrap grid-5-7">
+    <div class="stack">
+      <h2>An MCP server and a plugin for coding agents.</h2>
+      <p class="prose"><code>jevmod-integrate</code> detects your stack, picks SDK, npm, HTTP or MCP, stores the key, inserts the call and adds a real test. <code>jevmod-moderate</code> screens text while you work. Tools: <code>moderate(texts, channel_topic?, rules?)</code> and <code>categories()</code>.</p>
+      <p class="prose small"><a href="https://github.com/ohernandezdev/jevmod/blob/main/AGENTS.md">AGENTS.md</a> is the integration recipe an agent follows without reading anything else.</p>
+    </div>
+    <div>
+      <div class="snippet">
+        <p class="code-label small muted">MCP</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the MCP setup">copy</button>
+          <pre><code>pip install "jevmod[mcp]"
+# Claude Code: plugin (two skills + the MCP server)
+/plugin marketplace add ohernandezdev/jevmod
+/plugin install jevmod@jevmod
+# or only the MCP server
+claude mcp add jevmod -- jevmod mcp
+# Cursor, Codex, others
+{ "mcpServers": { "jevmod": { "command": "jevmod", "args": ["mcp"], "env": { "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}" } } } }</code></pre>
+        </div>
+      </div>
+      <div class="snippet">
+        <p class="code-label small muted">Paste this into Claude Code, Cursor or Codex</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the prompt">copy</button>
+          <pre class="wrap-text"><code>Add content moderation to this repository with jevmod (https://github.com/ohernandezdev/jevmod, MIT, powered by TypeSafe's Jev). If you are Claude Code, first run /plugin marketplace add ohernandezdev/jevmod and /plugin install jevmod@jevmod, then use the jevmod-integrate skill; otherwise read https://raw.githubusercontent.com/ohernandezdev/jevmod/main/AGENTS.md and follow its integration recipe. Detect the stack and pick the surface (Python SDK: pip install jevmod; npm: npm install jevmod; or the HTTP API POST /v1/moderate); store the key with jevmod init or TYPESAFE_API_KEY in the environment, never in a committed file; insert one Moderator().check(text, channel_topic=...) call at the single point where user text enters the system; decide fail-open or fail-closed explicitly around TypeSafeError; keep the defaults flag-only; add a real test that skips without the key and asserts d.category with d.probability &gt;= 0.7 on the scam sample and d.action == "none" on a clean one; finally run jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro" (expect exit 1) and jevmod check "gg everyone, same time tomorrow?" (expect exit 0) and show me the diff before committing.</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="section">
+  <div class="wrap stack">
+    <h2>What reaches the model, and what never does.</h2>
+    <figure class="shot">
+      <img src="/diagrams/architecture.svg" width="1000" height="560" alt="Architecture diagram: a message passes a pre-filter, a two-second batcher and one Jev request, then the policy and the audit log; author names and ids stay local." loading="lazy">
+      <figcaption data-claim="C46">Only the message text and the channel topic are sent to Jev. Author names and ids stay local.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="/diagrams/flow.svg" width="1000" height="500" alt="Flow diagram: text is NFKC-normalised and stripped of combining marks, checked against the cache, judged, then matched against thresholds." loading="lazy">
+      <figcaption data-claim="C47">Text is NFKC-normalised and stripped of combining marks before judging and caching, so fullwidth, zalgo and zero-width tricks meet the same thresholds as plain text.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="benchmark" class="section">
+  <div class="wrap stack">
+    <h2 data-claim="C48">Tested on 2,531 public messages with human labels.</h2>
+
+    <div class="stats">
+      <div class="stat" data-claim="C49"><span class="stat-n">0.93</span><span class="stat-l">harassment</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
+      <div class="stat" data-claim="C50"><span class="stat-n">0.98</span><span class="stat-l">sexual content</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
+      <div class="stat" data-claim="C51"><span class="stat-n">0.99</span><span class="stat-l">self-harm</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
+      <div class="stat" data-claim="C52"><span class="stat-n">0.98</span><span class="stat-l">minors</span><span class="stat-d">AUROC, OpenAI moderation eval</span></div>
+    </div>
+
+    <p class="prose" data-claim="C53">Same 2,531 messages for all four systems: 1,680 from OpenAI's moderation eval, 351 from Civil Comments, 500 from the YouTube spam collection. Thresholds are each system's defaults; nobody was tuned on this data.</p>
+
+    <table class="plans" data-claim="C54">
+      <caption class="small muted">AUROC per set and category, then cost and latency. Bold is the best in the row.</caption>
+      <thead><tr><th scope="col">set, category</th><th scope="col">jevmod</th><th scope="col">Llama Guard 3 8B</th><th scope="col">ShieldGemma 2B</th><th scope="col">toxic-bert</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">OpenAI eval, harassment</th><td data-plan="jevmod"><b>0.930</b></td><td data-plan="Llama Guard">0.805</td><td data-plan="ShieldGemma">0.914</td><td data-plan="toxic-bert">0.807</td></tr>
+        <tr><th scope="row">OpenAI eval, nsfw</th><td data-plan="jevmod"><b>0.982</b></td><td data-plan="Llama Guard">0.843</td><td data-plan="ShieldGemma">0.968</td><td data-plan="toxic-bert">0.876</td></tr>
+        <tr><th scope="row">OpenAI eval, self-harm</th><td data-plan="jevmod"><b>0.992</b></td><td data-plan="Llama Guard">0.891</td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
+        <tr><th scope="row">OpenAI eval, minors</th><td data-plan="jevmod"><b>0.977</b></td><td data-plan="Llama Guard">0.590</td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
+        <tr><th scope="row">OpenAI eval, any violation</th><td data-plan="jevmod"><b>0.939</b></td><td data-plan="Llama Guard">0.921</td><td data-plan="ShieldGemma"><b>0.939</b></td><td data-plan="toxic-bert">0.884</td></tr>
+        <tr><th scope="row">Civil Comments, harassment</th><td data-plan="jevmod">0.875</td><td data-plan="Llama Guard">0.539</td><td data-plan="ShieldGemma">0.874</td><td data-plan="toxic-bert"><b>0.973</b></td></tr>
+        <tr><th scope="row">YouTube, spam</th><td data-plan="jevmod"><b>0.994</b></td><td data-plan="Llama Guard">0.500 <small>no spam category</small></td><td data-plan="ShieldGemma" class="muted">no policy</td><td data-plan="toxic-bert" class="muted">no policy</td></tr>
+        <tr><th scope="row">Cost per 1,000 messages</th><td data-plan="jevmod">$0.042 <small>API list price</small></td><td data-plan="Llama Guard">$0.004 <small>GPU time at $0.30/h</small></td><td data-plan="ShieldGemma">$0.011 <small>GPU time</small></td><td data-plan="toxic-bert">$0.0006 <small>GPU time</small></td></tr>
+        <tr><th scope="row">Latency per message</th><td data-plan="jevmod">22 ms <small>batches of 25</small></td><td data-plan="Llama Guard">49 ms</td><td data-plan="ShieldGemma">130 ms <small>4 calls</small></td><td data-plan="toxic-bert">8 ms</td></tr>
+      </tbody>
+    </table>
+
+    <div class="grid-7-5">
+      <div class="prose">
+        <p data-claim="C55">Where it loses: toxic-bert wins Civil Comments because it was trained on Civil Comments. On text it has not seen, OpenAI's set, it is the weakest of the four.</p>
+        <p data-claim="C56">Llama Guard only gives a probability for "unsafe at all"; its per-category numbers use that probability when it named the category and 0 otherwise, which under-reports it. Quantised weights (Q4, Q8) may cost both open models a little against fp16.</p>
+        <p data-claim="C57">Calibration was measured on the same runs. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit mostly at 0.75 to 0.85 (minors 0.70, off-topic 0.90). A 0.6 is a maybe, not a 60%.</p>
+        <p class="small"><a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a> has every number, the scripts and the raw per-message outputs.</p>
+      </div>
+      <div class="stack">
+        <div class="stat" data-claim="C58"><span class="stat-n">$0.042</span><span class="stat-l">per 1,000 judged messages</span><span class="stat-d">2.5 M input tokens for 2,504 messages at $0.042 per million</span></div>
+        <div class="stat" data-claim="C59"><span class="stat-n">1,005</span><span class="stat-l">input tokens per message</span><span class="stat-d">seven categories on, measured</span></div>
+        <div class="stat" data-claim="C60"><span class="stat-n">22 ms</span><span class="stat-l">per message</span><span class="stat-d">amortised in batches of 25, about 550 ms per request</span></div>
+      </div>
+    </div>
+
+    <div id="cost" class="stack">
+      <h3>What it costs at your volume.</h3>
+      <p class="prose">Type your monthly message count. Every figure below is your number multiplied by a measured or listed constant; the arithmetic stays visible.</p>
+      <div class="grid-5-7">
+        <div>
+          <div class="field">
+            <label for="vol">Messages judged per month</label>
+            <input id="vol" type="number" min="100" max="100000000" step="100" value="20000" inputmode="numeric">
+            <input id="msgsRange" type="range" min="2" max="7" step="0.01" value="4.30103" aria-label="Messages per month, logarithmic slider">
+            <p class="small muted" data-claim="C61">Messages that reach Jev. jevmod never sends messages under eight letters without a link, from trusted authors, or repeats of judged text, so your bill is for a subset of traffic.</p>
+          </div>
+          <div class="field">
+            <label for="gpu">Rented GPU price, $ per hour</label>
+            <input id="gpu" type="text" value="0.30" inputmode="decimal" autocomplete="off" aria-describedby="gpuHint">
+            <p class="small muted" id="gpuHint" data-claim="C62">Used for the Llama Guard row. $0.30 is the benchmark's assumption for a consumer-class card; a cloud A10G or L4 is $0.50 to $1.20 an hour at list.</p>
+          </div>
+        </div>
+        <table class="plans" aria-live="polite">
+          <thead><tr><th scope="col">system</th><th scope="col">arithmetic</th><th scope="col">per month</th></tr></thead>
+          <tbody>
+            <tr>
+              <th scope="row">jevmod <small>Jev, 7 categories on, one request per batch</small></th>
+              <td data-plan="arithmetic" id="m-jev"></td>
+              <td data-plan="per month" id="o-jev"></td>
+            </tr>
+            <tr>
+              <th scope="row">General LLM as judge <small>Claude Haiku 4.5 list price, input tokens only, not run</small></th>
+              <td data-plan="arithmetic" id="m-llm"></td>
+              <td data-plan="per month" id="o-llm"></td>
+            </tr>
+            <tr>
+              <th scope="row">Llama Guard 3 8B <small>Q4_K_M, compute time on a rented GPU</small></th>
+              <td data-plan="arithmetic" id="m-lg"></td>
+              <td data-plan="per month" id="o-lg"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted" data-claim="C63">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard, measured on 2,531 messages (RTX 5080); Jev $0.042 and Claude Haiku 4.5 $1.00 per million input tokens at list price; the 1.2 factor is prompt overhead. Details in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="self-host" class="section">
+  <div class="wrap stack">
+    <div class="grid-5-7">
+      <div class="prose">
+        <h2>One image. One variable picks the role.</h2>
+        <p data-claim="C64">Roles: <code>api</code>, <code>discord</code>, <code>telegram</code>, <code>reddit</code>. SQLite on a volume. A $4/month VM, Fly.io or Railway with a volume is enough.</p>
+        <p data-claim="C65">Fails open: if Jev is unreachable, decisions come back with <code>reason="error_open"</code> and nothing is acted on. The failure is logged.</p>
+        <p data-claim="C66"><code>JEVMOD_MONTHLY_QUOTA</code> is 0 by default, unlimited. Set it and judging pauses for a tenant after that many judged messages in a month, tells the owner once and deletes nothing.</p>
+        <p data-claim="C67"><code>JEVMOD_KEEP_TEXT_CHARS</code> is how many characters of a flagged message the decision log keeps, 300 by default. 0 stores no text at all. Rows older than 30 days are purged on every batch.</p>
+      </div>
+      <div class="snippet">
+        <p class="code-label small muted">Docker Compose</p>
+        <div class="code">
+          <button class="copy" type="button" aria-label="Copy the compose commands">copy</button>
+          <pre><code>cp .env.example .env
+docker compose up -d                       # API on :8080
+docker compose --profile discord up -d     # add the Discord bot</code></pre>
+        </div>
+      </div>
+    </div>
+    <figure class="shot">
+      <img src="/img/admin-panel.svg" width="2400" height="1400" alt="The /admin panel listing tenants, plans, usage and subscriptions." loading="lazy">
+      <figcaption>The <code>/admin</code> panel on a self-hosted api: tenants, plans, this month's usage and subscriptions.</figcaption>
+    </figure>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p data-claim="C68">jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
+    <nav class="links" aria-label="Footer">
+      <a href="/">Community</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms</a>
+      <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+      <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a>
+    </nav>
+  </div>
+</footer>
+
+<script defer src="/site.js"></script>
+<script>
+/* Fallback until site.js owns these two behaviours (agent A): #copy in the hero and the cost calculator.
+   Both are guarded so that a later site.js can take them over; remove this block when it does. */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var copyBtn = $("copy");
+  if (copyBtn && !copyBtn.dataset.wired) {
+    copyBtn.dataset.wired = "1";
+    copyBtn.addEventListener("click", function () {
+      var label = copyBtn.textContent, text = copyBtn.dataset.copy || label;
+      function done(ok) { copyBtn.textContent = ok ? "copied" : "copy failed"; setTimeout(function () { copyBtn.textContent = label; }, 1400); }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      else done(false);
+    });
+  }
+  var vol = $("vol"), range = $("msgsRange"), gpu = $("gpu");
+  if (!vol || !range || !gpu || vol.dataset.wired) return;
+  vol.dataset.wired = "1";
+  var TOK = 1005, JEV_PER_M = 0.042, LLM_PER_M = 1.0, OVERHEAD = 1.2, LG_MS = 49;
+  var fmtN = function (n) { return n.toLocaleString("en-US"); };
+  var fmt$ = function (v) { return v < 0.01 ? "$" + v.toFixed(4) : v < 1 ? "$" + v.toFixed(3) : v < 100 ? "$" + v.toFixed(2) : "$" + Math.round(v).toLocaleString("en-US"); };
+  function calc() {
+    var n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, parseFloat(String(gpu.value).replace(",", ".")) || 0);
+    var jev = n * TOK * JEV_PER_M / 1e6, llm = n * TOK * OVERHEAD * LLM_PER_M / 1e6, lg = n * LG_MS / 3.6e6 * g;
+    $("m-jev").textContent = fmtN(n) + " x 1,005 tokens x $0.042 / 1M";
+    $("o-jev").innerHTML = fmt$(jev) + "<small>" + fmt$(jev / Math.max(n, 1) * 1000) + " per 1,000</small>";
+    $("m-llm").textContent = fmtN(n) + " x 1,005 tokens x 1.2 x $1.00 / 1M";
+    $("o-llm").innerHTML = fmt$(llm) + "<small>" + (jev > 0 ? (llm / jev).toFixed(0) + "x jevmod" : "") + "</small>";
+    $("m-lg").textContent = fmtN(n) + " x 49 ms x $" + g.toFixed(2) + " / 3,600,000 ms";
+    $("o-lg").innerHTML = fmt$(lg) + "<small>" + (n * LG_MS / 3.6e6).toFixed(2) + " GPU hours of compute</small>";
+  }
+  vol.addEventListener("input", function () { if (+vol.value > 0) range.value = Math.log10(+vol.value); calc(); });
+  range.addEventListener("input", function () { var v = Math.pow(10, +range.value); vol.value = v < 10000 ? Math.round(v / 100) * 100 : Math.round(v / 1000) * 1000; calc(); });
+  gpu.addEventListener("input", calc);
+  calc();
+})();
+</script>
+</body>
+</html>

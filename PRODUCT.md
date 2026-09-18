@@ -76,7 +76,7 @@ blocked, it is marked blocked with the reason.
 - Needed from Omar (VPS `.env`, then `docker compose ... up -d`): `STRIPE_PRICE_ID`, `STRIPE_SECRET_KEY`,
   `STRIPE_WEBHOOK_SECRET` (endpoint `https://jevmod.dev/billing/stripe/webhook`, events checkout.session.completed,
   customer.subscription.updated, customer.subscription.deleted), `DISCORD_TOKEN` (Message Content Intent), and the
-  Discord application id for the invite link (`data-invite` on `#hosted` in docs/index.html:
-  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot%20applications.commands&permissions=1099511655504`).
+  Discord application id for the invite link (permissions integer includes View Channels, Send Messages, Manage Messages, Embed Links, Add Reactions, Manage Channels, Moderate Members and Read Message History, which the ❌/✅ handler needs) (`data-invite` on `#hosted` in docs/index.html:
+  `https://discord.com/oauth2/authorize?client_id=1550544449199800410&scope=bot%20applications.commands&permissions=1099511721040`, set on `#hosted[data-invite]` 2026-09-18).
 - Open: Discord verification is required above 100 servers; Stripe tax settings (VAT for EU customers) are Omar's to
   configure in the Stripe dashboard; refunds are manual.

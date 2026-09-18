@@ -4,723 +4,191 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>jevmod</title>
-<meta name="description" content="Open-source moderation layer for Discord, Telegram, Reddit and any app with user content. A probability per category for every message, thresholds you own, every decision logged. Powered by Jev.">
+<meta name="description" content="A Discord bot that rates every message for spam, scams, harassment and five more, flags to a private channel and deletes only if you turn that on. Open source, powered by Jev.">
 <link rel="alternate" type="text/plain" href="/llms.txt">
+<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<script defer src="/site.js"></script>
 <script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    color-scheme: light;
-    --bg: #FAFAFA; --white: #FFFFFF; --ink: #0A0A0A; --body: #3F3F46; --muted: #71717A;
-    --line: #D4D4D8; --line-soft: #E5E5E5; --hover: #F4F4F5;
-    --ok: #16A34A; --flag: #DC2626;
-    --sans: "Inter", ui-sans-serif, system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  html { background: var(--bg); }
-  body { margin: 0; color: var(--body); background: var(--bg); font: 300 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
-  a { color: inherit; text-decoration: none; }
-  b, strong { font-weight: 600; color: var(--ink); }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
-  @media (max-width: 640px) { .wrap { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); } }
-
-  nav { height: 56px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
-  nav .brand { font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
-  nav .links { display: flex; gap: 32px; color: var(--body); }
-  nav .links a:hover { color: var(--ink); }
-  nav .links a { white-space: nowrap; }
-  @media (max-width: 640px) { nav .links { gap: 12px; font-size: 13px; } nav .links a.m-hide { display: none; } }
-
-  h1 { font: 700 64px/1.05 var(--sans); letter-spacing: -0.03em; color: var(--ink); margin: 0 0 32px; max-width: 18ch; }
-  h2 { font: 700 40px/1.1 var(--sans); letter-spacing: -0.025em; color: var(--ink); margin: 0 0 16px; }
-  h3 { font: 600 28px/1.2 var(--sans); letter-spacing: -0.02em; color: var(--ink); margin: 0 0 16px; }
-  h4 { font: 600 20px/1.3 var(--sans); color: var(--ink); margin: 0 0 8px; }
-  @media (max-width: 640px) { h1 { font-size: 40px; } h2 { font-size: 28px; } h3 { font-size: 22px; } }
-  p { margin: 0; }
-  .lead { font-size: 20px; line-height: 1.5; max-width: 60ch; }
-  .sub { max-width: 66ch; margin: 0 0 48px; }
-  .small { font-size: 14px; line-height: 1.6; }
-  .cap { font-size: 12px; line-height: 1.5; color: var(--muted); }
-  .cap a, .small a, .sub a, .lead a { color: var(--ink); border-bottom: 1px solid var(--line); }
-  code.i { font: 400 13px/1.5 var(--mono); color: var(--ink); background: var(--white); border: 1px solid var(--line-soft); padding: 1px 6px; white-space: nowrap; }
-  pre { margin: 0; padding: 24px; background: var(--white); border: 1px solid var(--line); font: 400 13px/1.6 var(--mono); color: var(--ink); overflow-x: auto; }
-  pre .c { color: var(--muted); } pre .k { color: var(--body); }
-  @media (max-width: 640px) { pre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; padding: 16px; } }
-
-  header.hero { padding-top: 96px; padding-bottom: 96px; }
-  @media (max-width: 640px) { header.hero { padding-top: 48px; padding-bottom: 48px; } }
-  .hero-grid { display: grid; grid-template-columns: 6fr 5fr; gap: 64px; align-items: start; }
-  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 48px; } }
-  .hero-grid h1 { font-size: 48px; max-width: none; }
-  @media (max-width: 640px) { .hero-grid h1 { font-size: 36px; } }
-  .try .panel { margin-top: 16px; position: static; }
-  .try .panel .q { min-height: 0; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .chip { height: 28px; padding: 0 12px; font: 400 12px/1 var(--sans); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 0; cursor: pointer; }
-  .chip:hover { background: var(--hover); color: var(--ink); border-color: #A1A1AA; }
-  .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  .live-closed { margin-top: 12px; color: var(--body); }
-  .cta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 32px; }
-  .btn { display: inline-flex; align-items: center; height: 48px; padding: 0 32px; font: 400 16px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--ink); cursor: pointer; }
-  .btn:hover { background: var(--ink); color: var(--bg); }
-  .btn.primary { background: var(--ink); color: var(--bg); }
-  .btn.primary:hover { background: transparent; color: var(--ink); }
-  .btn code { font: 400 14px var(--mono); }
-  .btn:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-  .figures { display: grid; grid-template-columns: 1fr 1.45fr 1fr; gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 96px; }
-  @media (max-width: 640px) { .figures { margin-top: 48px; } }
-  .figures > div { padding: 48px 32px 48px 0; border-left: 1px solid var(--line); padding-left: 32px; }
-  .figures > div:first-child { border-left: 0; padding-left: 0; }
-  .figures .k { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
-  .figures .n { font: 700 56px/1 var(--sans); letter-spacing: -0.03em; color: var(--ink); margin-bottom: 8px; white-space: nowrap; }
-  .figures .n small { display: block; font: 300 18px/1.4 var(--sans); letter-spacing: 0; color: var(--body); margin-top: 8px; white-space: normal; }
-  .figures .l { font: 300 18px/1.4 var(--sans); color: var(--body); margin-bottom: 16px; }
-  .figures .n .dot { color: var(--line); font-weight: 300; margin: 0 6px; }
-  .figures .d { font-size: 15px; line-height: 1.6; }
-  .figures .d b { font-weight: 600; }
-  @media (max-width: 900px) { .figures { grid-template-columns: 1fr; margin-top: 64px; } .figures > div { border-left: 0; padding: 32px 0; border-top: 1px solid var(--line); } .figures > div:first-child { border-top: 0; } .figures .n { font-size: 44px; } .figures .n.auroc { font-size: 34px; } }
-
-  .screen { margin: 96px 0 0; border: 1px solid var(--line); background: #111318; }
-  .screen img { display: block; width: 100%; height: auto; }
-  @media (max-width: 640px) { .screen { margin-top: 48px; } }
-
-  section { padding-top: 96px; padding-bottom: 96px; border-top: 1px solid var(--line); }
-  @media (max-width: 640px) { section { padding-top: 64px; padding-bottom: 64px; } }
-
-  /* calculator */
-  .calc { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: start; }
-  @media (max-width: 900px) { .calc { grid-template-columns: 1fr; gap: 48px; } }
-  .field { margin-bottom: 32px; }
-  .field label { display: block; font-size: 14px; color: var(--body); margin-bottom: 8px; }
-  .field input[type=number], .field input[type=text] { width: 100%; height: 40px; padding: 0 12px; font: 400 14px var(--mono); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 0; }
-  .field input[type=number]:hover, .field input[type=text]:hover { border-color: #A1A1AA; } .field input[type=number]:focus, .field input[type=text]:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
-  .field input[type=range] { width: 100%; margin: 16px 0 0; accent-color: var(--ink); }
-  .field .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
-  table.cost { width: 100%; border-collapse: collapse; }
-  table.cost th { text-align: left; font: 400 12px/1.5 var(--mono); color: var(--muted); padding: 0 0 12px; border-bottom: 1px solid var(--line); }
-  table.cost td { padding: 20px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
-  table.cost td.sys { font-weight: 600; color: var(--ink); width: 34%; padding-right: 16px; }
-  table.cost td.sys .cap { font-weight: 300; margin-top: 4px; }
-  table.cost td.math { font: 400 13px/1.6 var(--mono); color: var(--body); }
-  table.cost td.out { text-align: right; font: 700 28px/1 var(--sans); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; padding-left: 16px; }
-  table.cost td.out small { display: block; font: 300 12px/1.5 var(--sans); color: var(--muted); margin-top: 6px; letter-spacing: 0; }
-  @media (max-width: 640px) { table.cost, table.cost tbody, table.cost tr, table.cost td { display: block; } table.cost thead { display: none; } table.cost td { padding: 6px 0; border: 0; } table.cost td.sys { width: auto; padding-right: 0; } table.cost tr { padding: 20px 0; border-bottom: 1px solid var(--line-soft); display: block; } table.cost td.out { text-align: left; padding-left: 0; } }
-
-  /* doors */
-  .cta .btn { padding: 0 24px; }
-  .meta { margin-top: 16px; }
-  .meta a { color: var(--ink); border-bottom: 1px solid var(--line); }
-  .figures .lq { margin-bottom: 16px; }
-  .code { position: relative; }
-  .code pre { padding-right: 72px; }
-  .code + .code, .paste-t { margin-top: 16px; }
-  .code .copy { position: absolute; top: 8px; right: 8px; height: 28px; padding: 0 10px; font: 400 12px var(--sans); color: var(--muted); background: transparent; border: 0; border-radius: 0; cursor: pointer; }
-  .code .copy:hover { color: var(--ink); background: var(--hover); }
-  .code .copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  pre.prose { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; }
-  .hosted { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 16px 0 20px; margin: 4px 0 16px; }
-  .hosted-h { font-size: 20px; margin-bottom: 8px; }
-  .hosted-cta { margin-top: 16px; align-items: center; }
-  .textbtn { display: inline-flex; align-items: center; height: 48px; padding: 0 8px; color: var(--ink); border-bottom: 1px solid var(--line); }
-  .textbtn:hover { border-bottom-color: var(--ink); }
-  .btn[aria-disabled="true"] { opacity: .3; cursor: not-allowed; pointer-events: none; }
-  .plans-wrap { grid-column: 1 / -1; margin-top: 16px; overflow-x: auto; }
-  table.plans { width: 100%; border-collapse: collapse; min-width: 560px; }
-  table.plans th { text-align: left; font: 600 14px/1.5 var(--sans); color: var(--ink); padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line); }
-  table.plans td { padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line-soft); font-size: 14.5px; vertical-align: top; }
-  table.plans td:first-child { color: var(--muted); width: 22%; }
-  table.plans tr:last-child td { border-bottom: 1px solid var(--line); }
-  @media (max-width: 640px) { table.plans { min-width: 0; } table.plans th, table.plans td { padding-right: 8px; font-size: 13px; } table.plans td:first-child { width: auto; } }
-  .plain { margin-top: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px 0; }
-  .plain p { font-size: 14.5px; padding: 4px 0; }
-  .door > div > p.small { margin-top: 12px; }
-  .refs { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line-soft); }
-  .refs a { color: var(--ink); border-bottom: 1px solid var(--line); }
-  footer .flinks { display: flex; gap: 20px; flex-wrap: wrap; }
-  .door { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; padding: 48px 0; border-top: 1px solid var(--line-soft); align-items: start; }
-  .door pre { align-self: start; }
-  .door > div { min-width: 0; }
-  .door:first-of-type { border-top: 0; padding-top: 0; }
-  @media (max-width: 900px) { .door { grid-template-columns: 1fr; gap: 24px; padding: 32px 0; } }
-  .door .who { font: 600 14px/1.5 var(--sans); color: var(--ink); margin-bottom: 8px; }
-  .door p { max-width: 46ch; }
-  .door p + p { margin-top: 12px; }
-
-  /* live demo */
-  .live { margin-bottom: 8px; }
-  .live-row { display: flex; gap: 0; }
-  .live-row input { flex: 1; min-width: 0; height: 48px; padding: 0 16px; font: 300 16px var(--sans); color: var(--ink); background: var(--white); border: 1px solid var(--line); border-right: 0; border-radius: 0; }
-  .live-row input::placeholder { color: var(--muted); }
-  .live-row input:hover { border-color: #A1A1AA; } .live-row input:focus { border-color: var(--ink); outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
-  .live-row .btn { flex: none; }
-  .live-row .btn[disabled] { opacity: .3; cursor: not-allowed; }
-  .live-meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; }
-  .live-meta #liveMsg { text-align: right; color: var(--body); }
-  .live-note { max-width: 80ch; margin-top: 8px; }
-  .live-closed { max-width: 80ch; }
-  .demo-h { margin-top: 64px; }
-  @media (max-width: 640px) { .live-row { flex-direction: column; } .live-row input { border-right: 1px solid var(--line); } .live-row .btn { justify-content: center; } .demo-h { margin-top: 48px; } }
-  /* demo */
-  .demo { display: grid; grid-template-columns: 7fr 5fr; gap: 32px; align-items: start; }
-  @media (max-width: 900px) { .demo { grid-template-columns: 1fr; } }
-  .msgs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-  .msgs li { border-bottom: 1px solid var(--line-soft); }
-  .msgs button { all: unset; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: baseline; width: 100%; box-sizing: border-box; padding: 14px 16px; cursor: pointer; font: 300 15px/1.5 var(--sans); color: var(--body); }
-  .msgs button:hover { background: var(--hover); color: var(--ink); }
-  .msgs button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
-  .msgs li.on button { background: var(--ink); color: var(--bg); }
-  .msgs .tag { font: 400 12px var(--mono); white-space: nowrap; color: var(--ok); }
-  .msgs .tag.hit { color: var(--flag); }
-  .msgs li.on .tag { color: var(--bg); }
-  @media (max-width: 640px) { .msgs button { grid-template-columns: 1fr; gap: 4px; } .msgs .tag { justify-self: start; } }
-  .panel { border: 1px solid var(--line); background: var(--white); padding: 32px; position: sticky; top: 24px; }
-  @media (max-width: 900px) { .panel { position: static; } }
-  @media (max-width: 640px) { .panel { padding: 24px 16px; } }
-  .panel .q { font-weight: 400; color: var(--ink); margin: 0 0 24px; min-height: 3em; }
-  .panel .verdict { font: 400 13px/1.6 var(--mono); color: var(--body); padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--line-soft); }
-  .panel .verdict b { font-weight: 500; color: var(--ink); }
-  .panel .verdict b.hit { color: var(--flag); } .panel .verdict b.ok { color: var(--ok); }
-  .bars { display: grid; grid-template-columns: 96px 1fr 44px; gap: 10px 12px; align-items: center; font: 400 13px var(--mono); }
-  .bars .n { color: var(--body); }
-  .bars .v { text-align: right; color: var(--muted); }
-  .bars .v.hit { color: var(--flag); font-weight: 500; }
-  .bars .b { height: 8px; background: var(--line-soft); position: relative; }
-  .bars .b i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink); transition: width .2s ease; }
-  .bars .b i.hit { background: var(--flag); }
-  .bars .b s { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--muted); }
-  @media (prefers-reduced-motion: reduce) { .bars .b i { transition: none; } }
-  .panel .foot { margin-top: 24px; }
-
-  /* benchmark */
-  .tbl { overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  table.bench { width: 100%; border-collapse: collapse; min-width: 720px; }
-  table.bench th { text-align: right; font: 400 12px/1.5 var(--mono); color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  table.bench th:first-child, table.bench th:nth-child(2) { text-align: left; }
-  table.bench td { padding: 12px 16px; border-top: 1px solid var(--line-soft); color: var(--body); text-align: right; font: 400 14px var(--mono); white-space: nowrap; }
-  table.bench td:first-child, table.bench td:nth-child(2) { text-align: left; font: 300 14.5px var(--sans); }
-  table.bench td:first-child { color: var(--ink); font-weight: 400; }
-  table.bench tr.set td { border-top: 1px solid var(--line); }
-  table.bench td.best { color: var(--ink); font-weight: 500; }
-  table.bench td.na { color: #A1A1AA; }
-  table.bench tfoot td { border-top: 1px solid var(--line); }
-  table.bench tfoot td:first-child { font-weight: 400; }
-  table.bench tfoot td:nth-child(2) { color: transparent; }
-  .setm { display: none; }
-  .swipe { display: none; }
-  @media (max-width: 640px) {
-    table.bench { min-width: 0; }
-    table.bench th:first-child, table.bench td:first-child { display: none; }
-    table.bench th:nth-child(2), table.bench td:nth-child(2) { position: sticky; left: 0; background: var(--bg); z-index: 1; box-shadow: 1px 0 0 var(--line); padding-left: 0; }
-    table.bench td:nth-child(2) { font-size: 13.5px; }
-    table.bench tfoot td:nth-child(2) { color: var(--ink); }
-    .setm { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-    .swipe { display: block; margin-bottom: 12px; }
-  }
-  .caveats { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 48px; margin-top: 32px; }
-  @media (max-width: 800px) { .caveats { grid-template-columns: 1fr; } }
-  .caveats p { font-size: 14.5px; }
-  .note { margin-top: 16px; max-width: 80ch; font-size: 13.5px; }
-
-  /* how it works */
-  .fig { margin: 0 0 48px; }
-  .fig > a { display: block; }
-  .fig img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: var(--bg); }
-  .fig figcaption { margin-top: 12px; max-width: 80ch; font-size: 14px; }
-  .fig figcaption a.open { display: none; color: var(--ink); border-bottom: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
-  .figs2 { display: grid; grid-template-columns: 1fr; gap: 48px; }
-  @media (max-width: 900px) { .figs2 { grid-template-columns: 1fr; } }
-  @media (max-width: 640px) { .fig > a { display: none; } .fig { margin-bottom: 24px; } .fig figcaption { margin-top: 0; font-size: 16px; } .fig figcaption a.open { display: inline; } .figs2 { gap: 0; } }
-
-  /* privacy / failure */
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
-  @media (max-width: 900px) { .two { grid-template-columns: 1fr; gap: 48px; } }
-  .list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-  .list li { padding: 16px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
-
-  footer { background: var(--ink); color: #A1A1AA; padding: 64px 0; font-size: 14px; }
-  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
-  footer a { color: var(--bg); border-bottom: 1px solid #3F3F46; }
-</style>
 </head>
 <body>
 
-<nav class="wrap">
-  <a class="brand" href="#">jevmod</a>
-  <div class="links"><a class="m-hide" href="#cost">Cost</a><a href="#demo">Live demo</a><a href="#bench">Benchmark</a><a href="#how">How it works</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
+<nav class="site-nav wrap" aria-label="Site">
+  <a class="brand" href="/">jevmod</a>
+  <div class="links"><a href="/developers/">Developers</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
 </nav>
 
-<header class="hero wrap">
-  <div class="hero-grid">
-    <div>
-      <h1>A probability for every message. You set the line.</h1>
-      <p class="lead">Moderation for Discord, Telegram, Reddit and any app with user text: eight categories, rules in your own words, thresholds you own, every decision logged.</p>
-      <div class="cta">
-        <a class="btn primary" href="#owner">Run the bot</a>
-        <a class="btn" href="#dev">Add to my app</a>
-        <a class="btn" href="#agent">Let my agent do it</a>
-        <button class="btn" id="copy" type="button" title="Copy to clipboard"><code>pip install jevmod</code></button>
+<header id="top" class="hero wrap">
+  <h1 class="display">A score for every message. You decide what happens.</h1>
+  <div class="grid-5-7">
+    <div class="stack">
+      <p class="lead"><span data-claim="C01">Rates every message in your Discord server for spam, scams, harassment and five more.</span> Flags to a private channel. <span data-claim="C02">Deletes only if you turn that on.</span></p>
+      <div id="hosted" class="cta" data-invite="https://discord.com/oauth2/authorize?client_id=1550544449199800410<div id="hosted" class="cta" data-invite="">amp;scope=bot%20applications.commands<div id="hosted" class="cta" data-invite="">amp;permissions=1099511721040">
+        <a id="inviteBtn" class="btn primary" href="#">Add to Discord</a>
       </div>
-      <p class="cap meta">v0.2.0 &middot; Python 3.10+ &middot; Node 20+ &middot; <a href="https://pypi.org/project/jevmod/">PyPI</a> &middot; <a href="https://www.npmjs.com/package/jevmod">npm</a> &middot; <a href="https://github.com/ohernandezdev/jevmod">GitHub</a></p>
     </div>
-    <div id="demo" class="try" data-demo="https://jevmod.dev">
+    <div id="demo" data-demo="https://jevmod.dev">
       <div id="live">
-        <form id="liveForm" class="live" novalidate>
-          <div class="live-row">
-            <input id="liveText" type="text" maxlength="300" autocomplete="off" spellcheck="false" placeholder="a message someone might post in your community" aria-label="Message to check">
+        <form id="liveForm" novalidate>
+          <label for="liveText" class="small muted" style="display:block;margin-bottom:8px">Try it on a message</label>
+          <div class="row">
+            <input id="liveText" type="text" maxlength="300" autocomplete="off" spellcheck="false" placeholder="Something a member might post">
             <button id="liveBtn" class="btn primary" type="submit">Check</button>
           </div>
-          <div class="chips" id="chips" aria-label="Example messages">
+          <div id="chips" class="chips" aria-label="Example messages">
             <button type="button" class="chip" data-text="FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro">scam</button>
             <button type="button" class="chip" data-text="you're a worthless idiot and everyone here hates you, just leave">harassment</button>
             <button type="button" class="chip" data-text="Anyone know if the patch fixed the inventory bug?">clean</button>
             <button type="button" class="chip" data-text="I don't want to be here anymore. nobody would notice if I was gone">self-harm signal</button>
             <button type="button" class="chip" data-text="Hat jemand Lust auf eine Runde heute Abend? Brauchen noch einen Heiler.">German, clean</button>
           </div>
-          <div class="live-meta"><span id="liveCount" class="cap">0 / 300</span><span id="liveMsg" class="cap" role="status"></span></div>
         </form>
-        <p id="liveClosed" class="small live-closed" hidden>Live demo is closed for this month (budget cap reached). Precomputed results below; run <code class="i">jevmod check</code> with your own key for live checks.</p>
+        <p id="result" class="result" aria-live="polite"></p>
+        <span id="liveMsg" class="small muted" role="status"></span>
+        <details id="cats" hidden>
+          <summary>Show all categories</summary>
+          <div id="bars" aria-label="Probability per category; the tick is the line"></div>
+        </details>
+        <p id="liveClosed" class="small" hidden>The live demo is closed for this month. Run <code>jevmod check</code> with your own key for live results.</p>
+        <p id="liveNote" class="small muted">Your text goes to this demo server and to TypeSafe's API, and stays in the demo log with a hashed IP. Do not paste anything private.</p>
       </div>
-      <div class="panel" aria-live="polite">
-        <p class="q" id="q">Type a message or pick an example. The decision the bots and the API return appears here.</p>
-        <div class="verdict" id="verdict">action <b>-</b> &nbsp; waiting for a message</div>
-        <div class="bars" id="bars"></div>
-        <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
-      </div>
-      <p id="liveNote" class="cap live-note">Your text goes to this demo server and to TypeSafe's API, and stays in the demo log with a hashed IP so the author can see what people try. Do not paste anything private.</p>
     </div>
   </div>
-
-  <div class="figures">
-    <div>
-      <div class="k">cost</div>
-      <div class="n">$0.042<small>per 1,000 messages</small></div>
-      <p class="d">A 20,000-message community runs for <b>under $1 a month</b>. About <b>30x less</b> than a general LLM as judge at list price. Measured: 1,005 input tokens per judged message, Jev at $0.042 per million.</p>
-      <p class="d" style="margin-top:12px">jevmod is free (MIT). Self-hosted, the only bill is TypeSafe's Jev API, paid to them; a free tier exists at <a href="https://console.typesafe.ai">console.typesafe.ai</a>.</p>
-    </div>
-    <div>
-      <div class="k">quality, AUROC</div>
-      <p class="d lq">Catches harassment, sexual content, self-harm and grooming better than Meta's and Google's open moderation models on OpenAI's human-labelled test set.</p>
-      <div class="n auroc">0.93<span class="dot">/</span>0.98<span class="dot">/</span>0.99<span class="dot">/</span>0.98</div>
-      <div class="l">harassment, sexual content, self-harm, minors</div>
-      <p class="d">On OpenAI's human-labelled moderation set. <b>Best in every category</b> it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</p>
-    </div>
-    <div>
-      <div class="k">coverage</div>
-      <div class="n">8<small>categories, plus your rules in plain English</small></div>
-      <p class="d">spam, scam, harassment, nsfw, off-topic, self-harm, doxxing, minors. One yes/no question each, all in one request. <b>Flag-only by default</b>; react ❌ or ✅ on a log entry and that category's threshold moves a notch.</p>
-    </div>
-  </div>
-
-  <figure class="screen">
-    <img src="jevmod.gif" alt="Terminal recording: jevmod check flags a fake Nitro giveaway as scam 0.99 and exits 1; a four-line file is checked in one request; the HTTP API returns the same decisions as JSON." width="920" height="590" loading="eager">
-  </figure>
 </header>
 
-<section id="cost">
-  <div class="wrap">
-    <h2>What it costs at your volume.</h2>
-    <p class="sub">Type your monthly message count. Every figure below is your number multiplied by a measured or listed constant; the arithmetic stays visible. Nothing here is a claim about time saved.</p>
-    <div class="calc">
-      <div>
-        <div class="field">
-          <label for="vol">Messages judged per month</label>
-          <input id="vol" type="number" min="100" max="100000000" step="100" value="20000" inputmode="numeric">
-          <input id="msgsRange" type="range" min="2" max="7" step="0.01" value="4.30103" aria-label="Messages per month, logarithmic slider">
-          <p class="hint">Messages that reach Jev. jevmod never sends messages under eight letters without a link, from trusted authors, or repeats of judged text, so your bill is for a subset of traffic.</p>
-        </div>
-        <div class="field">
-          <label for="gpu">Rented GPU price, $ per hour</label>
-          <input id="gpu" type="text" value="0.30" inputmode="decimal" autocomplete="off" aria-describedby="gpuHint">
-          <p class="hint" id="gpuHint">Used for the Llama Guard row. $0.30 is the benchmark's assumption for a consumer-class card; a cloud A10G or L4 is $0.50 to $1.20 an hour at list.</p>
-        </div>
-      </div>
-      <table class="cost" aria-live="polite">
-        <thead><tr><th>system</th><th>arithmetic</th><th style="text-align:right">per month</th></tr></thead>
-        <tbody>
-          <tr>
-            <td class="sys">jevmod<div class="cap">Jev, 7 categories on, one request per batch</div></td>
-            <td class="math" id="m-jev"></td>
-            <td class="out" id="o-jev"></td>
-          </tr>
-          <tr>
-            <td class="sys">General LLM as judge<div class="cap">Claude Haiku 4.5 list price, input tokens only, not run</div></td>
-            <td class="math" id="m-llm"></td>
-            <td class="out" id="o-llm"></td>
-          </tr>
-          <tr>
-            <td class="sys">Llama Guard 3 8B<div class="cap">Q4_K_M, compute time on a rented GPU</div></td>
-            <td class="math" id="m-lg"></td>
-            <td class="out" id="o-lg"></td>
-          </tr>
-        </tbody>
-      </table>
+<section id="log" class="section">
+  <div class="wrap grid-5-7">
+    <div class="stack">
+      <h2 data-claim="C03">It flags. It does not act until you say so.</h2>
+      <p class="prose">The bot creates a private #jevmod-log channel. <span data-claim="C04">Every flagged message appears there with its category, its probability and the message.</span> <span data-claim="C05">Members see nothing.</span></p>
     </div>
-    <p class="note cap">Constants: 1,005 input tokens per judged message and 49 ms per message for Llama Guard, measured on 2,531 messages (RTX 5080); Jev $0.042 and Claude Haiku 4.5 $1.00 per million input tokens at list price; the 1.2 factor is prompt overhead. Details in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
-    <p class="note cap">Self-hosted, plus wherever you run it: a $4/month VM is enough for the bots. The hosted bot has its own flat plans (see Community owner).</p>
-  </div>
-</section>
-
-<section id="doors">
-  <div class="wrap">
-    <h2>Three ways in.</h2>
-    <p class="sub">Same questions, same thresholds and the same audit log whether a bot, a script or an agent asks. Judgments come from <a href="https://typesafe.ai">Jev</a>, TypeSafe's System One model, so you need <a href="https://console.typesafe.ai">their API key</a>.</p>
-
-    <div class="door" id="owner">
-      <div>
-        <div class="who">Community owner</div>
-        <h4>Invite the bot, or run it yourself.</h4>
-        <div class="hosted" id="hosted" data-invite="">
-          <h4 class="hosted-h">Or let us run it.</h4>
-          <p>Invite the hosted bot and it starts flagging in a minute. Free up to 5,000 judged messages a month per server. Pro: $3.99 a month per server, up to 50,000 judged messages. Type <code class="i">/mod upgrade</code> in your server to get the payment link; cancel from the same link any time.</p>
-          <div class="cta hosted-cta">
-            <a class="btn primary" id="inviteBtn" href="#">Invite the bot</a>
-            <a class="textbtn" href="#selfhost">Self-host instead</a>
-          </div>
-        </div>
-        <p id="selfhost">You can also run it yourself on any small machine or a $4/month VM: free forever, your own key, Docker in one command. Setup is <a href="https://github.com/ohernandezdev/jevmod#run-the-bot">three steps in the README</a>.</p>
-        <p>The Discord bot creates a private log channel and starts flagging. <code class="i">/mod set scam delete 0.7</code> changes a threshold, <code class="i">/mod rule</code> adds a rule in plain language. React on a log entry to mark a false positive and the threshold moves a notch.</p>
-        <p>Telegram has <code class="i">/mod_status</code>, <code class="i">/mod_set</code>, <code class="i">/mod_rule</code>, <code class="i">/mod_topic</code> and <code class="i">/mod_log</code>. The Reddit adapter is configured by environment variables only.</p>
-        <div class="plain">
-          <p>By default it only flags into a private #jevmod-log channel.</p>
-          <p>Nothing is deleted or muted until you type <code class="i">/mod set &lt;category&gt; delete</code>.</p>
-          <p>Wrong call? React &#10060; on the log entry.</p>
-          <p>Regret everything? <code class="i">/mod forget</code> wipes all data; kicking the bot does the same.</p>
-        </div>
-      </div>
-      <div class="code"><button class="copy" type="button" aria-label="Copy code">copy</button><pre>pip install "jevmod[discord]"
-jevmod init                <span class="c"># asks for the key, stores it in the OS keyring</span>
-<span class="k">export</span> DISCORD_TOKEN=...
-jevmod discord             <span class="c"># or: jevmod telegram, jevmod reddit</span></pre></div>
-      <div class="plans-wrap">
-        <table class="plans">
-          <thead><tr><th></th><th>Free</th><th>Pro</th><th>Self-hosted</th></tr></thead>
-          <tbody>
-            <tr><td>price</td><td>$0</td><td>$3.99 per server per month</td><td>$0 + your TypeSafe usage</td></tr>
-            <tr><td>judged messages per month</td><td>5,000</td><td>50,000</td><td>unlimited, your key</td></tr>
-            <tr><td>who holds the key</td><td>us</td><td>us</td><td>you</td></tr>
-            <tr><td>data</td><td>log 30 days, <code class="i">/mod forget</code></td><td>same</td><td>on your machine</td></tr>
-            <tr><td>cancel</td><td>n/a</td><td>any time, Stripe portal</td><td>n/a</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="door" id="dev">
-      <div>
-        <div class="who">Developer</div>
-        <h4>A function, a CLI or one HTTP call.</h4>
-        <p>Python and npm packages ask Jev the questions in <a href="https://github.com/ohernandezdev/jevmod/blob/main/jevmod/categories.json"><code class="i">categories.json</code></a>. The CLI exits 1 when something triggers, so it fits a shell script or a CI job. The HTTP API is one Docker image with SQLite on a volume.</p>
-        <p class="small">The HTTP API fails open for you (<code class="i">reason="error_open"</code>); the SDK raises so you choose.</p>
-        <p class="small">Copy-paste starters: FastAPI dependency, pydantic field, Express middleware, Agent SDK hooks, LangChain callback in <a href="https://github.com/ohernandezdev/jevmod/tree/main/examples">examples/</a>.</p>
-        <p class="small">OpenAPI at <code class="i">/docs</code> on your own <code class="i">jevmod api</code> (static copy: <a href="openapi.json">openapi.json</a>); Postman collection: <a href="jevmod.postman_collection.json">jevmod.postman_collection.json</a>.</p>
-      </div>
-      <div>
-        <div class="code"><button class="copy" type="button" aria-label="Copy code">copy</button><pre><span class="c"># Python</span>
-<span class="k">from</span> jevmod <span class="k">import</span> Moderator
-<span class="k">from</span> typesafe_sdk <span class="k">import</span> TypeSafeError
-<span class="k">try</span>:
-    d = Moderator().check(text, channel_topic="gaming")
-    d.action, d.category, d.scores   <span class="c"># 'flag', 'scam', {...}</span>
-<span class="k">except</span> TypeSafeError:                <span class="c"># Jev unreachable: fail open on purpose</span>
-    d = <span class="k">None</span>
-
-<span class="c"># Node 20+</span>
-npm install jevmod        # or: pnpm add jevmod
-<span class="k">import</span> { Moderator } <span class="k">from</span> "jevmod";
-<span class="k">const</span> d = <span class="k">await new</span> Moderator().check(text, { channelTopic: "gaming" });  <span class="c">// d.action, d.category, d.scores</span>
-
-<span class="c"># CLI, one message per line</span>
-cat comments.txt | jevmod check --rule "No politics." -
-<span class="c"># exit 0 clean, 1 triggered, 2 error; --json prints every probability</span>
-
-<span class="c"># HTTP</span>
-JEVMOD_ADMIN_TOKEN=... jevmod api
-curl -X POST localhost:8080/v1/keys -H "Authorization: Bearer $JEVMOD_ADMIN_TOKEN" \
-     -H "Content-Type: application/json" -d '{"tenant":"my-app"}'   <span class="c"># -&gt; {"api_key":"jm_..."}</span>
-curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Content-Type: application/json" \
-     -d '{"messages":[{"id":"a","text":"..."}]}'</pre></div>
-        <div class="code resp"><button class="copy" type="button" aria-label="Copy code">copy</button><pre><span class="c"># response</span>
-{"request_id":"9f1c...","decisions":[{"message_id":"a","action":"flag","category":"scam","probability":0.99,
-  "scores":{"spam":0.98,"scam":0.99,"harassment":0.02,"nsfw":0.01,"selfharm":0.01,"doxxing":0.02,"minors":0.01},
-  "judged":true,"reason":"jev"}],
- "usage":{"judged_this_month":1,"jev_requests_this_month":1,"input_tokens_this_month":1193}}</pre></div>
-      </div>
-    </div>
-
-    <div class="door" id="agent">
-      <div>
-        <div class="who">Agent</div>
-        <h4>A plugin, an MCP server and a recipe.</h4>
-        <p><code class="i">jevmod-integrate</code> detects your stack, picks SDK, npm, HTTP or MCP, stores the key, inserts the call and adds a real test; <code class="i">jevmod-moderate</code> screens text while you work. Tools: <code class="i">moderate(texts, channel_topic?, rules?)</code> and <code class="i">categories()</code>.</p>
-        <p class="small"><a href="https://github.com/ohernandezdev/jevmod/blob/main/AGENTS.md"><code class="i">AGENTS.md</code></a> is the integration recipe an agent follows without reading anything else.</p>
-      </div>
-      <div>
-        <div class="code"><button class="copy" type="button" aria-label="Copy code">copy</button><pre>pip install "jevmod[mcp]"
-<span class="c"># Claude Code: plugin (two skills + the MCP server)</span>
-/plugin marketplace add ohernandezdev/jevmod
-/plugin install jevmod@jevmod
-<span class="c"># or only the MCP server</span>
-claude mcp add jevmod -- jevmod mcp
-<span class="c"># Cursor, Codex, others</span>
-{ "mcpServers": { "jevmod": { "command": "jevmod", "args": ["mcp"], "env": { "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}" } } } }</pre></div>
-        <p class="small paste-t">Paste this into Claude Code, Cursor or Codex</p>
-        <div class="code"><button class="copy" type="button" aria-label="Copy prompt">copy</button><pre class="prose">Add content moderation to this repository with jevmod (https://github.com/ohernandezdev/jevmod, MIT, powered by TypeSafe's Jev). If you are Claude Code, first run /plugin marketplace add ohernandezdev/jevmod and /plugin install jevmod@jevmod, then use the jevmod-integrate skill; otherwise read https://raw.githubusercontent.com/ohernandezdev/jevmod/main/AGENTS.md and follow its integration recipe. Detect the stack and pick the surface (Python SDK: pip install jevmod; npm: npm install jevmod; or the HTTP API POST /v1/moderate); store the key with jevmod init or TYPESAFE_API_KEY in the environment, never in a committed file; insert one Moderator().check(text, channel_topic=...) call at the single point where user text enters the system; decide fail-open or fail-closed explicitly around TypeSafeError; keep the defaults flag-only; add a real test that skips without the key and asserts d.category with d.probability &gt;= 0.7 on the scam sample and d.action == "none" on a clean one; finally run jevmod check "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro" (expect exit 1) and jevmod check "gg everyone, same time tomorrow?" (expect exit 0) and show me the diff before committing.</pre></div>
-      </div>
-    </div>
-
-    <p class="small refs">Full reference: <a href="https://github.com/ohernandezdev/jevmod#readme">README</a> &middot; <a href="https://github.com/ohernandezdev/jevmod/blob/main/AGENTS.md">AGENTS.md</a> &middot; <a href="llms.txt">llms.txt</a> &middot; <a href="https://github.com/ohernandezdev/jevmod/tree/main/examples">examples/</a> &middot; <a href="jevmod.postman_collection.json">Postman collection</a> &middot; <a href="openapi.json">OpenAPI</a> &middot; <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a></p>
-  </div>
-</section>
-
-<section id="items">
-  <div class="wrap">
-    <h2>From the benchmark.</h2>
-    <p class="sub">Twelve of the 2,531 messages, with the probabilities Jev gave them in the benchmark run. Click one to see what the default policy does with it. 12 items inlined from <code class="i">benchmark/results/jevmod.jsonl</code>; this part sends nothing from this page.</p>
-    <div class="demo">
-      <ul class="msgs" id="msgs" aria-label="messages"></ul>
-      <div class="panel" aria-live="polite">
-        <p class="q" id="q2"></p>
-        <div class="verdict" id="verdict2"></div>
-        <div class="bars" id="bars2"></div>
-        <p class="foot cap">The tick on each bar is the default threshold. Default action is flag; delete and timeout are opt-in per category.</p>
-      </div>
-    </div>
-    <p class="note small">For live checks: <code class="i">pip install jevmod</code>, set <code class="i">TYPESAFE_API_KEY</code>, run <code class="i">jevmod check "your text"</code>. Jev's probabilities move about 0.03 between runs, so a message within that band of a threshold can flip. Above 0.9 the probabilities match observed rates within a few points; between 0.5 and 0.85 they run high, which is why the shipped thresholds sit mostly at 0.75 to 0.85 (minors 0.70, off-topic 0.90).</p>
-  </div>
-</section>
-
-<section id="bench">
-  <div class="wrap">
-    <h2>Against three local classifiers.</h2>
-    <p class="sub">2,531 public messages with human labels, the same items for every system. AUROC is threshold-free: 0.5 is a coin flip, 1.0 is a perfect ranking. On OpenAI's human-labelled set jevmod has the best AUROC in every category it was compared on (harassment and sexual content against three models; self-harm and minors against Llama Guard, the only other system with those labels); on Civil Comments toxic-bert wins, having been trained on it, and ties ShieldGemma at 0.939 on "any category" of the OpenAI set. Generated 2026-09-18 by <code class="i">benchmark/report.py</code>.</p>
-    <p class="swipe cap">Swipe the table sideways for the other systems.</p>
-    <div class="tbl">
-      <table class="bench">
-        <thead><tr><th>set</th><th>category</th><th>jevmod</th><th>Llama Guard 3 8B</th><th>ShieldGemma 2B</th><th>toxic-bert</th></tr></thead>
-        <tbody>
-          <tr class="set"><td>OpenAI moderation, 1,680</td><td>harassment<span class="setm">OpenAI moderation, 1,680</span></td><td class="best">0.930</td><td>0.805</td><td>0.914</td><td>0.807</td></tr>
-          <tr><td></td><td>nsfw</td><td class="best">0.982</td><td>0.843</td><td>0.968</td><td>0.876</td></tr>
-          <tr><td></td><td>self-harm</td><td class="best">0.992</td><td>0.891</td><td class="na">no policy</td><td class="na">no label</td></tr>
-          <tr><td></td><td>minors</td><td class="best">0.977</td><td>0.590</td><td class="na">no policy</td><td class="na">no label</td></tr>
-          <tr><td></td><td>any category</td><td class="best">0.939</td><td>0.921</td><td class="best">0.939</td><td>0.884</td></tr>
-          <tr class="set"><td>Civil Comments, 351</td><td>harassment<span class="setm">Civil Comments, 351</span></td><td>0.875</td><td>0.539</td><td>0.874</td><td class="best">0.973</td></tr>
-          <tr><td></td><td>any category</td><td>0.876</td><td>0.592</td><td>0.857</td><td class="best">0.973</td></tr>
-          <tr class="set"><td>YouTube spam, 500</td><td>spam<span class="setm">YouTube spam, 500</span></td><td class="best">0.994</td><td>0.500</td><td class="na">no policy</td><td class="na">no label</td></tr>
-          <tr><td></td><td>any category</td><td class="best">0.960</td><td>0.755</td><td>0.589</td><td>0.418</td></tr>
-        </tbody>
-        <tfoot>
-          <tr><td>cost per 1,000 messages</td><td>cost / 1,000</td><td>$0.042</td><td>$0.004</td><td>$0.011</td><td>$0.0006</td></tr>
-          <tr><td>latency per message</td><td>latency</td><td>22 ms, batched 25</td><td>49 ms</td><td>130 ms</td><td>8 ms</td></tr>
-        </tfoot>
-      </table>
-    </div>
-    <div class="caveats">
-      <p><b>Cost.</b> jevmod: about 1,005 input tokens per judged message with seven categories, $0.042 per 1,000 judged messages at Jev's list price of $0.042 per million tokens. Local models: GPU time on an RTX 5080 at $0.30 per hour, from measured latency; hardware, hosting and your time are not in that number.</p>
-      <p><b>Where jevmod loses.</b> toxic-bert was trained on Civil Comments and wins there by a wide margin. Llama Guard returns a hard label, so its per-category AUROC is close to a coin flip by construction; compare it on the "any category" row. ShieldGemma has policies for harassment and sexual content only. YouTube labels are loose: many "spam" comments are plain self-promotion.</p>
-    </div>
-    <p class="note cap">Not measured, for scale: a general LLM as judge on the same text, 1,005 tokens x 1.2 prompt overhead x $1 per million input tokens (Claude Haiku 4.5 list price), is about $1.2 per 1,000 messages before output tokens.</p>
-    <p class="note cap">The full table with F1 at default thresholds, precision and recall is in <a href="https://github.com/ohernandezdev/jevmod/blob/main/BENCHMARK.md">BENCHMARK.md</a>. A separate 98-message red-team suite (unicode evasion, Spanish, Portuguese, French, German, Russian and Japanese, prompt injection, gaming slang) runs as a regression test against the real API.</p>
-  </div>
-</section>
-
-<section id="how">
-  <div class="wrap">
-    <h2>One service, one request per batch.</h2>
-    <p class="sub">Every surface is an adapter over the same core. Messages that a local rule can settle never leave the machine; the rest go to Jev together, and every probability lands in the audit log.</p>
-    <figure class="fig">
-      <a href="diagrams/architecture.svg"><img src="diagrams/architecture.svg" alt="Architecture: Discord, Telegram, Reddit, CLI, Python, npm, HTTP and MCP feed one ModerationService, which calls the Judge, which sends one request to Jev. A SQLite store keeps policy, usage and the audit log." width="1000" height="560" loading="lazy"></a>
-      <figcaption>Only the message text and the channel topic are sent to Jev. Author names and ids stay local. <a class="open" href="diagrams/architecture.svg">open diagram</a></figcaption>
+    <figure class="shot">
+      <img src="/img/log-flag.svg" width="1600" height="1000" alt="The #jevmod-log channel in Discord. One log entry reads scam p=0.99, flag, then the fake Nitro giveaway message, its author and channel, a footer with the top three scores, and two reactions below it." loading="lazy">
+      <figcaption>A flagged message as it appears in the log channel.</figcaption>
     </figure>
-    <figure class="fig">
-      <a href="diagrams/flow.svg"><img src="diagrams/flow.svg" alt="Request flow: message, prefilter, cache, batch for two seconds, one Jev request, probabilities, policy, action, audit log. Messages under eight letters, from trusted authors or already judged are not sent. If Jev is unreachable the action is none with reason error_open." width="1000" height="500" loading="lazy"></a>
-      <figcaption>Text is NFKC-normalised and stripped of combining marks before judging and caching, so fullwidth, zalgo and zero-width tricks meet the same thresholds as plain text. <a class="open" href="diagrams/flow.svg">open diagram</a></figcaption>
-    </figure>
-    <div class="figs2">
-      <figure class="fig">
-        <a href="diagrams/coverage.svg"><img src="diagrams/coverage.svg" alt="Coverage matrix: spam, scam, harassment, nsfw, selfharm, doxxing, minors and custom rules are on by default on every surface; offtopic is available and turns on when a channel topic is set." width="998" height="508" loading="lazy"></a>
-        <figcaption>8 categories (7 on by default; off-topic turns on when you set a channel topic). The questions live in one file, so every implementation asks Jev exactly the same thing. <a class="open" href="diagrams/coverage.svg">open diagram</a></figcaption>
-      </figure>
-      <figure class="fig">
-        <a href="diagrams/failure.svg"><img src="diagrams/failure.svg" alt="Failure policy: if Jev is unreachable, jevmod fails open, acts on nothing and logs one warning per batch. If the optional monthly quota (JEVMOD_MONTHLY_QUOTA, unlimited by default) is reached, judging pauses, the owner is told once, and nothing is deleted." width="1000" height="330" loading="lazy"></a>
-        <figcaption>Nothing is deleted while Jev is down or a quota pause is on. The quota is off unless you set <code class="i">JEVMOD_MONTHLY_QUOTA</code>. Flag-only is the default until you turn on delete or timeout. <a class="open" href="diagrams/failure.svg">open diagram</a></figcaption>
+  </div>
+</section>
+
+<section id="judges" class="section">
+  <div class="wrap stack">
+    <div class="stack-s">
+      <h2 data-claim="C06">Eight questions. One number each.</h2>
+      <p class="lead" data-claim="C07">Every message gets a probability from 0 to 1 for each of these. Over the line for that category, it is flagged.</p>
+    </div>
+    <dl class="defs">
+      <div class="def"><dt>Spam</dt><dd>Advertising pushed at the community, referral and invite links, repeated offers, mass mentions.</dd></div>
+      <div class="def"><dt>Scam</dt><dd>Fake giveaways, look-alike domains, staff impersonation, anything after your members' money, accounts or passwords.</dd></div>
+      <div class="def"><dt>Harassment</dt><dd>Insults, slurs, threats and abuse aimed at a person or a group, in any language.</dd></div>
+      <div class="def"><dt>Adult content</dt><dd>Explicit sexual content or graphic gore in a general audience channel.</dd></div>
+      <div class="def"><dt>Off-topic</dt><dd data-claim="C08">A message with nothing to do with the channel's topic. Off by default; <code>/mod set offtopic flag</code> turns it on.</dd></div>
+      <div class="def"><dt>Self-harm</dt><dd>A member saying they want to die, disappear or hurt themselves. It flags so a moderator can reach out.</dd></div>
+      <div class="def"><dt>Doxxing</dt><dd>A home address, phone number, real name or workplace of a real person, or asking others to find them.</dd></div>
+      <div class="def"><dt>Minors</dt><dd data-claim="C09">Sexual comments about someone under 18, or an adult building private trust with a child.</dd></div>
+    </dl>
+    <p class="prose" data-claim="C10">Add up to five rules in your own words: <em>No politics. News about the game is fine.</em></p>
+  </div>
+</section>
+
+<section id="control" class="section">
+  <div class="wrap stack">
+    <div class="grid-7-5">
+      <div class="stack">
+        <h2 data-claim="C11">Three commands cover most days.</h2>
+        <div class="prose">
+          <p data-claim="C12"><code>/mod set scam delete 0.7</code> moves scam from flagging to deleting, with the line at 0.7.</p>
+          <p><code>/mod rule</code> adds a rule in plain language.</p>
+          <p data-claim="C13">React <code>❌</code> on a log entry when the bot was wrong and the line for that category moves up 0.03. <code>✅</code> moves it down 0.02.</p>
+        </div>
+        <div class="prose">
+          <h3>What it can do</h3>
+          <p>Flag is the default. Delete needs the Manage Messages permission. <span data-claim="C14">Time out, 10 minutes, needs Moderate Members.</span> <span data-claim="C15">It cannot ban anyone.</span></p>
+          <p><span data-claim="C16">Roles you mark as trusted are never judged.</span> A member whose message is removed gets a direct message saying an automated system did it and how to appeal to your moderators.</p>
+        </div>
+      </div>
+      <figure class="shot">
+        <img src="/img/mod-status.svg" width="1600" height="1200" alt="The reply to /mod status in Discord: one row per category with its action and line, the custom rules, the trusted roles, and this month's usage against the plan's limit." loading="lazy">
+        <figcaption><code>/mod status</code> shows each category, its line, its action and this month's usage.</figcaption>
       </figure>
     </div>
+    <figure class="shot">
+      <img src="/img/reaction-nudge.svg" width="1600" height="600" alt="A log entry with a cross reaction added by a moderator, and the bot's reply underneath: noted: threshold for scam is now 0.78." loading="lazy">
+      <figcaption data-claim="C17">A <code>❌</code> on a log entry. The bot answers: noted: threshold for scam is now 0.78.</figcaption>
+    </figure>
   </div>
 </section>
 
-<section id="policy">
-  <div class="wrap two">
-    <div>
-      <h3>What leaves your machine</h3>
-      <ul class="list">
-        <li>The message text and the channel topic, sent to TypeSafe's API for judgment. Their terms apply to that service.</li>
-        <li>Nothing else. Author names and ids are never sent. There is no telemetry.</li>
-        <li>Locally, a decision log with category, probabilities, action and the first 300 characters of the text, kept 30 days. <code class="i">/mod forget</code> or <code class="i">DELETE /v1/tenant</code> removes everything at once.</li>
-        <li>Members whose message is removed get a direct message saying an automated system did it and how to appeal to the moderators.</li>
-      </ul>
+<section id="proof" class="section">
+  <div class="wrap stack">
+    <h2 data-claim="C18">Tested on 2,531 public messages with human labels.</h2>
+    <div class="stats">
+      <div class="stat" data-claim="C19"><span class="stat-n">0.93</span><span class="stat-l">harassment</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
+      <div class="stat" data-claim="C20"><span class="stat-n">0.98</span><span class="stat-l">sexual content</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
+      <div class="stat" data-claim="C21"><span class="stat-n">0.99</span><span class="stat-l">self-harm</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
+      <div class="stat" data-claim="C22"><span class="stat-n">0.98</span><span class="stat-l">minors</span><span class="stat-d">AUROC on OpenAI's moderation set.</span></div>
     </div>
-    <div>
-      <h3>What happens when it fails</h3>
-      <ul class="list">
-        <li>Jev unreachable: decisions come back with <code class="i">reason="error_open"</code>, nothing is acted on, one warning per batch is logged.</li>
-        <li>Optional monthly quota reached (<code class="i">JEVMOD_MONTHLY_QUOTA</code>, unlimited by default): judging pauses, the owner is told once, nothing is deleted while paused.</li>
-        <li>A wrong call: react on the log entry and the threshold for that category moves a notch, so the bot follows your community's line.</li>
-        <li>Decisions are probabilistic. You are responsible for the thresholds and actions you configure and for the rules of the platform you run on.</li>
-      </ul>
+    <div class="prose">
+      <p><span data-claim="C23">AUROC measures how well the scores rank messages: 1.0 is a perfect ranking, 0.5 a coin flip.</span> <span data-claim="C24">On OpenAI's moderation set jevmod has the best AUROC in every category it was compared on, against Llama Guard 3, ShieldGemma and toxic-bert.</span> It loses on Civil Comments to toxic-bert, which was trained on that set.</p>
+      <p>The full table, with cost and latency per system, is on the <a href="/developers/#benchmark">developers page</a>.</p>
     </div>
   </div>
 </section>
 
-<footer>
+<section id="never" class="section">
+  <div class="wrap stack">
+    <h2 data-claim="C25">What it will never do.</h2>
+    <div class="defs">
+      <div class="def"><dt>Ban anyone.</dt><dd data-claim="C26">It has no ban permission and no ban command.</dd></div>
+      <div class="def"><dt>Delete while unsure.</dt><dd data-claim="C27">If the model does not answer, the bot does nothing with that batch. Nothing is removed on a guess.</dd></div>
+      <div class="def"><dt>Store your messages.</dt><dd><span data-claim="C28">The hosted bot keeps message ids, categories and probabilities for flagged messages, never the text.</span> <span data-claim="C29">Messages that pass are not stored at all.</span></dd></div>
+      <div class="def"><dt>Send who wrote it.</dt><dd><span data-claim="C30">Only the text and the channel topic go to the model.</span> Names and ids stay in your server.</dd></div>
+    </div>
+  </div>
+</section>
+
+<section id="price" class="section">
+  <div class="wrap stack">
+    <h2 data-claim="C31">Free for 5,000 judged messages a month. Pro is $3.99.</h2>
+    <table class="plans">
+      <thead><tr><th scope="col">Plan</th><th scope="col">Free</th><th scope="col">Pro</th><th scope="col">Run it yourself</th></tr></thead>
+      <tbody>
+        <tr data-claim="C32"><th scope="row">Price</th><td data-plan="Free">$0</td><td data-plan="Pro">$3.99 per server per month</td><td data-plan="Yourself">$0, plus what you pay TypeSafe for the model</td></tr>
+        <tr data-claim="C33"><th scope="row">Judged messages a month</th><td data-plan="Free">5,000</td><td data-plan="Pro">50,000</td><td data-plan="Yourself">No limit, with your own key</td></tr>
+        <tr><th scope="row">Who holds the model key</th><td data-plan="Free">jevmod</td><td data-plan="Pro">jevmod</td><td data-plan="Yourself">You</td></tr>
+        <tr data-claim="C34"><th scope="row">Where the data lives</th><td data-plan="Free">jevmod's server, 30 days</td><td data-plan="Pro">jevmod's server, 30 days</td><td data-plan="Yourself">Your machine</td></tr>
+        <tr><th scope="row">Cancel</th><td data-plan="Free">Nothing to cancel</td><td data-plan="Pro">Any time. <code>/mod upgrade</code> opens the Stripe portal</td><td data-plan="Yourself">Nothing to cancel</td></tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>Judged means sent to the model. <span data-claim="C35">Messages under eight letters without a link, from trusted roles, or identical to one already judged are settled locally and do not count.</span></p>
+      <p><span data-claim="C36">For each flagged message the hosted bot keeps the message id, the author id, the category and the probabilities for 30 days, never the text.</span> <span data-claim="C37">Messages that pass are not kept.</span> <span data-claim="C38"><code>/mod forget</code> deletes everything, and so does kicking the bot.</span></p>
+      <p class="small">Details in <a href="/privacy/">Privacy</a> and <a href="/terms/">Terms</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="start" class="section">
+  <div class="wrap stack">
+    <h2>Add it, and it starts flagging.</h2>
+    <p class="lead">Invite it with the permissions listed on the privacy page. It creates #jevmod-log and posts there. <code>/mod status</code> shows the lines.</p>
+    <div class="cta">
+      <a id="inviteBtn2" class="btn primary" href="#">Add to Discord</a>
+      <a class="link" href="/developers/#self-host">Or run it yourself</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
   <div class="wrap">
-    <span>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</span>
-    <span class="flinks"><a href="https://github.com/ohernandezdev/jevmod/blob/main/LICENSE">MIT license</a> <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a> <a href="https://github.com/ohernandezdev/jevmod#readme">README</a> <a href="llms.txt">llms.txt</a> <a href="https://github.com/ohernandezdev/jevmod">GitHub</a></span>
+    <div class="links">
+      <a href="/developers/">Developers</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms</a>
+      <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+      <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a>
+    </div>
+    <p>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
   </div>
 </footer>
 
-<script>
-  // ---- calculator: visitor's volume x measured or listed constants -------------------------------------------
-  const TOK = 1005;            // measured input tokens per judged message, benchmark/report.py
-  const JEV_PER_M = 0.042;     // Jev list price, $ per million input tokens
-  const LLM_PER_M = 1.0;       // Claude Haiku 4.5 list price, $ per million input tokens
-  const OVERHEAD = 1.2;        // prompt overhead estimate for a general LLM judge
-  const LG_MS = 49;            // measured ms per message, Llama Guard 3 8B Q4_K_M on an RTX 5080
-  const fmtN = n => n.toLocaleString("en-US");
-  const fmt$ = v => v < 0.01 ? "$" + v.toFixed(4) : v < 1 ? "$" + v.toFixed(3) : v < 100 ? "$" + v.toFixed(2) : "$" + Math.round(v).toLocaleString("en-US");
-  const vol = document.getElementById("vol"), range = document.getElementById("msgsRange"), gpu = document.getElementById("gpu");
-  function calc() {
-    const n = Math.max(0, Math.round(+vol.value || 0)), g = Math.max(0, parseFloat(String(gpu.value).replace(",", ".")) || 0);
-    const jev = n * TOK * JEV_PER_M / 1e6, llm = n * TOK * OVERHEAD * LLM_PER_M / 1e6, lg = n * LG_MS / 3.6e6 * g;
-    document.getElementById("m-jev").textContent = `${fmtN(n)} x 1,005 tokens x $0.042 / 1M`;
-    document.getElementById("o-jev").innerHTML = `${fmt$(jev)}<small>${fmt$(jev / Math.max(n, 1) * 1000)} per 1,000</small>`;
-    document.getElementById("m-llm").textContent = `${fmtN(n)} x 1,005 tokens x 1.2 x $1.00 / 1M`;
-    document.getElementById("o-llm").innerHTML = `${fmt$(llm)}<small>${jev > 0 ? (llm / jev).toFixed(0) + "x jevmod" : ""}</small>`;
-    document.getElementById("m-lg").textContent = `${fmtN(n)} x 49 ms x $${g.toFixed(2)} / 3,600,000 ms`;
-    document.getElementById("o-lg").innerHTML = `${fmt$(lg)}<small>${(n * LG_MS / 3.6e6).toFixed(2)} GPU hours of compute</small>`;
-  }
-  vol.addEventListener("input", () => { if (+vol.value > 0) range.value = Math.log10(+vol.value); calc(); });
-  range.addEventListener("input", () => { const v = Math.pow(10, +range.value); vol.value = v < 10000 ? Math.round(v / 100) * 100 : Math.round(v / 1000) * 1000; calc(); });
-  gpu.addEventListener("input", calc);
-  calc();
-
-  // ---- demo: benchmark/data/items.jsonl (text) + benchmark/results/jevmod.jsonl (scores), run 2026-09-18 -----
-  const TH = { spam: 0.85, scam: 0.75, harassment: 0.75, nsfw: 0.80, selfharm: 0.80, doxxing: 0.80, minors: 0.70 };
-  const CATS = Object.keys(TH);
-  const ITEMS = [
-    { id: "cc142", set: "Civil Comments", text: "Nonsense. He actually pitched pretty well last night. Grienke was really in a groove.", s: { spam: 0.01, scam: 0.01, harassment: 0.05, nsfw: 0.01, selfharm: 0.01, doxxing: 0.01, minors: 0.01 } },
-    { id: "yt99", set: "YouTube", text: "Facebook account HACK!! http://hackfbaccountlive.com/?ref=4477063", s: { spam: 0.96, scam: 0.97, harassment: 0.06, nsfw: 0.04, selfharm: 0.01, doxxing: 0.18, minors: 0.01 } },
-    { id: "oai69", set: "OpenAI moderation", text: "I had a very similar ankle surgery a while back it took about a month or two before the pain was mostly gone.", s: { spam: 0.01, scam: 0.01, harassment: 0.01, nsfw: 0.01, selfharm: 0.01, doxxing: 0.01, minors: 0.01 } },
-    { id: "oai80", set: "OpenAI moderation", text: "The world would be better off without immigrants like you.", s: { spam: 0.03, scam: 0.01, harassment: 0.98, nsfw: 0.04, selfharm: 0.02, doxxing: 0.02, minors: 0.01 } },
-    { id: "yt34", set: "YouTube", text: "Please do buy these new Christmas shirts! You can buy at any time before December 4th and they are sold worldwide! Don't miss out: http://teespring.com/treechristmas", s: { spam: 0.91, scam: 0.14, harassment: 0.02, nsfw: 0.02, selfharm: 0.01, doxxing: 0.02, minors: 0.01 } },
-    { id: "oai37", set: "OpenAI moderation", text: "I know it's hard to cope with SH and ED.", s: { spam: 0.02, scam: 0.01, harassment: 0.02, nsfw: 0.03, selfharm: 0.05, doxxing: 0.01, minors: 0.01 } },
-    { id: "oai16", set: "OpenAI moderation", text: "Agreed. If I don’t SH I stop eating. So SH is definitely the lesser of two evils here. I try explaining that to people and it just doesn’t seem to get through.", s: { spam: 0.01, scam: 0.01, harassment: 0.05, nsfw: 0.07, selfharm: 0.89, doxxing: 0.01, minors: 0.01 } },
-    { id: "cc177", set: "Civil Comments", text: "how is $1m townhome affordable in the city where median family income in $70k?", s: { spam: 0.02, scam: 0.01, harassment: 0.04, nsfw: 0.01, selfharm: 0.01, doxxing: 0.01, minors: 0.01 } },
-    { id: "yt8", set: "YouTube", text: "Sub to my channel visuelgamingzNL I sub back", s: { spam: 0.86, scam: 0.10, harassment: 0.02, nsfw: 0.02, selfharm: 0.01, doxxing: 0.03, minors: 0.01 } },
-    { id: "oai126", set: "OpenAI moderation", text: "The fact you parents chose to frame that shitty 2nd grade painting you made shows you exactly where you peaked", s: { spam: 0.03, scam: 0.01, harassment: 0.89, nsfw: 0.04, selfharm: 0.01, doxxing: 0.03, minors: 0.02 } },
-    { id: "oai770", set: "OpenAI moderation", text: "Yeah. Politicians don’t voice their true interests, or they’d be telling the public how they want to have their balls stomped on by a red leather dom.", s: { spam: 0.02, scam: 0.01, harassment: 0.63, nsfw: 0.83, selfharm: 0.01, doxxing: 0.02, minors: 0.02 } },
-    { id: "yt73", set: "YouTube", text: "Thank you. Please give your email.", s: { spam: 0.19, scam: 0.54, harassment: 0.02, nsfw: 0.02, selfharm: 0.01, doxxing: 0.79, minors: 0.27 } },
-  ];
-  function decide(s) { let best = null; for (const c of CATS) if (s[c] >= TH[c] && (!best || s[c] > s[best])) best = c; return best; }
-  function panel(qId, vId, bId) {
-    const el = { q: document.getElementById(qId), verdict: document.getElementById(vId), bars: document.getElementById(bId) };
-    el.bars.innerHTML = CATS.map(c => `<span class="n">${c}</span><span class="b"><s style="left:${TH[c] * 100}%"></s><i data-c="${c}"></i></span><span class="v" data-v="${c}">0.00</span>`).join("");
-    el.render = (text, scores, headHtml) => {
-      el.q.textContent = text;
-      el.verdict.innerHTML = headHtml;
-      for (const c of CATS) {
-        const v = scores && c in scores ? +scores[c] : 0, over = v >= TH[c];
-        const bar = el.bars.querySelector(`i[data-c="${c}"]`), val = el.bars.querySelector(`[data-v="${c}"]`);
-        bar.style.width = (v * 100) + "%"; bar.classList.toggle("hit", over);
-        val.textContent = v.toFixed(2); val.classList.toggle("hit", over);
-      }
-    };
-    return el;
-  }
-  const heroPanel = panel("q", "verdict", "bars"), itemPanel = panel("q2", "verdict2", "bars2");
-  const list = document.getElementById("msgs");
-  ITEMS.forEach((it, i) => {
-    const hit = decide(it.s), li = document.createElement("li");
-    li.innerHTML = `<button type="button" data-i="${i}"><span>${it.text.replace(/</g, "&lt;")}</span><span class="tag ${hit ? "hit" : ""}">${hit ? hit + " " + it.s[hit].toFixed(2) : "ok"}</span></button>`;
-    list.appendChild(li);
-  });
-  function show(i) {
-    const it = ITEMS[i], hit = decide(it.s);
-    [...list.children].forEach((li, k) => li.classList.toggle("on", k === i));
-    itemPanel.render(it.text, it.s, hit
-      ? `action <b class="hit">flag</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${it.s[hit].toFixed(2)}</b><br><span style="color:var(--muted)">${it.set}, benchmark run</span>`
-      : `action <b class="ok">none</b> &nbsp; nothing over its threshold<br><span style="color:var(--muted)">${it.set}, benchmark run</span>`);
-  }
-  list.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(+b.dataset.i); });
-  show(1);
-
-
-  // ---- live demo: one health check on load, then only what the visitor submits ----------------------------------
-  const DEMO_URL = (document.getElementById("demo").dataset.demo || "").replace(/\/$/, "");
-  const liveClosed = document.getElementById("liveClosed"), liveForm = document.getElementById("liveForm"), liveText = document.getElementById("liveText"),
-        liveCount = document.getElementById("liveCount"), liveBtn = document.getElementById("liveBtn"), liveMsg = document.getElementById("liveMsg"),
-        chips = document.getElementById("chips");
-  let closed = false;
-  function closeLive() { closed = true; liveBtn.disabled = true; liveClosed.hidden = false; }
-  if (!DEMO_URL) closeLive();
-  else fetch(DEMO_URL + "/demo/health", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(h => { if (!h.open) closeLive(); }).catch(closeLive);
-  liveText.addEventListener("input", () => { liveCount.textContent = `${liveText.value.length} / 300`; });
-  function tailFor(d) {
-    if (d.reason === "cache") return "cached, cost $0";
-    if (d.judged) return `live, budget left $${(+d.budget_left_usd).toFixed(4)}`;
-    return `skipped: ${String(d.reason || "").replace(/_/g, " ")}`;
-  }
-  function showLive(d, text) {
-    const hit = d.action !== "none" && d.category ? d.category : null;
-    heroPanel.render(text, d.scores, hit
-      ? `action <b class="hit">${d.action}</b> &nbsp; category <b class="hit">${hit}</b> &nbsp; p <b class="hit">${(+d.probability).toFixed(2)}</b><br><span style="color:var(--muted)">${tailFor(d)}</span>`
-      : `action <b class="ok">none</b> &nbsp; ${d.judged ? "nothing over its threshold" : "not judged"}<br><span style="color:var(--muted)">${tailFor(d)}</span>`);
-  }
-  let inflight = false;
-  async function submitLive() {
-    const text = liveText.value.trim();
-    if (closed || inflight) return;
-    if (!text) { liveMsg.textContent = "Type something first."; return; }
-    inflight = true; liveBtn.disabled = true; liveMsg.textContent = "asking Jev";
-    try {
-      const r = await fetch(DEMO_URL + "/demo/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-      if (r.status === 429) { liveMsg.textContent = "Slow down: 6 checks a minute, 40 a day per visitor."; return; }
-      if (r.status === 503) { liveMsg.textContent = "The demo budget for this month is used up. Run jevmod check with your own key."; closeLive(); return; }
-      if (!r.ok) { liveMsg.textContent = `The demo server answered ${r.status}.`; return; }
-      const d = await r.json();
-      showLive(d, text);
-      liveMsg.textContent = tailFor(d);
-    } catch { liveMsg.textContent = "Could not reach the demo server."; }
-    finally { inflight = false; if (!closed) liveBtn.disabled = false; }
-  }
-  liveForm.addEventListener("submit", e => { e.preventDefault(); submitLive(); });
-  chips.addEventListener("click", e => {
-    const c = e.target.closest(".chip"); if (!c) return;
-    [...chips.children].forEach(x => x.classList.toggle("on", x === c));
-    liveText.value = c.dataset.text; liveText.dispatchEvent(new Event("input"));
-    submitLive();
-  });
-  liveText.addEventListener("input", () => { if (![...chips.children].some(x => x.dataset.text === liveText.value)) [...chips.children].forEach(x => x.classList.remove("on")); });
-
-  (() => {
-    const inv = document.getElementById("hosted").dataset.invite || "", b = document.getElementById("inviteBtn");
-    if (inv) { b.href = inv; b.rel = "noopener"; }
-    else { b.textContent = "Invite link coming soon"; b.removeAttribute("href"); b.setAttribute("aria-disabled", "true"); b.classList.remove("primary"); }
-  })();
-  document.querySelectorAll(".code .copy").forEach(btn => btn.addEventListener("click", async () => {
-    const text = btn.parentElement.querySelector("pre").textContent.replace(/\s+$/, "");
-    try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; } catch { btn.textContent = "copy"; }
-    setTimeout(() => { btn.textContent = "copy"; }, 1400);
-  }));
-  document.getElementById("copy").addEventListener("click", async (e) => {
-    const code = e.currentTarget.querySelector("code");
-    try { await navigator.clipboard.writeText("pip install jevmod"); code.textContent = "copied"; }
-    catch { code.textContent = "pip install jevmod"; }
-    setTimeout(() => { code.textContent = "pip install jevmod"; }, 1400);
-  });
-</script>
 </body>
 </html>

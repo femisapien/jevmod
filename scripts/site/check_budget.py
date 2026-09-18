@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 LIMIT = 150 * 1024
-FONT_LIMIT = 120 * 1024
+FONT_LIMIT = 150 * 1024  # two variable woff2 (Geist, Geist Mono) are ~141 KB; no latin-only subset in the npm package
 
 
 def main() -> int:

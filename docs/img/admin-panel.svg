@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1400" viewBox="0 0 2400 1400" role="img" aria-label="Placeholder: the /admin panel of a self-hosted jevmod with six test tenants">
+  <title>jevmod admin</title>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #0A0A0A; }
+    .h1 { font-size: 56px; font-weight: 700; }
+    .sub { font-size: 30px; fill: #3F3F46; }
+    .fig { font-size: 56px; font-weight: 700; }
+    .lab { font-size: 26px; fill: #71717A; }
+    .th { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 24px; fill: #71717A; }
+    .td { font-size: 28px; }
+    .m { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 26px; }
+    .n { font-variant-numeric: tabular-nums; }
+    .sel { font-size: 26px; }
+    .cap { font-size: 22px; fill: #A1A1AA; }
+  </style>
+  <rect x="0.5" y="0.5" width="2399" height="1399" fill="#FAFAFA" stroke="#E4E4E7"/>
+
+  <text x="100" y="128" class="h1">jevmod admin</text>
+  <text x="100" y="186" class="sub">2026-09 · plans {"free": 4, "pro": 2} · quotas: free 5000, pro 50000</text>
+
+  <!-- figures strip -->
+  <line x1="100" y1="250" x2="2300" y2="250" stroke="#D4D4D8"/>
+  <line x1="100" y1="434" x2="2300" y2="434" stroke="#D4D4D8"/>
+  <line x1="650" y1="250" x2="650" y2="434" stroke="#E5E5E5"/>
+  <line x1="1200" y1="250" x2="1200" y2="434" stroke="#E5E5E5"/>
+  <line x1="1750" y1="250" x2="1750" y2="434" stroke="#E5E5E5"/>
+  <line x1="2300" y1="250" x2="2300" y2="434" stroke="#E5E5E5"/>
+  <text x="132" y="342" class="fig">5</text>
+  <text x="132" y="392" class="lab">tenants with usage this month</text>
+  <text x="682" y="342" class="fig">19,226</text>
+  <text x="682" y="392" class="lab">judged messages</text>
+  <text x="1232" y="342" class="fig">$0.8115</text>
+  <text x="1232" y="392" class="lab">Jev spend, list price</text>
+  <text x="1782" y="342" class="fig">$0.2140</text>
+  <text x="1782" y="392" class="lab">demo spend this month</text>
+
+  <!-- table -->
+  <text x="124" y="516" class="th">tenant</text>
+  <text x="760" y="516" class="th">plan</text>
+  <text x="940" y="516" class="th">judged / quota</text>
+  <text x="1330" y="516" class="th">tokens</text>
+  <text x="1620" y="516" class="th">subscription</text>
+  <text x="2020" y="516" class="th">set plan</text>
+  <line x1="100" y1="540" x2="2300" y2="540" stroke="#D4D4D8"/>
+
+  <g class="td">
+    <text x="124" y="600" class="m">discord:821344709938162034</text>
+    <text x="760" y="600">pro</text>
+    <text x="940" y="600" class="n">12,480 / 50,000</text>
+    <text x="1330" y="600" class="n">12,542,400</text>
+    <text x="1620" y="600">active 2026-10-01</text>
+    <rect x="2020" y="566" width="200" height="50" fill="#FFFFFF" stroke="#D4D4D8"/>
+    <text x="2038" y="600" class="sel">pro</text><text x="2190" y="600" font-size="18" fill="#3F3F46">▼</text>
+    <line x1="100" y1="638" x2="2300" y2="638" stroke="#E5E5E5"/>
+
+    <text x="124" y="698" class="m">discord:501777283054611190</text>
+    <text x="760" y="698">free</text>
+    <text x="940" y="698" class="n">3,912 / 5,000</text>
+    <text x="1330" y="698" class="n">3,931,560</text>
+    <text x="1620" y="698"></text>
+    <rect x="2020" y="664" width="200" height="50" fill="#FFFFFF" stroke="#D4D4D8"/>
+    <text x="2038" y="698" class="sel">free</text><text x="2190" y="698" font-size="18" fill="#3F3F46">▼</text>
+    <line x1="100" y1="736" x2="2300" y2="736" stroke="#E5E5E5"/>
+
+    <text x="124" y="796" class="m">discord:229904108827193501</text>
+    <text x="760" y="796">pro</text>
+    <text x="940" y="796" class="n">2,106 / 50,000</text>
+    <text x="1330" y="796" class="n">2,116,530</text>
+    <text x="1620" y="796">active 2026-10-12</text>
+    <rect x="2020" y="762" width="200" height="50" fill="#FFFFFF" stroke="#D4D4D8"/>
+    <text x="2038" y="796" class="sel">pro</text><text x="2190" y="796" font-size="18" fill="#3F3F46">▼</text>
+    <line x1="100" y1="834" x2="2300" y2="834" stroke="#E5E5E5"/>
+
+    <text x="124" y="894" class="m">discord:935466210083447209</text>
+    <text x="760" y="894">free</text>
+    <text x="940" y="894" class="n">640 / 5,000</text>
+    <text x="1330" y="894" class="n">643,200</text>
+    <rect x="2020" y="860" width="200" height="50" fill="#FFFFFF" stroke="#D4D4D8"/>
+    <text x="2038" y="894" class="sel">free</text><text x="2190" y="894" font-size="18" fill="#3F3F46">▼</text>
+    <line x1="100" y1="932" x2="2300" y2="932" stroke="#E5E5E5"/>
+
+    <text x="124" y="992" class="m">discord:118033957726009144</text>
+    <text x="760" y="992">free</text>
+    <text x="940" y="992" class="n">88 / 5,000</text>
+    <text x="1330" y="992" class="n">88,440</text>
+    <rect x="2020" y="958" width="200" height="50" fill="#FFFFFF" stroke="#D4D4D8"/>
+    <text x="2038" y="992" class="sel">free</text><text x="2190" y="992" font-size="18" fill="#3F3F46">▼</text>
+    <line x1="100" y1="1030" x2="2300" y2="1030" stroke="#E5E5E5"/>
+
+    <text x="124" y="1090" class="m">discord:660211475539288013</text>
+    <text x="760" y="1090">free</text>
+    <text x="940" y="1090" class="n">0 / 5,000</text>
+    <text x="1330" y="1090" class="n">0</text>
+    <rect x="2020" y="1056" width="200" height="50" fill="#FFFFFF" stroke="#D4D4D8"/>
+    <text x="2038" y="1090" class="sel">free</text><text x="2190" y="1090" font-size="18" fill="#3F3F46">▼</text>
+    <line x1="100" y1="1128" x2="2300" y2="1128" stroke="#E5E5E5"/>
+  </g>
+
+  <text x="2300" y="1360" text-anchor="end" class="cap">placeholder, replaced by a real capture</text>
+</svg>

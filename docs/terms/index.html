@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="index">
+<title>Terms, jevmod</title>
+<meta name="description" content="Terms for the jevmod software and the hosted Discord bot: license, what the bot does and does not do, plans, billing, availability.">
+<link rel="canonical" href="https://jevmod.dev/terms/">
+<link rel="alternate" type="text/plain" href="/llms.txt">
+<link rel="stylesheet" href="/site.css">
+<script defer src="/site.js"></script>
+<script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
+</head>
+<body>
+
+<nav class="site-nav" aria-label="Site">
+  <div class="wrap">
+    <a class="brand" href="/">jevmod</a>
+    <a href="/">Community</a>
+    <a href="/developers/">Developers</a>
+    <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+  </div>
+</nav>
+
+<main class="wrap prose">
+
+<section class="section" id="top">
+  <h1>Terms</h1>
+  <p class="lead">These terms cover the jevmod software and the hosted Discord bot, effective 2026-09-18. Where a statement comes from the code, the line is listed in <a href="https://github.com/ohernandezdev/jevmod/blob/main/docs/CLAIMS.md">CLAIMS.md</a>.</p>
+</section>
+
+<section class="section" id="software">
+  <h2>The software</h2>
+  <p data-claim="C130">jevmod is free software under the <a href="https://github.com/ohernandezdev/jevmod/blob/main/LICENSE">MIT License</a>.</p>
+  <p data-claim="C131">It is provided as is, without warranty of any kind.</p>
+  <p data-claim="C132">jevmod is an independent project by Omar Hernandez and is not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
+</section>
+
+<section class="section" id="bot">
+  <h2>The hosted bot</h2>
+  <p data-claim="C133">By default every category except offtopic is set to flag: the message is reported to your log channel and nothing else happens.</p>
+  <p data-claim="C134">The offtopic category is off by default.</p>
+  <p data-claim="C135">The bot deletes a message or times a member out only for a category or rule you have set to <code>delete</code> or <code>timeout</code> with <code>/mod set</code> or <code>/mod rule</code>.</p>
+  <p data-claim="C136">A time out lasts 10 minutes.</p>
+  <p data-claim="C137">The bot never bans anyone: its only actions are off, flag, delete and timeout.</p>
+  <p data-claim="C138">Thresholds go from 0.50 to 0.99.</p>
+  <p data-claim="C139">You can add up to 5 rules in your own words.</p>
+  <p data-claim="C140">Decisions are probabilities from a machine-learning model compared with thresholds you set; there will be false positives and false negatives.</p>
+  <p data-claim="C141">You are responsible for the actions you enable, for the rules you write, for telling your members that automated moderation is in use, and for complying with the law that applies to your community.</p>
+</section>
+
+<section class="section" id="plans">
+  <h2>Plans and billing</h2>
+  <p data-claim="C142">The Free plan covers 5,000 judged messages per server per month.</p>
+  <p data-claim="C143">The Pro plan costs $3.99 per server per month.</p>
+  <p data-claim="C144">Pro covers 50,000 judged messages per server per month.</p>
+  <p data-claim="C145">Judged means sent to the model: the counter grows only by messages the model receives, so messages skipped by the local filters or answered from the cache do not count.</p>
+  <p data-claim="C146">When a server reaches its quota, judging pauses until the next calendar month and nothing is deleted while paused.</p>
+  <p data-claim="C147">The bot posts one notice in the log channel the first time a month the quota is reached.</p>
+  <p data-claim="C148">Pro is a monthly subscription paid through Stripe Checkout, one price per server, started with <code>/mod upgrade</code>.</p>
+  <p data-claim="C149">You can cancel at any time from Stripe's billing portal, reached with the same <code>/mod upgrade</code> command once you subscribe.</p>
+  <p data-claim="C150">When the subscription ends the server returns to the Free plan.</p>
+  <p data-claim="C151">A period already paid is not refunded, except by writing to the operator through the contact below; refunds are handled by hand.</p>
+</section>
+
+<section class="section" id="availability">
+  <h2>Availability</h2>
+  <p data-claim="C152">There is no service level agreement; jevmod is not the right tool if you need one.</p>
+  <p data-claim="C153">If the model cannot be reached, the bot takes no action on that batch of messages and lets them through.</p>
+</section>
+
+<section class="section" id="selfharm">
+  <h2>The self-harm category</h2>
+  <p data-claim="C155">The selfharm category exists to alert moderators so a person can reach out. It is not a medical or crisis service and must not be used as one.</p>
+  <p data-claim="C156">It is flag-only by design in the defaults.</p>
+</section>
+
+<section class="section" id="changes">
+  <h2>Changes to these terms</h2>
+  <p>When these terms change, the effective date at the top changes and the previous version stays in the <a href="https://github.com/ohernandezdev/jevmod/commits/main/docs/terms/index.html">repository history</a>.</p>
+</section>
+
+<section class="section" id="law">
+  <h2>Governing law</h2>
+  <p>These terms are governed by the law of Spain, where the operator is based.</p>
+</section>
+
+<section class="section" id="contact">
+  <h2>Contact</h2>
+  <p>Questions, refund requests and everything else: <a href="https://github.com/ohernandezdev/jevmod/issues">github.com/ohernandezdev/jevmod/issues</a>.</p>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
+    <p class="flinks">
+      <a href="/developers/">Developers</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms</a>
+      <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+      <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

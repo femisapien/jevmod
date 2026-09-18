@@ -5,36 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>jevmod: thanks</title>
 <meta name="robots" content="noindex">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
-<style>
-  :root { color-scheme: light; --bg: #FAFAFA; --ink: #0A0A0A; --body: #3F3F46; --line: #D4D4D8; --sans: "Inter", ui-sans-serif, system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; }
-  * { box-sizing: border-box; }
-  html, body { background: var(--bg); }
-  body { margin: 0; color: var(--body); font: 300 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
-  @media (max-width: 640px) { .wrap { padding: 0 16px; } }
-  nav { height: 56px; display: flex; align-items: center; font-size: 14px; }
-  nav a { color: var(--ink); font-weight: 700; text-decoration: none; }
-  main { padding-top: 128px; padding-bottom: 96px; }
-  @media (max-width: 640px) { main { padding-top: 64px; padding-bottom: 48px; } }
-  h1 { font: 700 48px/1.05 var(--sans); letter-spacing: -0.03em; color: var(--ink); margin: 0 0 24px; max-width: 20ch; }
-  @media (max-width: 640px) { h1 { font-size: 36px; } }
-  p { margin: 0 0 16px; max-width: 60ch; font-size: 18px; line-height: 1.5; }
-  code { font: 400 14px var(--mono); color: var(--ink); background: #FFFFFF; border: 1px solid #E5E5E5; padding: 1px 6px; white-space: nowrap; }
-  .btn { display: inline-flex; align-items: center; height: 48px; padding: 0 32px; margin-top: 16px; font: 400 16px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--ink); text-decoration: none; }
-  .btn:hover { background: var(--ink); color: var(--bg); }
-  footer { border-top: 1px solid var(--line); padding: 32px 0; font-size: 14px; color: #71717A; }
-</style>
+<link rel="alternate" type="text/plain" href="/llms.txt">
+<link rel="stylesheet" href="/site.css">
+<script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
 </head>
 <body>
-<nav class="wrap"><a href="https://jevmod.dev">jevmod</a></nav>
-<main class="wrap">
-  <h1>Thanks. Your server is on Pro.</h1>
-  <p>The bot switches plans within a minute. <code>/mod status</code> in your server shows the new limit. Manage or cancel the subscription from the link in that message or write to the address in the receipt.</p>
-  <a class="btn" href="https://jevmod.dev">Back to jevmod.dev</a>
+<nav class="site-nav wrap" aria-label="Site">
+  <a class="brand" href="/">jevmod</a>
+  <div class="links"><a href="/">Community</a><a href="https://github.com/ohernandezdev/jevmod">GitHub</a></div>
+</nav>
+<main class="plain wrap stack">
+  <h1 class="display">Thanks. Your server is on Pro.</h1>
+  <p class="lead">The bot switches plans within a minute. <code>/mod status</code> in your server shows the new limit. Manage or cancel the subscription from the link in that message or write to the address in the receipt.</p>
+  <div class="cta"><a class="btn" href="/">Back to jevmod.dev</a></div>
 </main>
-<footer><div class="wrap">jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</div></footer>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="/developers/">Developers</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms</a>
+      <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+      <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a>
+    </div>
+    <p>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
+  </div>
+</footer>
 </body>
 </html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="index">
+<title>Privacy, jevmod</title>
+<meta name="description" content="What the hosted jevmod bot sends to the model, what it stores, what stays in your Discord, and how to delete it. Every statement cites the line of code it comes from.">
+<link rel="canonical" href="https://jevmod.dev/privacy/">
+<link rel="alternate" type="text/plain" href="/llms.txt">
+<link rel="stylesheet" href="/site.css">
+<script defer src="/site.js"></script>
+<script defer src="https://analytics.hernandezbastos.es/script.js" data-website-id="851f9674-9364-486d-8faf-2d393b3d10ba"></script>
+</head>
+<body>
+
+<nav class="site-nav" aria-label="Site">
+  <div class="wrap">
+    <a class="brand" href="/">jevmod</a>
+    <a href="/">Community</a>
+    <a href="/developers/">Developers</a>
+    <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+  </div>
+</nav>
+
+<main class="wrap prose">
+
+<section class="section" id="top">
+  <h1>Privacy</h1>
+  <p class="lead">This page describes the hosted jevmod bot for Discord, effective 2026-09-18. Each statement points to the line of the <a href="https://github.com/ohernandezdev/jevmod">source code</a> it comes from; the list is in <a href="https://github.com/ohernandezdev/jevmod/blob/main/docs/CLAIMS.md">CLAIMS.md</a>.</p>
+</section>
+
+<section class="section" id="model">
+  <h2>What the hosted bot sends to the model</h2>
+  <p data-claim="C80">For each message it judges, the bot sends the message text and the topic of the channel to Jev, the model run by TypeSafe.</p>
+  <p data-claim="C81">It does not send the author's name, the author's id or the server's name. Messages are numbered by position inside the request and nothing else identifies them.</p>
+  <p data-claim="C82">The author's id is kept only in the bot's own log so that erasure requests can be honoured.</p>
+  <p data-claim="C83">Messages from members who can manage messages, and from roles you mark as trusted with <code>/mod trust</code>, are never sent to the model.</p>
+  <p>TypeSafe processes what it receives under its own terms: <a href="https://typesafe.ai">typesafe.ai</a>.</p>
+</section>
+
+<section class="section" id="stored">
+  <h2>What the hosted bot stores</h2>
+  <p data-claim="C84">The bot writes a record only when a message crosses one of your thresholds and gets an action (flag, delete or time out).</p>
+  <p data-claim="C85">A message that passes is not written anywhere.</p>
+  <p data-claim="C86">Each stored record holds: the message id, the author id, the first 80 characters of the channel topic, the category, its probability, the action taken, the probability of every category asked, a request id and a timestamp.</p>
+  <p data-claim="C87">The record has a text column, but the hosted bot runs with <code>JEVMOD_KEEP_TEXT_CHARS</code> set to 0, so that column is always empty.</p>
+  <p data-claim="C88">The store cuts the text to that many characters before writing it, and with 0 nothing of the text is written.</p>
+  <p data-claim="C89">A test in the repository checks that setting.</p>
+  <p data-claim="C90">Per server and per calendar month the bot also counts judged messages, model requests and tokens, for the quota.</p>
+  <p data-claim="C91">Decision records are kept for 30 days.</p>
+  <p data-claim="C92">Older records are deleted before every batch is judged.</p>
+  <p data-claim="C93">Your settings (thresholds, actions, rules, trusted roles, channel topics, the id of the log channel) are stored for as long as the bot is in your server.</p>
+</section>
+
+<section class="section" id="discord">
+  <h2>What stays in your Discord</h2>
+  <p data-claim="C94">Every flagged message is posted to a log channel as an embed that contains the first 500 characters of the message text.</p>
+  <p data-claim="C95">That embed also mentions the author and the channel.</p>
+  <p data-claim="C96">The log channel is created with the everyone role unable to read it.</p>
+  <p>That embed is a message in your server: Discord holds it, not jevmod. To remove it, delete the message or the log channel like any other content in your server.</p>
+  <p data-claim="C97">When a message is deleted or a member is timed out, the member receives a direct message from the bot with the server name, the channel, the category and the confidence, and a note to contact the server's moderators.</p>
+</section>
+
+<section class="section" id="delete">
+  <h2>Deleting data</h2>
+  <p data-claim="C98"><code>/mod forget</code> deletes the server's settings, usage counters, decision records, API keys and subscription row.</p>
+  <p data-claim="C99"><code>/mod forget_user @member</code> deletes that member's decision records and replies with how many were removed.</p>
+  <p data-claim="C100">Kicking the bot, or the bot leaving the server, deletes everything stored about that server.</p>
+  <p data-claim="C101">All <code>/mod</code> commands require the Manage Server permission.</p>
+</section>
+
+<section class="section" id="payments">
+  <h2>Payments</h2>
+  <p data-claim="C102">Payment for the Pro plan happens on a Stripe Checkout page opened from <code>/mod upgrade</code>.</p>
+  <p data-claim="C103">jevmod stores, per server: the Stripe customer id, the subscription id, the price id, the subscription status and the end of the current period.</p>
+  <p data-claim="C104">Stripe notifies jevmod of changes through a webhook; when a subscription is cancelled or stops being active the server goes back to the Free plan.</p>
+  <p data-claim="C105">Managing or cancelling the subscription happens in Stripe's billing portal, reached through the same <code>/mod upgrade</code> command.</p>
+  <p>Card numbers are entered on Stripe's pages. See <a href="https://stripe.com/privacy">Stripe's privacy policy</a>.</p>
+</section>
+
+<section class="section" id="demo">
+  <h2>The demo on this site</h2>
+  <p data-claim="C106">The demo on the front page accepts up to 300 characters of text.</p>
+  <p data-claim="C107">Each check is logged by the operator with the text, the category, the probabilities, a hash of your IP address, the country header set by the proxy, and the number of tokens it cost.</p>
+  <p data-claim="C108">The IP address is hashed with SHA-256 and a salt before it is stored; the address itself is not kept.</p>
+  <p data-claim="C109">Each address may run 6 checks per minute and 40 per day.</p>
+  <p data-claim="C110">The demo has a monthly spend cap, $0.50 by default, and answers with an error once it is reached.</p>
+  <p>The demo does not use the bot's database and is not covered by the 30-day rule above.</p>
+</section>
+
+<section class="section" id="analytics">
+  <h2>Analytics</h2>
+  <p data-claim="C111">A self-hosted Umami instance at analytics.hernandezbastos.es counts page views; it does not use cookies.</p>
+</section>
+
+<section class="section" id="self-hosted">
+  <h2>Self-hosted installs</h2>
+  <p>If you run jevmod yourself, none of the above applies: the database is on your machine and the operator of this site never sees it.</p>
+  <p data-claim="C112">A self-hosted copy keeps up to 300 characters of each flagged message by default; set <code>JEVMOD_KEEP_TEXT_CHARS=0</code> to keep none.</p>
+</section>
+
+<section class="section" id="permissions">
+  <h2>Discord permissions the bot asks for and why</h2>
+  <ul>
+    <li data-claim="C113"><strong>View Channels</strong>: to receive the messages it judges.</li>
+    <li data-claim="C114"><strong>Send Messages</strong>: to post decisions in the log channel.</li>
+    <li data-claim="C115"><strong>Manage Channels</strong>: to create the private <code>#jevmod-log</code> channel the first time it needs it.</li>
+    <li data-claim="C116"><strong>Manage Messages</strong>: to delete a message, only when you set a category or rule to <code>delete</code> or <code>timeout</code>.</li>
+    <li data-claim="C117"><strong>Moderate Members</strong>: to time a member out, only when you set a category or rule to <code>timeout</code>.</li>
+    <li data-claim="C118"><strong>Add Reactions</strong>: to add the <code>❌</code> and <code>✅</code> reactions under each log entry.</li>
+    <li data-claim="C119"><strong>Embed Links</strong>: the log entry is an embed.</li>
+    <li data-claim="C120"><strong>Read Message History</strong>: to fetch the log entry you reacted to, so it can adjust the threshold.</li>
+    <li data-claim="C121"><strong>Message Content intent</strong>: without it Discord does not deliver message text to bots.</li>
+  </ul>
+  <p data-claim="C122">If a permission is missing, the bot records "missing permissions to act" in the log entry and does nothing else.</p>
+  <p data-claim="C123">The bot has no code path that bans anyone; the only actions it knows are off, flag, delete and timeout.</p>
+</section>
+
+<section class="section" id="contact">
+  <h2>Contact</h2>
+  <p>Questions and requests: <a href="https://github.com/ohernandezdev/jevmod/issues">github.com/ohernandezdev/jevmod/issues</a>.</p>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>jevmod, MIT. An independent project by Omar Hernandez, not affiliated with TypeSafe, Discord, Telegram or Reddit.</p>
+    <p class="flinks">
+      <a href="/developers/">Developers</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms</a>
+      <a href="https://github.com/ohernandezdev/jevmod">GitHub</a>
+      <a href="https://github.com/ohernandezdev/jevmod/blob/main/DISCLAIMER.md">Disclaimer</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

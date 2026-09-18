@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200" role="img" aria-label="Placeholder: the ephemeral reply to /mod status listing every category, its action and its threshold">
+  <title>/mod status</title>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #313338; }
+    .h { font-size: 30px; font-weight: 700; }
+    .name { font-size: 30px; font-weight: 600; fill: #060607; }
+    .ts { font-size: 22px; fill: #5C5E66; }
+    .used { font-size: 24px; fill: #5C5E66; }
+    .cmd { fill: #505CDC; font-weight: 600; }
+    .l { font-size: 27px; }
+    .b { font-weight: 700; }
+    .eph { font-size: 22px; fill: #5C5E66; }
+    .cap { font-size: 22px; fill: #A1A1AA; }
+  </style>
+  <rect x="0.5" y="0.5" width="1599" height="1199" fill="#FAFAFA" stroke="#E4E4E7"/>
+
+  <rect x="80" y="80" width="1440" height="1040" rx="8" fill="#FFFFFF" stroke="#E3E5E8"/>
+  <text x="120" y="130" class="h"><tspan fill="#80848E">#</tspan> general</text>
+  <line x1="80" y1="156" x2="1520" y2="156" stroke="#E3E5E8"/>
+
+  <!-- "used /mod status" line -->
+  <circle cx="160" cy="198" r="16" fill="#D4D4D8"/>
+  <text x="190" y="206" class="used"><tspan fill="#313338" font-weight="600">omar</tspan> used <tspan class="cmd">/mod status</tspan></text>
+
+  <!-- ephemeral reply background -->
+  <rect x="96" y="232" width="1408" height="700" fill="#F5F6FE"/>
+  <rect x="96" y="232" width="4" height="700" fill="#5865F2"/>
+
+  <circle cx="160" cy="292" r="40" fill="#2FBF83"/>
+  <text x="160" y="306" text-anchor="middle" font-size="40" font-weight="700" fill="#FFFFFF">j</text>
+  <text x="230" y="288" class="name">jevmod</text>
+  <rect x="338" y="264" width="66" height="30" rx="6" fill="#5865F2"/>
+  <text x="371" y="286" text-anchor="middle" font-size="19" font-weight="600" fill="#FFFFFF">APP</text>
+  <text x="422" y="288" class="ts">Today at 14:35</text>
+
+  <!-- one line per category: "**{c}**: {action} at p ≥ {threshold:.2f}" -->
+  <text class="l" x="230" y="346"><tspan class="b">spam</tspan>: flag at p ≥ 0.85</text>
+  <text class="l" x="230" y="390"><tspan class="b">scam</tspan>: delete at p ≥ 0.70</text>
+  <text class="l" x="230" y="434"><tspan class="b">harassment</tspan>: flag at p ≥ 0.75</text>
+  <text class="l" x="230" y="478"><tspan class="b">nsfw</tspan>: flag at p ≥ 0.80</text>
+  <text class="l" x="230" y="522"><tspan class="b">offtopic</tspan>: off at p ≥ 0.90</text>
+  <text class="l" x="230" y="566"><tspan class="b">selfharm</tspan>: flag at p ≥ 0.80</text>
+  <text class="l" x="230" y="610"><tspan class="b">doxxing</tspan>: flag at p ≥ 0.80</text>
+  <text class="l" x="230" y="654"><tspan class="b">minors</tspan>: flag at p ≥ 0.70</text>
+  <text class="l" x="230" y="698"><tspan class="b">rule politics</tspan>: flag · "No politics. News about the game is fine."</text>
+  <text class="l" x="230" y="786">1,204/5,000 judged this month (free) · 312 Jev requests · 313,560 tokens</text>
+
+  <!-- ephemeral footer -->
+  <ellipse cx="242" cy="866" rx="14" ry="9" fill="none" stroke="#5C5E66" stroke-width="2.5"/>
+  <circle cx="242" cy="866" r="4" fill="#5C5E66"/>
+  <text x="268" y="874" class="eph">Only you can see this · <tspan fill="#006CE7">Dismiss message</tspan></text>
+
+  <rect x="120" y="1020" width="1360" height="64" rx="10" fill="#F2F3F5"/>
+  <text x="150" y="1061" font-size="24" fill="#80848E">Message #general</text>
+
+  <text x="1500" y="1166" text-anchor="end" class="cap">placeholder, replaced by a real capture</text>
+</svg>
