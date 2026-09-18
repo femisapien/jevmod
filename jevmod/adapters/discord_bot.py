@@ -16,7 +16,7 @@ from datetime import timedelta
 import discord
 from discord import app_commands
 
-from ..core import FREE_MONTHLY, RULE_THRESHOLD, Batcher, Decision, ModerationService, Store
+from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Store
 from ..judge import CATEGORIES, Message
 
 log = logging.getLogger("jevmod.discord")
@@ -149,8 +149,9 @@ async def _notify_quota_once(guild: discord.Guild, tenant: str) -> None:
     ch = await log_channel(guild, tenant)
     if ch:
         await ch.send(
-            f"jevmod paused for this month: the monthly quota of {FREE_MONTHLY:,} judged messages was reached "
-            "(JEVMOD_MONTHLY_QUOTA). Messages are not being judged until next month. Nothing is deleted while paused."
+            f"jevmod paused for this month: the {store.plan(tenant)} plan covers {store.quota_for(tenant):,} judged "
+            "messages. Messages are not being judged until next month. Nothing is deleted while paused."
+            + (" `/mod upgrade` lifts the limit." if store.plan(tenant) == "free" and _billing_enabled() else "")
         )
 
 
@@ -202,11 +203,8 @@ async def status(itx: discord.Interaction) -> None:
     lines = [f"**{c}**: {p.actions.get(c, 'off')} at p ≥ {p.thresholds.get(c, 0.9):.2f}" for c in CATEGORIES]
     lines += [f'**rule {n}**: {p.rule_actions.get(n, "flag")} · "{r}"' for n, r in p.rules.items()]
     plan = store.plan(tenant)
-    quota = (
-        f"{judged:,}/{FREE_MONTHLY:,} judged this month (quota)"
-        if plan == "free" and FREE_MONTHLY
-        else f"{judged:,} judged this month"
-    )
+    q = store.quota_for(tenant)
+    quota = f"{judged:,}/{q:,} judged this month ({plan})" if q else f"{judged:,} judged this month ({plan}, unlimited)"
     lines.append(f"\n{quota} · {requests} Jev requests · {tokens:,} tokens")
     await itx.response.send_message("\n".join(lines), ephemeral=True)
 
@@ -293,6 +291,28 @@ async def recent_cmd(itx: discord.Interaction) -> None:
     await itx.response.send_message(
         "\n".join(f"`{r['category']} {r['p']:.2f} {r['action']}` {r['text'][:80]}" for r in rows), ephemeral=True
     )
+
+
+@mod.command(name="upgrade", description="Payment link for the Pro plan of this server, or the billing portal")
+async def upgrade_cmd(itx: discord.Interaction) -> None:
+    tenant = tenant_of(itx.guild_id or 0)
+    if not _billing_enabled():
+        await itx.response.send_message(
+            "This copy of jevmod is self-hosted: there is nothing to pay. Raise JEVMOD_MONTHLY_QUOTA on the server.",
+            ephemeral=True,
+        )
+        return
+    from ..api.billing import checkout_url
+
+    plan = store.plan(tenant)
+    what = "manage or cancel the subscription" if plan != "free" else "upgrade this server to Pro"
+    await itx.response.send_message(
+        f"Link to {what} (valid for this server only, opens Stripe): {checkout_url(tenant)}", ephemeral=True
+    )
+
+
+def _billing_enabled() -> bool:
+    return bool(os.environ.get("STRIPE_PRICE_ID") and os.environ.get("JEVMOD_PUBLIC_URL"))
 
 
 @mod.command(name="forget", description="Delete everything jevmod stored about this server (GDPR)")

@@ -82,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--forget", action="store_true", help="remove the key from the OS keyring")
     p.set_defaults(func=init)
     sub.add_parser("mcp", help="MCP server over stdio (tools: moderate, categories)")
-    for role in ("api", "demo", "discord", "telegram", "reddit"):
+    for role in ("api", "demo", "hosted", "discord", "telegram", "reddit"):
         sub.add_parser(role, help=f"run the {role} role (same as JEVMOD_ROLE={role})")
     args = parser.parse_args(argv)
     if args.cmd in ("check", "init"):

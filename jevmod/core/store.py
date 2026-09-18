@@ -16,6 +16,12 @@ from .policy import Decision, Policy
 # Optional cost guard per tenant per month. 0 (the default) means unlimited; set JEVMOD_MONTHLY_QUOTA=5000 to pause
 # judging for a tenant after 5,000 judged messages in a calendar month (nothing is deleted while paused).
 FREE_MONTHLY = int(os.environ.get("JEVMOD_MONTHLY_QUOTA", "0") or 0)
+# Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "free", "pro", "unlimited" (comped).
+PLAN_QUOTAS: dict[str, int] = {
+    "free": FREE_MONTHLY,
+    "pro": int(os.environ.get("JEVMOD_PRO_MONTHLY_QUOTA", "50000") or 0),
+    "unlimited": 0,
+}
 
 
 class Store:
@@ -46,6 +52,9 @@ class Store:
                     ts REAL, tenant TEXT, rid TEXT, message TEXT, author TEXT, channel TEXT,
                     category TEXT, p REAL, action TEXT, scores TEXT, text TEXT);
                 CREATE INDEX IF NOT EXISTS decisions_tenant_ts ON decisions (tenant, ts);
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    tenant TEXT PRIMARY KEY, customer_id TEXT, subscription_id TEXT, price_id TEXT, status TEXT,
+                    current_period_end REAL, updated REAL);
                 CREATE TABLE IF NOT EXISTS api_keys (
                     key_hash TEXT PRIMARY KEY, tenant TEXT NOT NULL, created REAL, label TEXT);
                 """
@@ -117,8 +126,98 @@ class Store:
             ).fetchone()
         return tuple(row) if row else (0, 0, 0)
 
+    def quota_for(self, tenant: str) -> int:
+        """Judged messages allowed this month for the tenant's plan; 0 means unlimited."""
+        plan = self.plan(tenant)
+        if plan == "free":
+            return self.monthly_quota
+        return PLAN_QUOTAS.get(plan, 0)
+
     def over_quota(self, tenant: str) -> bool:
-        return self.monthly_quota > 0 and self.plan(tenant) == "free" and self.usage(tenant)[0] >= self.monthly_quota
+        q = self.quota_for(tenant)
+        return q > 0 and self.usage(tenant)[0] >= q
+
+    # ---- hosted billing
+    def set_subscription(
+        self,
+        tenant: str,
+        *,
+        customer_id: str | None,
+        subscription_id: str | None,
+        price_id: str | None,
+        status: str,
+        current_period_end: float | None,
+    ) -> None:
+        with self.lock:
+            self.db.execute(
+                "INSERT INTO subscriptions (tenant, customer_id, subscription_id, price_id, status, "
+                "current_period_end, updated) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(tenant) DO UPDATE SET customer_id=excluded.customer_id, "
+                "subscription_id=excluded.subscription_id, price_id=excluded.price_id, status=excluded.status, "
+                "current_period_end=excluded.current_period_end, updated=excluded.updated",
+                (tenant, customer_id, subscription_id, price_id, status, current_period_end, time.time()),
+            )
+            self.db.commit()
+
+    def subscription(self, tenant: str) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT customer_id, subscription_id, price_id, status, current_period_end, updated FROM subscriptions "
+                "WHERE tenant=?",
+                (tenant,),
+            ).fetchone()
+        if not row:
+            return None
+        keys = ("customer_id", "subscription_id", "price_id", "status", "current_period_end", "updated")
+        return dict(zip(keys, row, strict=True))
+
+    def tenant_for_subscription(self, subscription_id: str) -> str | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT tenant FROM subscriptions WHERE subscription_id=?", (subscription_id,)
+            ).fetchone()
+        return row[0] if row else None
+
+    def tenants_overview(self) -> list[dict[str, Any]]:
+        """Every tenant with plan, this month's usage and subscription status, for the admin panel."""
+        m = self.month()
+        with self.lock:
+            rows = self.db.execute(
+                "WITH ids AS (SELECT id FROM tenants UNION SELECT tenant FROM usage WHERE month = ?) "
+                "SELECT ids.id, COALESCE(t.plan, 'free'), COALESCE(u.judged, 0), COALESCE(u.requests, 0), "
+                "COALESCE(u.tokens, 0), s.status, s.current_period_end, s.customer_id FROM ids "
+                "LEFT JOIN tenants t ON t.id = ids.id "
+                "LEFT JOIN usage u ON u.tenant = ids.id AND u.month = ? "
+                "LEFT JOIN subscriptions s ON s.tenant = ids.id ORDER BY COALESCE(u.judged, 0) DESC",
+                (m, m),
+            ).fetchall()
+        out = []
+        for r in rows:
+            plan = r[1]
+            quota = self.monthly_quota if plan == "free" else PLAN_QUOTAS.get(plan, 0)
+            out.append(
+                {
+                    "tenant": r[0],
+                    "plan": plan,
+                    "judged": r[2],
+                    "requests": r[3],
+                    "tokens": r[4],
+                    "quota": quota,
+                    "subscription_status": r[5],
+                    "current_period_end": r[6],
+                    "customer_id": r[7],
+                }
+            )
+        return out
+
+    def totals(self) -> dict[str, Any]:
+        m = self.month()
+        with self.lock:
+            row = self.db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(judged), 0), COALESCE(SUM(tokens), 0) FROM usage WHERE month=?", (m,)
+            ).fetchone()
+            plans = self.db.execute("SELECT plan, COUNT(*) FROM tenants GROUP BY plan").fetchall()
+        return {"month": m, "active_tenants": row[0], "judged": row[1], "tokens": row[2], "plans": dict(plans)}
 
     def note_quota_hit(self, tenant: str) -> bool:
         """True the first time this month the tenant hits the quota (so the adapter can notify the owner once)."""
@@ -196,7 +295,13 @@ class Store:
     def delete_tenant(self, tenant: str) -> None:
         """GDPR: forget everything about a community or API tenant."""
         with self.lock:
-            for table, col in (("tenants", "id"), ("usage", "tenant"), ("decisions", "tenant"), ("api_keys", "tenant")):
+            for table, col in (
+                ("tenants", "id"),
+                ("usage", "tenant"),
+                ("decisions", "tenant"),
+                ("api_keys", "tenant"),
+                ("subscriptions", "tenant"),
+            ):
                 self.db.execute(f"DELETE FROM {table} WHERE {col}=?", (tenant,))
             self.db.commit()
 
