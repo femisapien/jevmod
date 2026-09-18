@@ -49,6 +49,7 @@ class ModerationService:
         policy = self.policy(tenant)
         if not policy.active():
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
+        self.store.purge_expired()
         if self.store.over_quota(tenant):
             self.store.note_quota_hit(tenant)
             return [Decision(m.id, "none", None, 0.0, {}, False, "quota") for m in messages]

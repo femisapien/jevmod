@@ -75,14 +75,14 @@ the exact exports; it is developed in parallel with this file.
 | `jevmod/core/policy.py` | `Policy`, `Decision`, `decide`, defaults |
 | `jevmod/core/service.py` | `ModerationService` (tenant policy, quota, audit log, fail-open) and `Batcher` (2 s window) |
 | `jevmod/core/store.py` | SQLite store: tenants, hashed API keys, usage, decisions (30-day retention) |
-| `jevmod/keys.py` | key lookup: keyring (extra `keyring`, in `[all]`), then `TYPESAFE_API_KEY`, then `.env`; `jevmod init` |
+| `jevmod/keys.py` | key lookup: `TYPESAFE_API_KEY`, then the OS keyring (extra `keyring`, in `[all]`), then `.env`; `jevmod init`, `jevmod init --forget` |
 | `jevmod/cli.py`, `jevmod/__main__.py` | `jevmod check` and the role runner |
 | `jevmod/api/server.py` | the HTTP API |
 | `jevmod/mcp_server.py` | the MCP server |
 | `jevmod/adapters/` | Discord, Telegram, Reddit bots over the same core |
 | `packages/jevmod-js/` | npm package |
 | `plugin/` | Claude Code plugin: skills `jevmod-integrate`, `jevmod-moderate`, `.mcp.json` |
-| `tests/` | `test_offline.py` (no key), `test_judge.py`, `test_cli.py`, `test_api.py`, `test_redteam.py` (real Jev) |
+| `tests/` | `test_offline.py` (no key); `test_judge.py`, `test_cli.py`, `test_api.py`, `test_redteam.py`, `test_mcp.py`, `test_keys.py`, `test_examples.py` (real Jev; `test_examples.py` needs the `examples` extra) |
 | `tests/data/redteam.csv` | 98 labelled adversarial messages; the regression floor |
 | `benchmark/` | comparison against Llama Guard 3, ShieldGemma, toxic-bert |
 | `docs/` | `llms.txt`, Postman collection, diagrams, landing page |
@@ -90,7 +90,7 @@ the exact exports; it is developed in parallel with this file.
 ## Running tests
 
 ```
-python -m venv .venv && .venv/Scripts/pip install -e ".[all,dev]"    # Linux/macOS: .venv/bin/pip
+python -m venv .venv && .venv/Scripts/pip install -e ".[all,dev,examples]"    # Linux/macOS: .venv/bin/pip
 ruff check . && mypy jevmod
 pytest tests -q            # offline tests always run; the rest skip without TYPESAFE_API_KEY
 ```

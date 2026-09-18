@@ -3,7 +3,7 @@
 import time
 
 from jevmod import Message, Policy, decide
-from jevmod.core import FREE_MONTHLY, Decision, Store
+from jevmod.core import Decision, Store
 from jevmod.judge import Verdict, prefilter
 
 
@@ -63,10 +63,11 @@ def test_policy_roundtrip_and_validation():
 
 
 def test_store_quota_retention_and_erasure():
-    s = Store(":memory:", keep_text_chars=50, retention_days=1)
+    assert not Store(":memory:").over_quota("x")  # unlimited by default
+    s = Store(":memory:", keep_text_chars=50, retention_days=1, monthly_quota=100)
     t = "discord:1"
     assert not s.over_quota(t)
-    s.add_usage(t, FREE_MONTHLY, 10, 1000)
+    s.add_usage(t, 100, 10, 1000)
     assert s.over_quota(t)
     assert s.note_quota_hit(t) is True and s.note_quota_hit(t) is False
     s.set_plan(t, "pro")

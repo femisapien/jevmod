@@ -59,8 +59,11 @@ def check(args: argparse.Namespace) -> int:
 
 
 def init(args: argparse.Namespace) -> int:
+    from .keys import forget
     from .keys import init as store_key
 
+    if args.forget:
+        return forget()
     return store_key(prefer_env_file=args.env_file)
 
 
@@ -76,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=check)
     p = sub.add_parser("init", help="ask for the TypeSafe key (hidden input), verify it, store it in the OS keyring")
     p.add_argument("--env-file", action="store_true", help="write .env in the current directory instead of the keyring")
+    p.add_argument("--forget", action="store_true", help="remove the key from the OS keyring")
     p.set_defaults(func=init)
     sub.add_parser("mcp", help="MCP server over stdio (tools: moderate, categories)")
     for role in ("api", "discord", "telegram", "reddit"):

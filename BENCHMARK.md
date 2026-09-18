@@ -1,7 +1,8 @@
 # Benchmark: jevmod against three local moderation models
 
-Run on 2026-09-18 on the same 2,531 messages. Scripts and data recipe in `benchmark/` (data and results are not
-committed; `prepare.py` downloads the public sets, each `run_*.py` is resumable, `report.py` prints the tables).
+Run on 2026-09-18 on the same 2,531 messages. Scripts in `benchmark/`; the raw per-message outputs of every system
+are committed in `benchmark/results/` (`report.py` prints the tables from them). The datasets are not committed:
+`prepare.py` downloads the public sets and rebuilds `items.jsonl`. Each `run_*.py` is resumable.
 
 ## What was compared
 
@@ -84,11 +85,30 @@ Reading it:
 | Llama Guard 3 8B Q4 | $0.004 in GPU time at $0.30/h | 49 ms | a 16 GB GPU, 5 GB of weights |
 | ShieldGemma 2B Q8 | $0.011 in GPU time | 130 ms (4 calls) | a GPU, 3 GB |
 | toxic-bert | $0.0006 in GPU time | 8 ms | a GPU or a CPU |
-| Claude Haiku 4.5 as a judge | about $1.20 at list price (not run) | about 1,500 ms | an Anthropic key |
 
 Local models are cheaper per message once you own the GPU and the ops around it. jevmod costs about $1 a month
-for a community with 20,000 judged messages and needs no hardware. A general LLM as judge is about 30× the price
-of Jev for the same text.
+for a community with 20,000 judged messages and needs no hardware. For scale, a general LLM as judge was not run;
+at list price the same 1,005 input tokens plus about 20% of prompt overhead would cost roughly $1.2 per 1,000
+messages with Claude Haiku 4.5 ($1 per million input tokens), about 30× Jev, before output tokens.
+
+## Calibration
+
+Is a 0.8 really 80%? Expected calibration error (ECE, 10 bins; 0 is perfect) and Brier score on jevmod's
+probabilities, measured on the same runs:
+
+| set | category | ECE | Brier | base rate |
+|---|---|---|---|---|
+| OpenAI eval | harassment | 0.136 | 0.099 | 0.15 |
+| OpenAI eval | nsfw | 0.083 | 0.049 | 0.15 |
+| OpenAI eval | selfharm | 0.015 | 0.010 | 0.03 |
+| OpenAI eval | minors | 0.025 | 0.027 | 0.05 |
+| Civil Comments | harassment | 0.088 | 0.133 | 0.29 |
+| YouTube | spam | 0.130 | 0.067 | 0.53 |
+
+The shape matters more than the number: above 0.9 the probabilities match the observed rate within a few points
+(harassment bin 0.9: 183 messages, mean p 0.96, observed 84%; nsfw: 229 messages, 0.97 vs 92%). Between 0.5 and
+0.85 they run high (harassment bin 0.8: mean p 0.85, observed 51%; bin 0.5: 0.55 vs 17%). That is why the shipped
+thresholds sit at 0.75 to 0.85 and why "flag" is the default action: a 0.6 is a maybe, not a 60%.
 
 ## Caveats
 

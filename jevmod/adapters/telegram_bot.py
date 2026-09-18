@@ -61,7 +61,7 @@ async def handle_batch(tenant: str, batch: list[tuple[Update, ContextTypes.DEFAU
                     ctx,
                     tenant,
                     chat_id,
-                    f"jevmod paused this month: free plan covers {FREE_MONTHLY:,} judged messages.",
+                    f"jevmod paused this month: the monthly quota of {FREE_MONTHLY:,} judged messages was reached.",
                 )
             return
         if d.action == "none":
@@ -127,7 +127,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     judged, requests, tokens = store.usage(tenant)
     lines = [f"{c}: {p.actions.get(c, 'off')} at p ≥ {p.thresholds.get(c, 0.9):.2f}" for c in CATEGORIES]
     lines += [f'rule {n}: {p.rule_actions.get(n, "flag")} · "{r}"' for n, r in p.rules.items()]
-    lines.append(f"\n{judged:,}/{FREE_MONTHLY:,} judged this month · {requests} Jev requests · {tokens:,} tokens")
+    cap = f"/{FREE_MONTHLY:,}" if FREE_MONTHLY else ""
+    lines.append(f"\n{judged:,}{cap} judged this month · {requests} Jev requests · {tokens:,} tokens")
     await _reply(update)("\n".join(lines))  # type: ignore[union-attr]
 
 
