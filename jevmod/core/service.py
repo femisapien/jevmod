@@ -51,7 +51,8 @@ class ModerationService:
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
         self.store.purge_expired()
         if self.store.over_quota(tenant):
-            self.store.note_quota_hit(tenant)
+            # note_quota_hit is a once-a-month latch, and the adapters use it to decide whether to post the
+            # notice. Consuming it here meant the adapter always got False, so the notice never reached anyone.
             return [Decision(m.id, "none", None, 0.0, {}, False, "quota") for m in messages]
         j = self.judge
         before = (j.requests, j.input_tokens, j.judged_messages)

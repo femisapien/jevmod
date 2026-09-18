@@ -219,3 +219,21 @@ def test_env_example_never_assigns_a_key_twice():
     keys = [ln.split("=", 1)[0].strip() for ln in text.splitlines() if "=" in ln and not ln.strip().startswith("#")]
     dupes = [k for k, n in Counter(keys).items() if n > 1]
     assert not dupes, f".env.example assigns {dupes} more than once"
+
+
+def test_the_quota_notice_reaches_the_adapter(tmp_path):
+    """note_quota_hit is a once-a-month latch that the adapters read to decide whether to post the notice.
+    The service used to call it first, so every adapter got False and no one was ever told judging had paused."""
+    from jevmod.core.service import ModerationService
+
+    store = Store(tmp_path / "q.sqlite", monthly_quota=1)
+    store.add_usage("t", 5, 1, 100)
+    assert store.over_quota("t")
+    policy = Policy()
+    policy.set_category("spam", "flag")
+    store.save_policy("t", policy)
+    service = ModerationService(store=store, judge=None)
+    decisions = service.moderate("t", [Message(id="m1", text="anything at all here")])
+    assert [d.reason for d in decisions] == ["quota"]
+    assert store.note_quota_hit("t") is True, "the adapter must still be able to claim the notice"
+    assert store.note_quota_hit("t") is False, "and only once"
