@@ -160,7 +160,7 @@ curl -X POST localhost:8080/v1/moderate -H "Authorization: Bearer jm_..." -H "Co
 | `POST /v1/keys` (admin) | mint a tenant key; keys are stored hashed |
 | `GET /v1/health`, `GET /metrics` | liveness and Prometheus counters |
 
-OpenAPI docs at `/docs`. Any chatbot, forum or comment system that can make an HTTP call can use it; the Discord,
+OpenAPI docs at `/docs`; a ready-made Postman collection in `docs/jevmod.postman_collection.json`. Any chatbot, forum or comment system that can make an HTTP call can use it; the Discord,
 Telegram and Reddit bots are just adapters over the same service.
 
 ---
