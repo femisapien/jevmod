@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/metrics"
+method: GET
+order: 8000

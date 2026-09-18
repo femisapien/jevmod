@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/decisions?limit=20"
+method: GET
+headers:
+  Authorization: Bearer {{apiKey}}
+queryParams:
+  limit: "20"
+order: 7000

@@ -44,9 +44,10 @@ phase's findings.** Each phase ends with something a stranger can run.
 - [x] Red team round 1 (2026-09-17, 98 messages): batch cross-talk fixed (dict state), NFKC + zalgo + enclosed letters,
       character pre-filter for CJK, criteria on every question, scam 0.75 / nsfw 0.80. Scoreboard: 0 FP / 0 FN in every
       block except custom rules (1/1, borderline politics). Regression suite in `tests/test_redteam.py`.
-- [ ] Round 2 backlog from the red team: a `selfharm` category that notifies moderators without punishing; mass-mention /
-      raid detection in code (count @mentions, no Jev call); spam and scam overlap (9 of 11 scams also score spam);
-      Japanese labelled set (the three CJK messages are judged now but unlabelled).
+- [x] 2026-09-18: `selfharm` (flag-only by design), `doxxing`, `minors` categories with criteria and real-API tests;
+      SDK retry policy (429/529, backoff, Retry-After) and 20 s timeout, as the API docs ask.
+- [ ] Round 2 backlog: mass-mention / raid detection in code (count @mentions, no Jev call); spam and scam overlap;
+      Japanese labelled set; two-tier thresholds per category (review vs act) like the `llm_guardrails` cookbook.
 - [ ] Per-community calibration: ❌ feedback moves thresholds; `/mod recent` shows drift; export decisions as CSV.
 - [ ] Context: judge with the previous 2 messages of the channel when the text alone is ambiguous (sarcasm, replies).
 - [ ] Evaluation harness with a labeled set per language; publish precision/recall in the README, honestly.

@@ -114,7 +114,7 @@ RULES = {
 BUDGET = {
     "evasion": (0, 1),
     "lang": (0, 2),
-    "fp": (1, 0),
+    "fp": (0, 0),
     "inject": (0, 1),
     "rules": (1, 2),
     "length": (0, 2),

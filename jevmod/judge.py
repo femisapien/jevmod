@@ -10,6 +10,12 @@ Findings from the adversarial red team that shaped this file (tests/data/redteam
   alphanumerics and zalgo were slipping under the thresholds or the pre-filter.
 - The pre-filter counts characters, not space-separated words: Japanese and Chinese never have spaces.
 - Every question carries `criteria`, otherwise "offtopic" measured "undesirable" and "spam" caught one-off sales.
+
+Against the TypeSafe docs (checked 2026-09-18): one Noul per hazard with true/false criteria is the pattern of the
+`llm_guardrails` cookbook. Judging several messages in one request is NOT a documented pattern (the cookbooks send
+one item per request, or many questions about one document); it is our own cost trade-off, kept only because
+`tests/test_redteam.py::test_batch_matches_single_verdicts_in_multilingual_batch` shows batch and single verdicts
+agree once the state is a dict. 429/529 are retried with exponential backoff and Retry-After, as the API asks.
 """
 
 from __future__ import annotations
@@ -21,7 +27,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
-from typesafe_sdk import Noul, NoulAnswer, TypeSafeClient
+from typesafe_sdk import Noul, NoulAnswer, RetryPolicy, TypeSafeClient
 
 CATEGORIES: dict[str, dict[str, Any]] = {
     "spam": {
@@ -76,6 +82,40 @@ CATEGORIES: dict[str, dict[str, Any]] = {
             "job hunting in a support channel) and is not a brief aside",
             "false": "on-topic content, greetings, questions, short asides and reactions. Spam, insults or rule "
             "violations are NOT off-topic by themselves: judge only the subject",
+        },
+    },
+    "selfharm": {
+        "label": "self-harm / crisis",
+        "instructions": "Does `{m}.text` express that the author is considering suicide or self-harm, or is in an "
+        "acute personal crisis? (Meant to alert moderators so they can reach out, not to punish.)",
+        "criteria": {
+            "true": "statements of wanting to die, disappear or hurt oneself, saying goodbye, describing a plan, "
+            "hopelessness about one's own life, asking how to self-harm, in any language",
+            "false": "telling someone else to hurt themselves (that is harassment), hyperbole about a game ('this "
+            "boss makes me want to die lol'), song lyrics, discussing the topic in general, venting about a bad day",
+        },
+    },
+    "doxxing": {
+        "label": "doxxing / personal data",
+        "instructions": "Does `{m}.text` reveal or try to obtain private identifying information about a real "
+        "person without their consent?",
+        "criteria": {
+            "true": "home address, phone number, real full name behind a username, workplace, school, ID or "
+            "financial numbers, photos' locations, or asking others to find or share such data about someone",
+            "false": "the author sharing their own city or first name, public figures' public information, "
+            "business contact details, fictional characters, generic talk about privacy",
+        },
+    },
+    "minors": {
+        "label": "sexual content involving minors / grooming",
+        "instructions": "Does `{m}.text` sexualise a minor, solicit sexual content from or about a minor, or show "
+        "grooming behaviour (an adult building private trust with a child for sexual purposes)?",
+        "criteria": {
+            "true": "sexual comments about someone stated or clearly implied to be under 18, requests for their "
+            "photos or private contact, offers of gifts or secrecy to a child, age-checking followed by sexual "
+            "intent, in any language",
+            "false": "adults talking about adults (that is nsfw), parents discussing their kids' games, child "
+            "safety advice, mentions of age with no sexual element",
         },
     },
 }
@@ -137,8 +177,13 @@ def prefilter(m: Message, min_chars: int = 8) -> str | None:
 
 
 class Judge:
-    def __init__(self, client: TypeSafeClient | None = None, cache_ttl_s: int = 86400) -> None:
-        self.client = client or TypeSafeClient()
+    def __init__(self, client: TypeSafeClient | None = None, cache_ttl_s: int = 86400, timeout_s: float = 20.0) -> None:
+        self.client = client or TypeSafeClient(
+            retry=RetryPolicy(
+                max_retries=3, backoff_initial=0.5, backoff_max=8.0, http_statuses={429, 500, 502, 503, 504, 529}
+            ),
+            timeout=timeout_s,
+        )
         self.cache: dict[str, tuple[float, dict[str, float], dict[str, float]]] = {}
         self.cache_ttl = cache_ttl_s
         self.requests = 0

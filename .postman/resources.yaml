@@ -1,0 +1,11 @@
+# Use this workspace to collaborate
+workspace:
+  id: 3e796a10-2acd-4609-8455-9de95d615fa9
+
+localResources:
+  collections:
+    - ../docs/jevmod
+
+cloudResources:
+  collections:
+    ../postman/collections/jevmod Copy: cd95a0cb-5fc2-45d2-9343-d858c330b2c7

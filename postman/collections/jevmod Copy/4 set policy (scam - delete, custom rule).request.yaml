@@ -1,0 +1,17 @@
+$kind: http-request
+name: 4 set policy (scam -> delete, custom rule)
+url: "{{baseUrl}}/v1/policy"
+method: PUT
+headers:
+  Authorization: Bearer {{apiKey}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "actions": {"scam": "delete", "offtopic": "flag"},
+      "thresholds": {"scam": 0.7},
+      "rules": {"no_politics": "No political discussion. News about the game is fine."},
+      "rule_actions": {"no_politics": "flag"}
+    }
+order: 5000

@@ -1,0 +1,6 @@
+$kind: collection
+description: "Moderation decisions powered by Jev. Set the collection variables: baseUrl, adminToken (JEVMOD_ADMIN_TOKEN of the server). Run '1 mint key' first: it stores the tenant key in apiKey for the other requests."
+variables:
+  baseUrl: http://localhost:8080
+  adminToken: change-me
+  apiKey: ""

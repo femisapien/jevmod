@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/keys"
+method: POST
+headers:
+  Authorization: Bearer {{adminToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: '{"tenant": "postman", "label": "manual test"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('key minted', () => pm.response.to.have.status(200));
+      pm.collectionVariables.set('apiKey', pm.response.json().api_key);
+order: 2000
