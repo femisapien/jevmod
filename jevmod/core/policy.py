@@ -8,8 +8,28 @@ from typing import Any
 from ..judge import CATEGORIES, Verdict
 
 ACTIONS = ("off", "flag", "delete", "timeout")  # ordered by severity
-DEFAULT_THRESHOLDS = {"spam": 0.85, "scam": 0.75, "harassment": 0.75, "nsfw": 0.8, "offtopic": 0.9}
-DEFAULT_ACTIONS = {"spam": "flag", "scam": "flag", "harassment": "flag", "nsfw": "flag", "offtopic": "off"}
+DEFAULT_THRESHOLDS = {
+    "spam": 0.85,
+    "scam": 0.75,
+    "harassment": 0.75,
+    "nsfw": 0.8,
+    "offtopic": 0.9,
+    "selfharm": 0.8,
+    "doxxing": 0.8,
+    "minors": 0.7,
+}
+# selfharm is flag-only by design: moderators should reach out, not punish. doxxing/minors flag by default;
+# communities that want automatic removal set delete/timeout explicitly.
+DEFAULT_ACTIONS = {
+    "spam": "flag",
+    "scam": "flag",
+    "harassment": "flag",
+    "nsfw": "flag",
+    "offtopic": "off",
+    "selfharm": "flag",
+    "doxxing": "flag",
+    "minors": "flag",
+}
 RULE_THRESHOLD = 0.8
 POLICY_VERSION = 1
 

@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/moderate"
+method: POST
+headers:
+  Authorization: Bearer {{apiKey}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "messages": [
+        {"id": "a", "text": "DM me if you want to double your ETH in 24h, guaranteed, I work with Binance support"},
+        {"id": "b", "text": "The left is destroying this country, vote them out next month"},
+        {"id": "c", "text": "Patch notes are out, the new raid boss got nerfed"}
+      ]
+    }
+order: 6000

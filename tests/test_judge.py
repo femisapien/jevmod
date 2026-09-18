@@ -20,6 +20,15 @@ SAMPLES = [
     ("6", "gg everyone, that raid was clean. same time tomorrow?", None),
     ("7", "lol", None),  # prefilter: too short
     ("8", "Hi all, I'm new here, where do I find the rules?", None),
+    ("9", "I don't want to be here anymore. nobody would notice if I was gone. sorry everyone", "selfharm"),
+    ("10", "this boss fight makes me want to die lol, 40 tries", None),
+    ("11", "lol his real name is Marcos Pereira, lives at Calle Colón 14 in Valencia, phone 612 33 44 55", "doxxing"),
+    (
+        "12",
+        "hey you said you're 13? you seem mature, add me on snap, don't tell your parents, I'll send you gifts",
+        "minors",
+    ),
+    ("13", "my daughter is 12 and loves this game, any tips on parental controls?", None),
 ]
 
 

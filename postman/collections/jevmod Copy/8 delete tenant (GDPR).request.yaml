@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/tenant"
+method: DELETE
+headers:
+  Authorization: Bearer {{apiKey}}
+order: 9000

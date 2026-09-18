@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/policy"
+method: GET
+headers:
+  Authorization: Bearer {{apiKey}}
+order: 4000

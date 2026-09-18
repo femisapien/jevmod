@@ -1,15 +1,15 @@
 # jevmod
 
 Moderation for communities and apps, powered by [Jev](https://typesafe.ai) (TypeSafe's System One model).
-Every message gets a probability for **spam, scam, harassment, adult content, off-topic** and for **your own rules
-written in plain language**. You own the thresholds and the actions. Every decision is logged with its numbers.
+Every message gets a probability for **spam, scam, harassment, adult content, off-topic, self-harm, doxxing,
+sexual content involving minors** and for **your own rules written in plain language**. You own the thresholds and the actions. Every decision is logged with its numbers.
 
 Flag-only by default: nothing is deleted until you turn that on. Fails open: if Jev is unreachable, messages are
 left alone and the failure is logged.
 
-Cost, measured: about 700 input tokens per judged message with all five categories on, at Jev's list price
-of $0.042 per million, so **$0.00003 per message**. A community with 20,000 judged messages a month costs
-about $0.60 to run.
+Cost, measured: about 1,050 input tokens per judged message with all eight categories on, at Jev's list price
+of $0.042 per million, so **$0.000045 per message**. A community with 20,000 judged messages a month costs
+under $1 to run. Turn categories off and the price drops with them.
 
 Pick your door:
 
@@ -47,7 +47,7 @@ The bot creates a private `#jevmod-log` channel and starts flagging. Type `/mod 
 | command (server managers only) | what |
 |---|---|
 | `/mod status` | settings and this month's usage |
-| `/mod set <category> <action> [threshold]` | `spam`, `scam`, `harassment`, `nsfw`, `offtopic` → `off`, `flag`, `delete`, `timeout` |
+| `/mod set <category> <action> [threshold]` | `spam`, `scam`, `harassment`, `nsfw`, `offtopic`, `selfharm`, `doxxing`, `minors` → `off`, `flag`, `delete`, `timeout` |
 | `/mod rule <name> <text> [action] [threshold]` | a rule in your words: "No politics. News about the game is fine." (max 5) |
 | `/mod trust <role>` | messages from that role are never judged |
 | `/mod topic <text>` | what the current channel is for (used by `offtopic`) |
@@ -183,6 +183,23 @@ batch is logged. Free quota (5,000 judged messages per tenant per month) exceede
 told once, nothing is deleted while paused.
 
 ---
+
+## Categories
+
+| category | true when | default |
+|---|---|---|
+| `spam` | unsolicited promotion, invite farming, bare link drops, mass mentions | flag ≥ 0.85 |
+| `scam` | fake giveaways, phishing domains, impersonated support, "DM me for a deal" | flag ≥ 0.75 |
+| `harassment` | insults, slurs, threats, targeted abuse, in any language | flag ≥ 0.75 |
+| `nsfw` | sexual or gore content for a general audience (below the threshold means SFW) | flag ≥ 0.80 |
+| `offtopic` | unrelated to `channel_topic`; needs a topic to mean anything | off, 0.90 |
+| `selfharm` | the author is in crisis or considering self-harm; flag so moderators reach out, never punish | flag ≥ 0.80 |
+| `doxxing` | reveals or hunts private data about a real person | flag ≥ 0.80 |
+| `minors` | sexualises a minor or shows grooming behaviour | flag ≥ 0.70 |
+| `rule:<name>` | your rule in plain language, exceptions included, up to 5 | flag ≥ 0.80 |
+
+Every check returns all enabled categories at once, in one request. Questions follow TypeSafe's `llm_guardrails`
+cookbook (one yes/no question per hazard with explicit true/false criteria).
 
 ## How good is it
 

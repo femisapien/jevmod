@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/moderate"
+method: POST
+headers:
+  Authorization: Bearer {{apiKey}}
+  Content-Type: application/json
+  X-Request-Id: postman-1
+body:
+  type: text
+  content: |-
+    {
+      "messages": [
+        {"id": "a", "text": "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro", "channel_topic": "gaming"},
+        {"id": "b", "text": "Anyone know if the patch fixed the inventory bug?", "channel_topic": "gaming"},
+        {"id": "c", "text": "you're a worthless idiot and everyone here hates you, just leave", "channel_topic": "gaming"},
+        {"id": "d", "text": "ok", "channel_topic": "gaming"}
+      ]
+    }
+order: 3000
