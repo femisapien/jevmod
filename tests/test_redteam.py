@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jevmod.core import DEFAULT_THRESHOLDS, Policy, decide
+from jevmod.core import DEFAULT_THRESHOLDS, RULE_THRESHOLD, Policy, decide
 from jevmod.judge import CATEGORIES, Judge, Message, normalize, prefilter
 
 pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
@@ -92,7 +92,7 @@ def score_block(block: str, policy: Policy) -> tuple[int, int, int, list[str]]:
             expected = {e if e in CATS else f"rule:{e}" for e in expected}
             got = set()
             for c, p in {**v.scores, **{f"rule:{n}": p for n, p in v.custom.items()}}.items():
-                th = policy.thresholds.get(c, policy.rule_thresholds.get(c[5:], 0.75))
+                th = policy.thresholds.get(c, policy.rule_thresholds.get(c[5:], RULE_THRESHOLD))
                 if p >= th:
                     got.add(c)
             if expected and got & expected:
