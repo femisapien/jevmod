@@ -1,0 +1,21 @@
+# jev-pr-review config for jevmod. Shadow mode: it comments, it never merges.
+#
+# blocked_paths is deliberately short. A long list makes every pull request
+# escalate on a path match, and the scored dimensions never get to decide --
+# which means no data to calibrate them with. Only things a person must always
+# see are listed here.
+
+mode: shadow
+
+automerge_when:
+  max_risk_level: "< 1.5"
+  worst_case_risk: "< 0.15"
+  sensitive_area: "< 0.10"
+  hidden_scope: "< 0.25"
+  silent_failure_weighted: "< 0.30"
+  diff_matches_title: "> 0.80"
+  max_lines: 400
+
+blocked_paths:
+  - ".github/**"
+  - "**/*secret*"
