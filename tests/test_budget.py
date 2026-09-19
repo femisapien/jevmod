@@ -86,3 +86,21 @@ def test_free_is_the_default_so_an_unknown_server_is_counted_as_free(monkeypatch
     spend(store_mod, store, 16.0)
     assert store.paying_tenants() == 0
     assert store.over_budget("discord:never-seen-before") == "free_budget"
+
+
+def test_near_the_ceiling_the_spend_is_read_fresh_rather_than_cached(monkeypatch, tmp_path):
+    """The cache is what turns a bounded bill into an unbounded one: every batch that reads a stale figure
+    is judged in full before the write that would have refused it. Far from the ceiling that is fine; close
+    to it, it is the whole exposure."""
+    store_mod, store = load(monkeypatch, tmp_path, hard="60", free="15")
+
+    # Far from the ceiling: a write made behind the cache's back stays invisible, which is the point.
+    spend(store_mod, store, 1.0)
+    assert store.over_budget("discord:pro") is None
+    store.add_usage("discord:noise", judged=1, requests=1, tokens=round(5.0 * 1e6 / store_mod.USD_PER_M_INPUT))
+    assert store.month_spend_usd() == pytest.approx(1.0), "still cached, as designed"
+
+    # Past four fifths of the ceiling, a write made behind the cache's back is seen on the very next ask.
+    spend(store_mod, store, 43.0)  # 1 + 5 + 43 = 49, past 0.8 * 60
+    store.add_usage("discord:noise", judged=1, requests=1, tokens=round(12.0 * 1e6 / store_mod.USD_PER_M_INPUT))
+    assert store.over_budget("discord:pro") == "global_budget", "61 dollars spent must not read as 49"

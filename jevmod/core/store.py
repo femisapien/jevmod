@@ -42,6 +42,8 @@ GLOBAL_BUDGET_USD = float(os.environ.get("JEVMOD_GLOBAL_BUDGET_USD", "0") or 0)
 FREE_BUDGET_USD = float(os.environ.get("JEVMOD_FREE_BUDGET_USD", "0") or 0)
 PAID_BUDGET_USD = float(os.environ.get("JEVMOD_PAID_BUDGET_USD", "0") or 0)
 USD_PER_M_INPUT = 0.042  # Jev list price per million input tokens
+# The fraction of a ceiling past which the spend figure stops being cached. See `over_budget`.
+NEAR_CEILING = 0.8
 
 
 class Store:
@@ -218,6 +220,14 @@ class Store:
             return None
         spend = self.month_spend_usd()
         ceiling = self.budget_ceiling()
+        # Thirty seconds of staleness is cheap when the month is a tenth spent and expensive when it is
+        # nearly over: every batch that reads a stale figure is judged in full before the write that would
+        # have stopped it. So the cache collapses as the ceiling approaches, and the last stretch is read
+        # fresh, which bounds the overshoot to one batch rather than to half a minute of traffic.
+        near = max(ceiling or 0.0, FREE_BUDGET_USD) * NEAR_CEILING
+        if near and spend >= near:
+            spend = self.month_spend_usd(max_age_s=0.0)
+            ceiling = self.budget_ceiling()
         if ceiling and spend >= ceiling:
             return "global_budget"
         if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) == "free":
