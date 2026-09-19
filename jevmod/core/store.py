@@ -23,6 +23,20 @@ PLAN_QUOTAS: dict[str, int] = {
     "unlimited": 0,
 }
 
+# What the whole service may spend on the model in a calendar month, across every tenant at once.
+#
+# The per-tenant quota above caps one server and says nothing about the sum, so fifty paying servers at
+# their own ceiling already cost more than a single operator budgeted for. That is the success case, not an
+# abuse case, and it is the one nothing was watching.
+#
+# Two ceilings rather than one, because who gets stopped matters. Free tenants pause at the lower figure, so
+# the people who pay are not moderated worse because the people who do not have been busy. The hard ceiling
+# stops everybody, and reaching it is an operator failure to be alerted on rather than a state to live in.
+# 0 disables a ceiling, which is what a self-hosted copy paying its own model bill wants.
+GLOBAL_BUDGET_USD = float(os.environ.get("JEVMOD_GLOBAL_BUDGET_USD", "0") or 0)
+FREE_BUDGET_USD = float(os.environ.get("JEVMOD_FREE_BUDGET_USD", "0") or 0)
+USD_PER_M_INPUT = 0.042  # Jev list price per million input tokens
+
 
 class Store:
     def __init__(
@@ -44,6 +58,8 @@ class Store:
         self.db.execute("PRAGMA busy_timeout=5000")
         self.db.execute("PRAGMA synchronous=NORMAL")  # safe under WAL: a crash loses no committed transaction
         self.lock = threading.Lock()
+        self._spend = 0.0        # month-to-date spend, cached; see month_spend_usd
+        self._spend_at = 0.0
         self.keep_text_chars = (
             int(os.environ.get("JEVMOD_KEEP_TEXT_CHARS", "300")) if keep_text_chars is None else keep_text_chars
         )
@@ -146,6 +162,38 @@ class Store:
     def over_quota(self, tenant: str) -> bool:
         q = self.quota_for(tenant)
         return q > 0 and self.usage(tenant)[0] >= q
+
+    def month_spend_usd(self, max_age_s: float = 30.0) -> float:
+        """What every tenant together has cost this month, at list price.
+
+        Cached for half a minute. The sum itself is one indexed aggregate and is cheap, but it would run on
+        every batch from every server, and a number that is thirty seconds stale cannot overshoot a budget
+        by more than thirty seconds of traffic."""
+        now = time.time()
+        if self._spend_at + max_age_s > now:
+            return self._spend
+        with self.lock:
+            row = self.db.execute(
+                "SELECT COALESCE(SUM(tokens), 0) FROM usage WHERE month=?", (self.month(),)
+            ).fetchone()
+        self._spend = float(row[0]) * USD_PER_M_INPUT / 1e6
+        self._spend_at = now
+        return self._spend
+
+    def over_budget(self, tenant: str) -> str | None:
+        """Which ceiling this tenant has run into, if any: `global_budget` or `free_budget`.
+
+        Checked before spending rather than after, and it is deliberately not exact. The point is a bounded
+        bill, not an exact one, and an operator who needs the last cent of precision has set the ceiling too
+        close to what they can pay."""
+        if not GLOBAL_BUDGET_USD and not FREE_BUDGET_USD:
+            return None
+        spend = self.month_spend_usd()
+        if GLOBAL_BUDGET_USD and spend >= GLOBAL_BUDGET_USD:
+            return "global_budget"
+        if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) == "free":
+            return "free_budget"
+        return None
 
     # ---- hosted billing
     def set_subscription(

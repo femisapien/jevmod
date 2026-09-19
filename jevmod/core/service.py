@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from collections.abc import Callable
@@ -24,6 +25,9 @@ from .store import Store
 log = logging.getLogger("jevmod")
 
 JEV_USD_PER_M_INPUT = 0.042
+# The most one check-then-spend window may commit. A quota is checked before a batch and written
+# after it, so a batch bigger than this is a ceiling overshot by exactly that much.
+MAX_BATCH = int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100)
 
 
 class ModerationService:
@@ -54,6 +58,20 @@ class ModerationService:
             # note_quota_hit is a once-a-month latch, and the adapters use it to decide whether to post the
             # notice. Consuming it here meant the adapter always got False, so the notice never reached anyone.
             return [Decision(m.id, "none", None, 0.0, {}, False, "quota") for m in messages]
+        # The tenant is inside its own quota. The question the per-tenant quota cannot answer is whether the
+        # service as a whole can still afford to judge: fifty servers each inside their own ceiling still add
+        # up to more than one person budgeted for, and that is the success case rather than an attack.
+        hit = self.store.over_budget(tenant)
+        if hit:
+            log.warning({"event": "budget", "tenant": tenant, "rid": rid, "ceiling": hit})
+            return [Decision(m.id, "none", None, 0.0, {}, False, hit) for m in messages]
+        # A batch is checked once and then spent whole, so its size is the amount any ceiling can be
+        # overshot by. Two seconds of a raid is otherwise one batch of whatever arrived.
+        if len(messages) > MAX_BATCH:
+            head, tail = messages[:MAX_BATCH], messages[MAX_BATCH:]
+            return self.moderate(tenant, head, rid) + [
+                Decision(m.id, "none", None, 0.0, {}, False, "over_batch") for m in tail
+            ]
         j = self.judge
         before = (j.requests, j.input_tokens, j.judged_messages)
         t0 = time.perf_counter()
