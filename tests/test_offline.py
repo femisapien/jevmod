@@ -333,3 +333,25 @@ def test_the_hosted_bot_can_still_say_where_to_pay(monkeypatch):
     importlib.reload(paylink)
     with pytest.raises(RuntimeError):
         paylink.sign_tenant("discord:123")
+
+
+def test_the_store_survives_two_processes(tmp_path):
+    """The bot, the API and the Stripe webhook are three processes on one file. SQLite's defaults make that
+    fail: the rollback journal locks readers out during a write, and a zero busy timeout raises on the first
+    collision rather than waiting. This asserts the pragmas that make it safe, because nothing else would
+    notice they were gone until a customer paid and the webhook lost the write."""
+    import sqlite3
+
+    db = tmp_path / "s.sqlite"
+    s = Store(db)
+    assert s.db.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+    assert s.db.execute("PRAGMA busy_timeout").fetchone()[0] >= 5000
+
+    # A second connection, standing in for another container, writes while the first holds a read.
+    other = sqlite3.connect(str(db), timeout=5)
+    s.save_policy("discord:1", Policy())
+    cur = s.db.execute("SELECT id FROM tenants")
+    other.execute("INSERT INTO usage (tenant, month, judged, requests, tokens) VALUES ('discord:2','2026-09',1,1,1)")
+    other.commit()
+    assert [r[0] for r in cur.fetchall()] == ["discord:1"], "a concurrent write must not break an open read"
+    other.close()

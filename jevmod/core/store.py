@@ -35,6 +35,14 @@ class Store:
         """keep_text_chars=0 stores no message text at all. Decisions older than retention_days are purged on
         every write and by `purge_expired()`, which the service also calls on every batch."""
         self.db = sqlite3.connect(str(path), check_same_thread=False)
+        # The bot, the API and the Stripe webhook are separate processes on one file. `self.lock` only
+        # serialises this process; across processes SQLite's own locking is all there is, and its defaults
+        # are wrong for that: the rollback journal blocks readers while anyone writes, and a busy timeout of
+        # zero raises "database is locked" on the first collision instead of waiting. WAL lets readers run
+        # during a write, and five seconds is long enough for any write this schema does.
+        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA busy_timeout=5000")
+        self.db.execute("PRAGMA synchronous=NORMAL")  # safe under WAL: a crash loses no committed transaction
         self.lock = threading.Lock()
         self.keep_text_chars = (
             int(os.environ.get("JEVMOD_KEEP_TEXT_CHARS", "300")) if keep_text_chars is None else keep_text_chars
