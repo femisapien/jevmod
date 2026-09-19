@@ -704,16 +704,7 @@ async def upgrade_cmd(itx: discord.Interaction) -> None:
             ephemeral=True,
         )
         return
-    try:
-        from ..api.billing import checkout_url
-    except ImportError:
-        # Billing is not part of the open package. A copy without it is by definition self-hosted.
-        await itx.response.send_message(
-            "This copy of jevmod has no billing built in, so there is nothing to pay. Raise "
-            "JEVMOD_MONTHLY_QUOTA on the server to lift the limit.",
-            ephemeral=True,
-        )
-        return
+    from ..api.paylink import checkout_url
 
     plan = store.plan(tenant)
     what = "manage or cancel the subscription" if plan != "free" else "upgrade this server to Pro"
@@ -723,7 +714,11 @@ async def upgrade_cmd(itx: discord.Interaction) -> None:
 
 
 def _billing_enabled() -> bool:
-    return bool(os.environ.get("STRIPE_PRICE_ID") and os.environ.get("JEVMOD_PUBLIC_URL"))
+    """Whether this copy is operated as a paid service. The payment provider is the operator's business, so
+    what the bot checks is what it needs to build a link: a public URL and the key that signs it."""
+    from ..api.paylink import enabled
+
+    return enabled()
 
 
 @mod.command(name="forget", description="Delete everything jevmod stored about this server (GDPR)")

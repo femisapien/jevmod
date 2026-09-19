@@ -3,6 +3,8 @@
 import time
 from pathlib import Path
 
+import pytest
+
 from jevmod import Message, Policy, decide
 from jevmod.core import Decision, Store
 from jevmod.judge import Verdict, prefilter
@@ -302,3 +304,32 @@ def test_the_policy_endpoint_keeps_a_rule_threshold():
     assert body.rule_thresholds == {"no_politics": 0.65}
     with pytest.raises(ValidationError):
         PolicyIn(rule_threshold={"typo": 0.65})
+
+
+def test_the_hosted_bot_can_still_say_where_to_pay(monkeypatch):
+    """The split moved billing out of the open package. The bot that sells Pro is the open one, so the link
+    it hands a server owner has to survive that move: this failed silently in production once."""
+    import importlib
+
+    from jevmod.api import paylink
+
+    monkeypatch.delenv("JEVMOD_PUBLIC_URL", raising=False)
+    monkeypatch.delenv("JEVMOD_ADMIN_TOKEN", raising=False)
+    importlib.reload(paylink)
+    assert paylink.enabled() is False, "a self-hosted copy has nothing to sell"
+
+    monkeypatch.setenv("JEVMOD_PUBLIC_URL", "https://example.test/")
+    monkeypatch.setenv("JEVMOD_ADMIN_TOKEN", "secret-token")
+    importlib.reload(paylink)
+    assert paylink.enabled() is True
+    url = paylink.checkout_url("discord:123")
+    assert url.startswith("https://example.test/billing/checkout?tenant=discord:123&sig=")
+
+    # A signature for one guild must not open another guild's billing portal.
+    assert paylink.sign_tenant("discord:123") != paylink.sign_tenant("discord:124")
+
+    # No fallback key: a constant one would make every signature forgeable.
+    monkeypatch.delenv("JEVMOD_ADMIN_TOKEN")
+    importlib.reload(paylink)
+    with pytest.raises(RuntimeError):
+        paylink.sign_tenant("discord:123")
