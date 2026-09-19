@@ -40,7 +40,9 @@ class ModerationService:
         # Anti-raid's repeat counter: in memory, per service instance, on purpose. It is a sixty second
         # phenomenon, not something a disk write per message should pay for, and losing it on restart is the
         # correct failure — see jevmod/core/local.py.
-        self._seen = RepeatWindow()
+        # Public, because the adapter counts joins in the same window: an adapter reaching into a private
+        # attribute is how two copies of a sixty second window end up disagreeing with each other.
+        self.seen = RepeatWindow()
 
     @property
     def judge(self) -> Judge:
@@ -68,7 +70,7 @@ class ModerationService:
         decided: dict[str, Decision] = {}
         remaining: list[Message] = []
         for m in messages:
-            d = local.check(m, policy, self._seen)
+            d = local.check(m, policy, self.seen)
             if d is None:
                 remaining.append(m)
             else:

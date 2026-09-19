@@ -17,7 +17,7 @@ import discord
 from discord import app_commands
 
 from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Policy, Store
-from ..core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS
+from ..core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS, LINK_MODES
 from ..judge import CATEGORIES, Message
 
 log = logging.getLogger("jevmod.discord")
@@ -343,6 +343,34 @@ async def on_guild_join(guild: discord.Guild) -> None:
 
 
 @bot.event
+async def on_member_join(member: discord.Member) -> None:
+    """Anti-raid's join counter. This reuses `service.seen`, the same in-memory `RepeatWindow` that
+    `local.check()` already uses for repeated messages: one sixty-second sliding window per service instance
+    is the whole mechanism the spec asks for, and a second instance here would just be two clocks that can
+    disagree. `count()` is keyed by an arbitrary string plus an author id, so a `raid_joins:` prefix on the
+    tenant keeps this window from colliding with a `raid_repeats` window keyed by message text.
+
+    jevmod does not ban, kick or lock a server, and must not start now: tripping this alerts once and stops.
+    Firing only on the exact join that crosses the threshold (rather than on every join afterwards while the
+    window is still hot) is what keeps that one message from becoming a flood during an actual raid."""
+    guild = member.guild
+    tenant = tenant_of(guild.id)
+    policy = service.policy(tenant)
+    if not policy.raid_joins:
+        return
+    count = service.seen.count(f"raid_joins:{tenant}", str(member.id))
+    if count != policy.raid_joins + 1:
+        return
+    channel = await log_channel(guild, tenant)
+    if channel:
+        await channel.send(
+            f"**Possible raid:** {count} members joined in the last minute, more than the {policy.raid_joins} "
+            "you set with `/mod raid`. jevmod does not remove members, kick anyone or lock the server — that "
+            "is a call for a human. Discord's own Server Settings, Safety Setup has tools for exactly this."
+        )
+
+
+@bot.event
 async def on_guild_remove(guild: discord.Guild) -> None:
     """Kicked or left: forget everything about that server."""
     store.delete_tenant(tenant_of(guild.id))
@@ -390,6 +418,21 @@ async def status(itx: discord.Interaction) -> None:
             }.get(action, action)
             lines.append(f"**{label(c)}**: {does}, once it is {how_sure(p.thresholds.get(c, 0.9))}")
     lines += [f'**rule {n}**: {p.rule_actions.get(n, "flag")} · "{r}"' for n, r in p.rules.items()]
+    # Local rules run before every cost gate and cost nothing, so a server on Free relies entirely on this
+    # section. A rule that is invisible here is one an operator set once and then forgot they had.
+    if p.link_mode != "off":
+        allow = f", {len(p.link_allowlist)} domain(s) allowed" if p.link_mode == "allowlist" else ""
+        lines.append(f"**links**: {p.link_mode} → {p.link_action}{allow}")
+    if p.words:
+        lines.append(f"**blocked words**: {len(p.words)} → {p.word_action}")
+    lines += [f'**pattern {n}**: {p.pattern_actions.get(n, "flag")} · `{r}`' for n, r in p.patterns.items()]
+    if p.raid_joins or p.raid_repeats:
+        parts = []
+        if p.raid_joins:
+            parts.append(f"alert after {p.raid_joins} joins/60s")
+        if p.raid_repeats:
+            parts.append(f"{p.raid_action} after {p.raid_repeats} repeats/60s")
+        lines.append("**anti-raid**: " + "; ".join(parts))
     plan = store.plan(tenant)
     q = store.quota_for(tenant)
     quota = f"{judged:,}/{q:,} judged this month ({plan})" if q else f"{judged:,} judged this month ({plan}, unlimited)"
@@ -430,6 +473,56 @@ WHAT_HAPPENS = {
     "timeout": "The member would be timed out, and would get a direct message saying so and how to appeal. The "
     "message stays up.",
 }
+
+
+LINK_MODE_LABEL = {
+    "off": "off — no link checking",
+    "invites": "invites only (discord.gg and friends)",
+    "allowlist": "allowlist — anything not on your list",
+    "all": "all links",
+}
+ACTION_CHOICES = [
+    app_commands.Choice(name="do not check this at all", value="off"),
+    app_commands.Choice(name="tell me, delete nothing", value="flag"),
+    app_commands.Choice(name="delete the message", value="delete"),
+    app_commands.Choice(name="mute the member for a while", value="timeout"),
+]
+
+
+def _toggle_list(items: list[str], value: str, action: str) -> list[str]:
+    """Pure add/remove for a flat list setting (words, allowlist domains): case/space-normalised, no
+    duplicates. Shared by `/mod words` and `/mod link_allowlist` so "add the same thing twice" and "remove
+    something never added" behave identically in both places instead of each command growing its own rules."""
+    out = list(items)
+    v = value.strip()
+    if action == "add":
+        if v and v not in out:
+            out.append(v)
+    elif action == "remove" and v in out:
+        out.remove(v)
+    return out
+
+
+def _chunked_list(items: list[str], limit: int = 1800) -> str:
+    """A hundred words (or twenty-five domains) do not read as one long line, and Discord refuses a reply
+    over 2000 characters outright. This renders as many as fit under `limit`, in order, then says how many
+    were left off rather than truncating mid-word or raising. Pure and independent of Discord for testing."""
+    if not items:
+        return "(none)"
+    shown: list[str] = []
+    total = 0
+    for it in items:
+        piece = f"`{it}`"
+        added = len(piece) + (2 if shown else 0)  # ", " joiner, except before the first entry
+        if total + added > limit:
+            break
+        shown.append(piece)
+        total += added
+    text = ", ".join(shown)
+    left = len(items) - len(shown)
+    if left > 0:
+        text += f"\n\n… and {left} more not shown here (still active; this is just the reply, not the list)."
+    return text
 
 
 def _bar(p: float, width: int = 18) -> str:
@@ -600,6 +693,188 @@ def _rule_warnings(text: str) -> str:
             'years". Use `/mod trust` to exempt a role instead.'
         )
     return "".join(out)
+
+
+@mod.command(name="link", description="Block links: off, invites only, an allowlist, or all of them")
+@app_commands.describe(
+    mode="Which links to catch.",
+    action="What to do about a caught link. Leave empty to keep what you have.",
+)
+@app_commands.choices(
+    mode=[app_commands.Choice(name=LINK_MODE_LABEL[m], value=m) for m in LINK_MODES],
+    action=ACTION_CHOICES,
+)
+async def link_cmd(itx: discord.Interaction, mode: str, action: str | None = None) -> None:
+    if not await owner_only(itx):
+        return
+    tenant = tenant_of(itx.guild_id or 0)
+    p = service.policy(tenant)
+    try:
+        p.set_link_mode(mode)
+        if action is not None:
+            p.set_link_action(action)
+    except ValueError as exc:
+        await itx.response.send_message(str(exc), ephemeral=True)
+        return
+    service.save_policy(tenant, p)
+    warn = ""
+    if mode == "allowlist" and not p.link_allowlist:
+        warn = (
+            "\n\n**This will catch every link right now.** An empty allowlist means nothing is allowed yet. "
+            "Add domains with `/mod link_allowlist action:add domain:example.com`."
+        )
+    await itx.response.send_message(
+        f"Links: mode is **{mode}**, caught links will **{p.link_action}**.{warn}", ephemeral=True
+    )
+
+
+@mod.command(name="link_allowlist", description="Add, remove or list the domains allowed when link mode is allowlist")
+@app_commands.describe(
+    action="add, remove or list.",
+    domain="The domain, e.g. example.com. Not needed for list.",
+)
+@app_commands.choices(
+    action=[
+        app_commands.Choice(name="add", value="add"),
+        app_commands.Choice(name="remove", value="remove"),
+        app_commands.Choice(name="list", value="list"),
+    ]
+)
+async def link_allowlist_cmd(itx: discord.Interaction, action: str, domain: str | None = None) -> None:
+    if not await owner_only(itx):
+        return
+    tenant = tenant_of(itx.guild_id or 0)
+    p = service.policy(tenant)
+    if action == "list":
+        await itx.response.send_message(
+            f"{len(p.link_allowlist)} allowed domain(s):\n{_chunked_list(sorted(p.link_allowlist))}",
+            ephemeral=True,
+        )
+        return
+    if not domain:
+        await itx.response.send_message("Give a domain to add or remove, e.g. `example.com`.", ephemeral=True)
+        return
+    domains = _toggle_list(p.link_allowlist, domain.strip().lower(), action)
+    try:
+        p.set_link_allowlist(domains)
+    except ValueError as exc:
+        await itx.response.send_message(str(exc), ephemeral=True)
+        return
+    service.save_policy(tenant, p)
+    did = "added to" if action == "add" else "removed from"
+    await itx.response.send_message(
+        f"`{domain.strip().lower()}` {did} the allowlist. {len(p.link_allowlist)} domain(s) now allowed.",
+        ephemeral=True,
+    )
+
+
+@mod.command(name="words", description="Add, remove or list the words and phrases jevmod blocks for free")
+@app_commands.describe(
+    action="add, remove or list.",
+    word="The word or phrase. A phrase with a space is matched as a whole phrase. Not needed for list.",
+)
+@app_commands.choices(
+    action=[
+        app_commands.Choice(name="add", value="add"),
+        app_commands.Choice(name="remove", value="remove"),
+        app_commands.Choice(name="list", value="list"),
+    ]
+)
+async def words_cmd(itx: discord.Interaction, action: str, word: str | None = None) -> None:
+    if not await owner_only(itx):
+        return
+    tenant = tenant_of(itx.guild_id or 0)
+    p = service.policy(tenant)
+    if action == "list":
+        await itx.response.send_message(
+            f"{len(p.words)} blocked word(s)/phrase(s), action **{p.word_action}**:\n{_chunked_list(sorted(p.words))}",
+            ephemeral=True,
+        )
+        return
+    if not word:
+        await itx.response.send_message("Give a word or phrase to add or remove.", ephemeral=True)
+        return
+    words = _toggle_list(p.words, word.strip(), action)
+    try:
+        p.set_words(words)
+    except ValueError as exc:
+        await itx.response.send_message(str(exc), ephemeral=True)
+        return
+    service.save_policy(tenant, p)
+    did = "added" if action == "add" else "removed"
+    await itx.response.send_message(
+        f'"{word.strip()}" {did}. {len(p.words)} word(s)/phrase(s) blocked now, action **{p.word_action}**.',
+        ephemeral=True,
+    )
+
+
+@mod.command(name="pattern", description="Block messages matching a regex you write, validated before it is saved")
+@app_commands.describe(
+    name="a short name for the pattern, so you can change it later",
+    pattern="a Python regular expression. Leave empty to delete the pattern.",
+    action="what to do when it matches: flag, delete or timeout",
+)
+async def pattern_cmd(
+    itx: discord.Interaction, name: str, pattern: str | None = None, action: str = "flag"
+) -> None:
+    if not await owner_only(itx):
+        return
+    tenant = tenant_of(itx.guild_id or 0)
+    # Validating a pattern can take up to ~5 seconds in the pathological case (policy.py runs the match in a
+    # throwaway subprocess to catch catastrophic backtracking) — well past Discord's 3 second interaction
+    # timeout, so this always defers first. `to_thread` keeps that wait off the event loop that every other
+    # guild's messages are also waiting on.
+    await itx.response.defer(ephemeral=True, thinking=True)
+    p = service.policy(tenant)
+    try:
+        await asyncio.to_thread(p.set_pattern, name, pattern, action)
+    except ValueError as exc:
+        # str(exc) is the message policy.py wrote for a human (what failed and why), never a traceback.
+        await itx.followup.send(str(exc), ephemeral=True)
+        return
+    service.save_policy(tenant, p)
+    key = name.strip().lower().replace(" ", "_")[:30]
+    if key in p.patterns:
+        await itx.followup.send(
+            f"Pattern **{key}** is on: `{p.patterns[key]}`\nWhen it matches jevmod will {p.pattern_actions[key]}.",
+            ephemeral=True,
+        )
+    else:
+        await itx.followup.send(f"Pattern **{key}** deleted.", ephemeral=True)
+
+
+@mod.command(name="raid", description="Anti-raid: alert on a burst of joins, act on repeated identical messages")
+@app_commands.describe(
+    joins="Joins in 60 seconds that trigger one alert. 0 turns it off, else 3 to 100.",
+    repeats="Identical messages from different members in 60 seconds. 0 turns it off, else 3 to 50.",
+    action="What to do once repeats trip. Joins always just alert — jevmod never bans, kicks or locks a server.",
+)
+@app_commands.choices(action=ACTION_CHOICES)
+# All three optional, so changing the action does not mean retyping two numbers the operator already
+# set. `set_raid` treats None as "leave it alone".
+async def raid_cmd(
+    itx: discord.Interaction, joins: int | None = None, repeats: int | None = None, action: str | None = None
+) -> None:
+    if not await owner_only(itx):
+        return
+    tenant = tenant_of(itx.guild_id or 0)
+    p = service.policy(tenant)
+    try:
+        p.set_raid(joins, repeats, action)
+    except ValueError as exc:
+        await itx.response.send_message(str(exc), ephemeral=True)
+        return
+    service.save_policy(tenant, p)
+    joins_txt = f"alert once after {p.raid_joins} joins in 60 seconds" if p.raid_joins else "off"
+    repeats_txt = (
+        f"{p.raid_action} after {p.raid_repeats} identical messages in 60 seconds" if p.raid_repeats else "off"
+    )
+    await itx.response.send_message(
+        f"Raid joins: {joins_txt}\nRaid repeats: {repeats_txt}\n\n"
+        "jevmod does not ban, kick or lock the server for either of these — it alerts and, for repeats, acts "
+        "on the message the way `/mod set` acts on a category.",
+        ephemeral=True,
+    )
 
 
 @mod.command(name="trust", description="Toggle a role whose messages are never judged")
