@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..core import ModerationService, Store
 from ..judge import CATEGORIES, Message
@@ -65,10 +65,15 @@ class ModerateResponse(BaseModel):
 
 
 class PolicyIn(BaseModel):
+    # `extra="forbid"` because this model used to have no `rule_thresholds` field: a PUT carrying one returned
+    # 200 with a policy object that quietly did not contain it. On a write path, silence is the worst answer.
+    model_config = ConfigDict(extra="forbid")
+
     thresholds: dict[str, float] | None = None
     actions: dict[str, str] | None = None
     rules: dict[str, str] | None = None
     rule_actions: dict[str, str] | None = None
+    rule_thresholds: dict[str, float] | None = None
     timeout_minutes: int | None = None
 
 
@@ -157,7 +162,16 @@ def put_policy(body: PolicyIn, tenant: str = Depends(tenant_from_auth)) -> dict[
             if c in CATEGORIES and c not in (body.actions or {}):
                 p.set_category(c, p.actions.get(c, "flag"), t)
         for n, text in (body.rules or {}).items():
-            p.set_rule(n, text, (body.rule_actions or {}).get(n, p.rule_actions.get(n, "flag")))
+            p.set_rule(
+                n,
+                text,
+                (body.rule_actions or {}).get(n, p.rule_actions.get(n, "flag")),
+                (body.rule_thresholds or {}).get(n),
+            )
+        # a threshold for a rule whose text is not being changed in the same request
+        for n, t in (body.rule_thresholds or {}).items():
+            if n in p.rules and n not in (body.rules or {}):
+                p.set_rule(n, p.rules[n], p.rule_actions.get(n, "flag"), t)
         if body.timeout_minutes is not None:
             p.timeout_minutes = max(1, min(int(body.timeout_minutes), 1440))
     except ValueError as exc:

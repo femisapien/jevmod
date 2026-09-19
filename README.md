@@ -62,7 +62,7 @@ The bot creates a private `#jevmod-log` channel and starts flagging there.
 | `/mod set <category> <action> [threshold]` | any category → `off`, `flag`, `delete`, `timeout` |
 | `/mod rule <name> <text> [action] [threshold]` | a rule in your words: "No politics. News about the game is fine." (max 5) |
 | `/mod trust <role>` | messages from that role are never judged |
-| `/mod topic <text>` | what the current channel is for (turns on `offtopic`) |
+| `/mod topic <text>` | what this channel is for, in a sentence. Off-topic is judged against it, so it does nothing on its own: turn the category on with `/mod set offtopic flag`. |
 | `/mod log`, `/mod recent` | choose the log channel; last decisions with probabilities |
 | `/mod forget`, `/mod forget_user @member` | delete everything stored about the server, or one member |
 

@@ -404,7 +404,9 @@ async def test_cmd(itx: discord.Interaction, message: str) -> None:
     on themselves, and staff are never judged, so the honest answer is a command that says so out loud."""
     tenant = tenant_of(itx.guild_id or 0)
     await itx.response.defer(ephemeral=True, thinking=True)
-    topics = store.get_meta(tenant).get("topics", {})
+    # `channel_topics` is the key `/mod topic` writes. This read used `topics`, so /mod test never saw the
+    # topic an owner had set, and the one verification path the bot recommends reported off-topic as dead.
+    topics = store.get_meta(tenant).get("channel_topics", {})
     msg = Message(
         id=f"test-{itx.id}",
         text=message,
@@ -486,11 +488,22 @@ async def reset_cmd(itx: discord.Interaction) -> None:
     )
 
 
-@mod.command(name="set", description="Action and threshold for a category")
+@mod.command(name="set", description="Choose what jevmod does about one kind of message")
 @app_commands.describe(
-    category="spam, scam, harassment, nsfw, offtopic",
-    action="off, flag, delete, timeout",
-    threshold="How sure jevmod must be, 50 to 99. Higher acts less often.",
+    category="Which kind of message.",
+    action="What to do about it.",
+    threshold="How sure jevmod must be, 50 to 99. Higher acts less often. Leave empty to keep what you have.",
+)
+@app_commands.choices(
+    # A dropdown, not free text. The help here used to name five of the nine categories, so the other four
+    # could only be reached by someone who already knew their exact spelling.
+    category=[app_commands.Choice(name=LABEL[c][:100], value=c) for c in CATEGORIES],
+    action=[
+        app_commands.Choice(name="do not check this at all", value="off"),
+        app_commands.Choice(name="tell me, delete nothing", value="flag"),
+        app_commands.Choice(name="delete the message", value="delete"),
+        app_commands.Choice(name="mute the member for a while", value="timeout"),
+    ],
 )
 async def set_cmd(itx: discord.Interaction, category: str, action: str, threshold: float | None = None) -> None:
     if not await owner_only(itx):
@@ -503,17 +516,42 @@ async def set_cmd(itx: discord.Interaction, category: str, action: str, threshol
         await itx.response.send_message(str(exc), ephemeral=True)
         return
     service.save_policy(tenant, p)
+    does = {
+        "off": "is not checked any more",
+        "flag": "will be reported here",
+        "delete": "will have the message deleted",
+        "timeout": f"will mute the member for {p.timeout_minutes} minutes",
+    }.get(action, action)
+    # Off-topic is judged against the channel's topic. Without one the adapter substitutes "general chat",
+    # which in testing flagged nothing at all, so turning it on without a topic is a silent no-op.
+    warn = ""
+    if category == "offtopic" and action != "off":
+        topics = store.get_meta(tenant).get("channel_topics", {})
+        if not topics:
+            warn = (
+                "\n\n**This will not do anything yet.** Off-topic is judged against what a channel is for, and "
+                "no channel here has been given one. Run `/mod topic` in each channel you want checked, with a "
+                "sentence saying what belongs there."
+            )
     await itx.response.send_message(
-        f"**{category}** → {action} from {p.thresholds[category]:.0%} confidence", ephemeral=True
+        f"**{label(category)}** {does}, once jevmod is {how_sure(p.thresholds[category])}.{warn}", ephemeral=True
     )
 
 
-@mod.command(name="rule", description="Add or remove a rule in plain language")
+RULE_ADVICE = (
+    "**Rules are read the way you wrote them, so write them the way you would tell a member.** Name the "
+    'things you mean: not "no self promo" but "do not advertise your own youtube channel, twitch stream or '
+    'discord server". In testing the short version missed two thirds of the real cases and the long one '
+    "caught all of them."
+)
+
+
+@mod.command(name="rule", description="Write a rule in your own words and jevmod will enforce it")
 @app_commands.describe(
-    name="short name",
-    text="the rule as you would tell a member, exceptions included; empty to remove",
-    action="flag, delete, timeout",
-    threshold="0.5 to 0.99 (default 0.80)",
+    name="a short name for the rule, so you can change it later",
+    text="the rule, as you would say it to a member. Leave empty to delete the rule.",
+    action="what to do when it is broken: flag, delete or timeout",
+    threshold="How sure jevmod must be, 50 to 99. Leave empty for 80.",
 )
 async def rule_cmd(
     itx: discord.Interaction, name: str, text: str | None = None, action: str = "flag", threshold: float | None = None
@@ -531,11 +569,37 @@ async def rule_cmd(
     key = name.strip().lower().replace(" ", "_")[:30]
     if key in p.rules:
         th = p.rule_thresholds.get(key, RULE_THRESHOLD)
-        await itx.response.send_message(
-            f'rule **{key}** → {p.rule_actions[key]} from {th:.0%} confidence: "{p.rules[key]}"', ephemeral=True
+        head = (
+            f'Rule **{key}** is on: "{p.rules[key]}"\nWhen it is broken jevmod will '
+            f"{p.rule_actions[key]}, once it is {how_sure(th)}."
         )
+        await itx.response.send_message(head + _rule_warnings(p.rules[key]), ephemeral=True)
     else:
-        await itx.response.send_message(f"rule **{key}** removed", ephemeral=True)
+        await itx.response.send_message(f"Rule **{key}** deleted.", ephemeral=True)
+
+
+def _rule_warnings(text: str) -> str:
+    """Three ways a rule fails silently, all three measured against real Jev before being written here."""
+    out = []
+    if len(text.split()) < 4:
+        out.append(
+            "\n\n**That rule is probably too short to work.** A one word rule never fired once in testing. "
+            + RULE_ADVICE
+        )
+    lowered = text.lower()
+    if any(w in lowered for w in (" is fine", " is ok", " is okay", "allowed", "you can ", "feel free")):
+        out.append(
+            "\n\n**A rule can only forbid something, not permit it.** Written this way it will never fire, and "
+            "it does not switch off any category either. To allow something, turn that category off with "
+            "`/mod set`."
+        )
+    if any(w in lowered for w in ("regular", "veteran", "new member", "newcomer", "trusted", "been here")):
+        out.append(
+            "\n\n**An exception about who the member is cannot work.** jevmod is never told who wrote a "
+            'message, so it can only go by what the message says, and anyone can type "I have been here for '
+            'years". Use `/mod trust` to exempt a role instead.'
+        )
+    return "".join(out)
 
 
 @mod.command(name="trust", description="Toggle a role whose messages are never judged")
@@ -569,7 +633,8 @@ async def staff_cmd(itx: discord.Interaction, judged: bool) -> None:
     )
 
 
-@mod.command(name="topic", description="What this channel is for (used by the offtopic check)")
+@mod.command(name="topic", description="Say what this channel is for, so off-topic checking can work here")
+@app_commands.describe(topic="A full sentence saying what belongs here and what does not. One word is not enough.")
 async def topic_cmd(itx: discord.Interaction, topic: str) -> None:
     if not await owner_only(itx):
         return
@@ -577,7 +642,20 @@ async def topic_cmd(itx: discord.Interaction, topic: str) -> None:
     topics = dict(store.get_meta(tenant).get("channel_topics", {}))
     topics[str(itx.channel_id)] = topic.strip()[:200]
     store.set_meta(tenant, channel_topics=topics)
-    await itx.response.send_message(f"this channel is about: {topic}", ephemeral=True)
+    # Measured: a one word topic loses real off-topic messages, and the default "general chat" catches nothing
+    # at all. An owner who sets a vague topic gets silence and no way to know why.
+    warn = (
+        "\n\nThat topic is very short. Off-topic checking compares each message to this sentence, so a short "
+        "topic catches almost nothing. Say what belongs here and what does not."
+        if len(topic.split()) < 5
+        else ""
+    )
+    todo = (
+        "\n\nOff-topic checking is still switched off. Turn it on with `/mod set offtopic flag`."
+        if service.policy(tenant).actions.get("offtopic", "off") == "off"
+        else ""
+    )
+    await itx.response.send_message(f"This channel is about: {topic}{warn}{todo}", ephemeral=True)
 
 
 @mod.command(name="log", description="Log decisions in this channel")

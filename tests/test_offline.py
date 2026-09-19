@@ -267,3 +267,33 @@ def test_a_flag_title_maps_back_to_its_category():
             assert category_of(f"{verb} — {label(key)}") == key
     assert category_of('Flagged — your rule "no politics"') == "rule:no politics"
     assert category_of("Deleted — something nobody ships") == ""
+
+
+def test_a_rule_that_cannot_work_says_so():
+    """Measured against real Jev: a one word rule never fired, a permissive rule never fires and does not
+    relax the category it seems to contradict, and an exception about who the member is cannot be enforced
+    because jevmod is never told who wrote the message."""
+    import os
+
+    os.environ.setdefault("DISCORD_TOKEN", "test")
+    from jevmod.adapters.discord_bot import _rule_warnings
+
+    assert "too short" in _rule_warnings("behave")
+    assert "can only forbid" in _rule_warnings("swearing and roasting each other is fine here")
+    assert "who the member is" in _rule_warnings("no self promo unless you are a regular")
+    good = _rule_warnings("Do not advertise your own youtube channel, twitch stream or discord server.")
+    assert good == "", good
+
+
+def test_the_policy_endpoint_keeps_a_rule_threshold():
+    """PUT /v1/policy accepted rule_thresholds and threw it away, answering 200 with a policy that did not
+    contain it. An unknown field is now a 422 rather than silence."""
+    import pytest
+    from pydantic import ValidationError
+
+    from jevmod.api.server import PolicyIn
+
+    body = PolicyIn(rules={"no_politics": "No politics."}, rule_thresholds={"no_politics": 0.65})
+    assert body.rule_thresholds == {"no_politics": 0.65}
+    with pytest.raises(ValidationError):
+        PolicyIn(rule_threshold={"typo": 0.65})
