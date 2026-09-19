@@ -1,5 +1,10 @@
 # Can Jev detect AI-generated text? Measured, not assumed.
 
+> **Superseded in part by [REPORT2.md](REPORT2.md).** Everything below was measured in 50/50
+> batches. A second run showed the score depends on which other messages share the batch, and that
+> recall at a realistic AI rate is far lower than these tables say. The recommendation here, ship
+> opt-in at threshold 0.85, is withdrawn. Read REPORT2.md first.
+
 Run on 2026-09-18 against the live TypeSafe API from `benchmark/ai_detect/run.py`. 520 texts, 260 AI and 260
 human (base rate 0.500), each truncated to 400 characters, asked three different ways, 25 messages per request,
 the same batching contract as `jevmod.judge.Judge`. Total spend: **463,499 input tokens = $0.0195**.
