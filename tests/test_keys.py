@@ -8,10 +8,11 @@ import stat
 from pathlib import Path
 
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
 from jevmod import keys
 
-REAL_KEY = os.environ.get("TYPESAFE_API_KEY", "")
+REAL_KEY = KEY or ""
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +71,7 @@ def test_init_rejects_empty_input(tmp_path: Path, monkeypatch, capsys):
     assert "no key" in capsys.readouterr().err
 
 
-@pytest.mark.skipif(not REAL_KEY, reason="TYPESAFE_API_KEY not set")
+@pytest.mark.skipif(not REAL_KEY, reason=NO_KEY_REASON)
 def test_init_rejects_a_bad_key_and_writes_nothing(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.setattr("getpass.getpass", lambda prompt="": "not-a-real-key")
     assert keys.init(tmp_path) == 2
@@ -78,7 +79,7 @@ def test_init_rejects_a_bad_key_and_writes_nothing(tmp_path: Path, monkeypatch, 
     assert not (tmp_path / ".env").exists()
 
 
-@pytest.mark.skipif(not REAL_KEY, reason="TYPESAFE_API_KEY not set")
+@pytest.mark.skipif(not REAL_KEY, reason=NO_KEY_REASON)
 def test_init_validates_and_falls_back_to_dotenv(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.setattr("getpass.getpass", lambda prompt="": REAL_KEY)
     assert keys.init(tmp_path) == 0
@@ -87,7 +88,7 @@ def test_init_validates_and_falls_back_to_dotenv(tmp_path: Path, monkeypatch, ca
     assert keys.read_dotenv(tmp_path)["TYPESAFE_API_KEY"] == REAL_KEY
 
 
-@pytest.mark.skipif(not REAL_KEY, reason="TYPESAFE_API_KEY not set")
+@pytest.mark.skipif(not REAL_KEY, reason=NO_KEY_REASON)
 def test_init_env_file_flag_via_cli(tmp_path: Path, monkeypatch, capsys):
     from jevmod.cli import main
 

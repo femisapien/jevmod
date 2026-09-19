@@ -1,10 +1,9 @@
 """HTTP API end to end with FastAPI's test client and the real Jev API."""
 
-import os
-
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
-pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
+pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 
 
 @pytest.fixture()

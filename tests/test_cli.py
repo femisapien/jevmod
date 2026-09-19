@@ -2,13 +2,13 @@
 
 import io
 import json
-import os
 
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
 from jevmod.cli import main
 
-pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
+pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 
 
 def test_single_message_exit_code_and_text(capsys):

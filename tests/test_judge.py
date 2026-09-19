@@ -1,12 +1,11 @@
 """Real Jev calls on realistic messages. Checks the categories, the pre-filters and the cache."""
 
-import os
-
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
 from jevmod.judge import CATEGORIES, Judge, Message, prefilter
 
-pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
+pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 
 CATS = list(CATEGORIES)
 

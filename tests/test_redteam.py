@@ -8,15 +8,15 @@ scoreboard that must not regress below the red team's own numbers.
 from __future__ import annotations
 
 import csv
-import os
 from pathlib import Path
 
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
 from jevmod.core import DEFAULT_THRESHOLDS, RULE_THRESHOLD, Policy, decide
 from jevmod.judge import CATEGORIES, Judge, Message, normalize, prefilter
 
-pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
+pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 
 DATA = Path(__file__).parent / "data" / "redteam.csv"
 CATS = list(CATEGORIES)

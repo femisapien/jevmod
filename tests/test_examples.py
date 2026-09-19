@@ -5,15 +5,15 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import os
 import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
-pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
+pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 SCAM = "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"

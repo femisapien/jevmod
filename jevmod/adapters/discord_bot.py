@@ -209,6 +209,28 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent) -> None:
 
 
 @bot.event
+async def on_guild_join(guild: discord.Guild) -> None:
+    """Create the log channel and explain the two things that surprise every new owner: staff are never judged,
+    so testing it yourself shows nothing, and the bot only flags until someone turns on more."""
+    tenant = tenant_of(guild.id)
+    channel = await log_channel(guild, tenant)
+    if not channel:
+        log.info("joined guild %s but could not create a log channel", guild.id)
+        return
+    policy = service.policy(tenant)
+    on = ", ".join(policy.enabled_categories())
+    await channel.send(
+        "**jevmod is on.** Every message here gets a probability for: "
+        f"{on}. Nothing is deleted: everything over its line is flagged into this channel until you change "
+        "that with `/mod set`.\n\n"
+        "**Testing it with your own account will look broken.** Anyone who can manage messages is never "
+        "judged, which includes you. Use `/mod test <message>` to see what jevmod would say about any text, "
+        "or post from an account without moderator permissions.\n\n"
+        "`/mod status` shows every line. React ❌ on a flag to raise that line, ✅ to lower it."
+    )
+
+
+@bot.event
 async def on_guild_remove(guild: discord.Guild) -> None:
     """Kicked or left: forget everything about that server."""
     store.delete_tenant(tenant_of(guild.id))
@@ -233,6 +255,35 @@ async def status(itx: discord.Interaction) -> None:
     quota = f"{judged:,}/{q:,} judged this month ({plan})" if q else f"{judged:,} judged this month ({plan}, unlimited)"
     lines.append(f"\n{quota} · {requests} Jev requests · {tokens:,} tokens")
     await itx.response.send_message("\n".join(lines), ephemeral=True)
+
+
+@mod.command(name="test", description="What would jevmod say about this message? Judges it without acting.")
+@app_commands.describe(message="The text to rate. Nothing is deleted and nobody is timed out.")
+async def test_cmd(itx: discord.Interaction, message: str) -> None:
+    """Judge a message ignoring who sent it. This exists because the first thing an owner does is test the bot
+    on themselves, and staff are never judged, so the honest answer is a command that says so out loud."""
+    tenant = tenant_of(itx.guild_id or 0)
+    await itx.response.defer(ephemeral=True, thinking=True)
+    topics = store.get_meta(tenant).get("topics", {})
+    msg = Message(
+        id=f"test-{itx.id}",
+        text=message,
+        author=str(itx.user.id),
+        channel_topic=topics.get(str(itx.channel_id), getattr(itx.channel, "topic", "") or "general chat"),
+        author_trusted=False,  # the point of the command: judge it as if a member had said it
+    )
+    decision = (await asyncio.to_thread(service.moderate, tenant, [msg]))[0]
+    if not decision.judged:
+        await itx.followup.send(f"not sent to the model: {decision.reason}", ephemeral=True)
+        return
+    policy = service.policy(tenant)
+    scores = sorted(decision.scores.items(), key=lambda kv: -kv[1])[:4]
+    lines = [f"**{c}** {p:.2f} (line {policy.thresholds.get(c, 0.9):.2f})" for c, p in scores]
+    if decision.action == "none":
+        head = "Nothing over its line. This would pass."
+    else:
+        head = f"**{decision.category}** {decision.probability:.2f}: this would be **{decision.action}**."
+    await itx.followup.send(head + "\n" + "\n".join(lines), ephemeral=True)
 
 
 @mod.command(name="set", description="Action and threshold for a category")

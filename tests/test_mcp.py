@@ -8,8 +8,9 @@ import sys
 from typing import Any
 
 import pytest
+from conftest import KEY, NO_KEY_REASON
 
-pytestmark = pytest.mark.skipif(not os.environ.get("TYPESAFE_API_KEY"), reason="TYPESAFE_API_KEY not set")
+pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 
 mcp = pytest.importorskip("mcp")
 from mcp import ClientSession, StdioServerParameters  # noqa: E402
