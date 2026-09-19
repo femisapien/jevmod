@@ -85,7 +85,8 @@ the exact exports; it is developed in parallel with this file.
 | `tests/` | `test_offline.py` (no key); `test_judge.py`, `test_cli.py`, `test_api.py`, `test_redteam.py`, `test_mcp.py`, `test_keys.py`, `test_examples.py` (real Jev; `test_examples.py` needs the `examples` extra) |
 | `tests/data/redteam.csv` | 98 labelled adversarial messages; the regression floor |
 | `benchmark/` | comparison against Llama Guard 3, ShieldGemma, toxic-bert |
-| `docs/` | `llms.txt`, Postman collection, diagrams, landing page |
+| `api/` | the OpenAPI schema and the Postman collection for the open API |
+| _(private)_ | the site, the demo, Stripe billing and the admin panel live in the jevmod-hosted repo |
 
 ## Running tests
 

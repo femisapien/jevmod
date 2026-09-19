@@ -104,14 +104,19 @@ def test_every_role_is_dispatchable(monkeypatch):
 
     seen = []
     monkeypatch.setattr(m, "run_role", lambda r: seen.append(r))
-    for role in ("api", "demo", "hosted", "discord", "telegram", "reddit", "mcp"):
+    # demo and hosted are gone: they belong to the commercial repo, which installs this package and adds its
+    # own entry point. The open package must not know they exist.
+    roles = ("api", "discord", "telegram", "reddit", "mcp")
+    for role in roles:
         m.run_role(role)
-    assert seen == ["api", "demo", "hosted", "discord", "telegram", "reddit", "mcp"]
+    assert seen == list(roles)
     import inspect
 
-    src = inspect.getsource(m)
-    for role in ("api", "hosted", "demo", "discord", "telegram", "reddit", "mcp"):
-        assert f'"{role}"' in src.split("def run_role")[1].split("def main")[0], role
+    src = inspect.getsource(m).split("def run_role")[1].split("def main")[0]
+    for role in roles:
+        assert f'"{role}"' in src, role
+    for gone in ("demo", "hosted"):
+        assert f'"{gone}"' not in src, f"{gone} is commercial and must not be in the open dispatcher"
 
 
 def test_keep_text_chars_env_and_zero(monkeypatch, tmp_path):
@@ -146,16 +151,16 @@ def test_ai_generated_is_opt_in_and_not_nudged():
 
 
 def test_published_openapi_matches_the_app(tmp_path, monkeypatch):
-    """docs/openapi.json is what people import into Postman. It drifted once already, naming five of the nine
-    categories. Regenerate it with `python scripts/site/gen_openapi.py` when this fails."""
+    """api/openapi.json is what people import into Postman. It drifted once already, naming five of the nine
+    categories. Regenerate it with `python scripts/gen_openapi.py` when this fails."""
     import json
     import sys
 
     monkeypatch.setenv("JEVMOD_DB", str(tmp_path / "oa.sqlite"))
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "site"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     import gen_openapi
 
-    published = json.loads((Path(__file__).resolve().parents[1] / "docs" / "openapi.json").read_text("utf-8"))
+    published = json.loads((Path(__file__).resolve().parents[1] / "api" / "openapi.json").read_text("utf-8"))
     assert published == json.loads(json.dumps(gen_openapi.schema(), sort_keys=True))
 
 
@@ -164,8 +169,8 @@ def test_postman_collection_covers_every_endpoint():
     import json
 
     root = Path(__file__).resolve().parents[1]
-    paths = set(json.loads((root / "docs" / "openapi.json").read_text("utf-8"))["paths"])
-    collection = json.loads((root / "docs" / "jevmod.postman_collection.json").read_text("utf-8"))
+    paths = set(json.loads((root / "api" / "openapi.json").read_text("utf-8"))["paths"])
+    collection = json.loads((root / "api" / "jevmod.postman_collection.json").read_text("utf-8"))
     urls: list[str] = []
 
     def walk(items: list[dict]) -> None:
@@ -179,7 +184,7 @@ def test_postman_collection_covers_every_endpoint():
     walk(collection["item"])
     raw = " ".join(urls)
     missing = sorted(p for p in paths if p not in raw)
-    assert not missing, f"docs/jevmod.postman_collection.json has no request for {missing}"
+    assert not missing, f"api/jevmod.postman_collection.json has no request for {missing}"
 
 
 def test_experimental_categories_can_only_be_off_or_flag():

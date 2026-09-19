@@ -41,22 +41,13 @@ def run_role(role: str) -> None:
         from .adapters.reddit_bot import run
 
         run()
-    elif role in ("demo", "hosted"):
-        import uvicorn
-
-        uvicorn.run(
-            "jevmod.api.demo:app" if role == "demo" else "jevmod.api.hosted:app",
-            host=os.environ.get("JEVMOD_HOST", "127.0.0.1"),
-            port=int(os.environ.get("PORT", "8080")),
-            log_level="info",
-        )
     elif role == "mcp":
         from .mcp_server import main as run
 
         run()
     else:
         raise SystemExit(
-            f"unknown role {role!r}; use check | init | mcp | api | demo | hosted | discord | telegram | reddit"
+            f"unknown role {role!r}; use check | init | mcp | api | discord | telegram | reddit"
         )
 
 
