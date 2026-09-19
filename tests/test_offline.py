@@ -314,12 +314,12 @@ def test_the_hosted_bot_can_still_say_where_to_pay(monkeypatch):
     from jevmod.api import paylink
 
     monkeypatch.delenv("JEVMOD_PUBLIC_URL", raising=False)
-    monkeypatch.delenv("JEVMOD_ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("JEVMOD_BILLING_SECRET", raising=False)
     importlib.reload(paylink)
     assert paylink.enabled() is False, "a self-hosted copy has nothing to sell"
 
     monkeypatch.setenv("JEVMOD_PUBLIC_URL", "https://example.test/")
-    monkeypatch.setenv("JEVMOD_ADMIN_TOKEN", "secret-token")
+    monkeypatch.setenv("JEVMOD_BILLING_SECRET", "secret-token")
     importlib.reload(paylink)
     assert paylink.enabled() is True
     url = paylink.checkout_url("discord:123")
@@ -328,8 +328,9 @@ def test_the_hosted_bot_can_still_say_where_to_pay(monkeypatch):
     # A signature for one guild must not open another guild's billing portal.
     assert paylink.sign_tenant("discord:123") != paylink.sign_tenant("discord:124")
 
-    # No fallback key: a constant one would make every signature forgeable.
-    monkeypatch.delenv("JEVMOD_ADMIN_TOKEN")
+    # No fallback key, and in particular not the admin token: one secret for three jobs meant one leak
+    # opened the admin panel, the key minting and every customer's billing portal at once.
+    monkeypatch.delenv("JEVMOD_BILLING_SECRET")
     importlib.reload(paylink)
     with pytest.raises(RuntimeError):
         paylink.sign_tenant("discord:123")
@@ -355,3 +356,32 @@ def test_the_store_survives_two_processes(tmp_path):
     other.commit()
     assert [r[0] for r in cur.fetchall()] == ["discord:1"], "a concurrent write must not break an open read"
     other.close()
+
+
+def test_the_three_operator_secrets_are_independent(monkeypatch):
+    """One secret used to sign billing links, authenticate the admin panel and authorise minting an API key
+    for any tenant. A leak of it opened all three. They are separate now, and holding one must not work as
+    another: this asserts that, because the only symptom of a regression would be a quiet re-merge."""
+    import importlib
+
+    from jevmod.api import paylink, server
+
+    monkeypatch.setenv("JEVMOD_PUBLIC_URL", "https://example.test")
+    monkeypatch.setenv("JEVMOD_BILLING_SECRET", "billing-secret")
+    monkeypatch.setenv("JEVMOD_KEYMINT_TOKEN", "keymint-secret")
+    monkeypatch.setenv("JEVMOD_ADMIN_TOKEN", "admin-secret")
+    importlib.reload(paylink)
+
+    # The billing signature must come from the billing secret alone.
+    sig = paylink.sign_tenant("discord:1")
+    monkeypatch.setenv("JEVMOD_BILLING_SECRET", "a-different-billing-secret")
+    importlib.reload(paylink)
+    assert paylink.sign_tenant("discord:1") != sig, "the signature must follow its own secret"
+
+    # Neither of the other two may mint a key.
+    from fastapi import HTTPException
+
+    for wrong in ("admin-secret", "billing-secret", "a-different-billing-secret"):
+        with pytest.raises(HTTPException):
+            server.keymint_only(f"Bearer {wrong}")
+    server.keymint_only("Bearer keymint-secret")  # the right one does not raise

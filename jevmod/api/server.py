@@ -1,8 +1,10 @@
 """HTTP API for developers and for any chatbot: POST a batch of messages, get decisions.
 
-    JEVMOD_ADMIN_TOKEN=... TYPESAFE_API_KEY=... uvicorn jevmod.api.server:app --port 8080
+    JEVMOD_KEYMINT_TOKEN=... TYPESAFE_API_KEY=... uvicorn jevmod.api.server:app --port 8080
 
-Auth: `Authorization: Bearer <api key>`. Keys are created with the admin token (`POST /v1/keys`) and stored hashed.
+Auth: `Authorization: Bearer <api key>`. Keys are minted with JEVMOD_KEYMINT_TOKEN (`POST /v1/keys`) and stored
+hashed. That token does one job: minting keys. It used to be JEVMOD_ADMIN_TOKEN, which also authenticated the
+operator's panel and signed every billing link, so a leak of it handed over all three at once.
 Every response carries the request id; every judged decision is in the tenant's audit log.
 """
 
@@ -96,11 +98,13 @@ def tenant_from_auth(authorization: str = Header(default="")) -> str:
     return tenant
 
 
-def admin_only(authorization: str = Header(default="")) -> None:
-    admin = os.environ.get("JEVMOD_ADMIN_TOKEN", "")
+def keymint_only(authorization: str = Header(default="")) -> None:
+    """Minting a key for a tenant is the one thing this token does. Header only: a credential in a query
+    string ends up in the proxy log and the browser history."""
+    want = os.environ.get("JEVMOD_KEYMINT_TOKEN", "")
     given = authorization[7:].strip() if authorization.startswith("Bearer ") else ""
-    if not admin or not hmac.compare_digest(given, admin):
-        raise HTTPException(403, "admin token required")
+    if not want or not hmac.compare_digest(given, want):
+        raise HTTPException(403, "key-minting token required")
 
 
 # ------------------------------------------------------------------ routes
@@ -192,7 +196,7 @@ def delete_tenant(tenant: str = Depends(tenant_from_auth)) -> dict[str, bool]:
     return {"deleted": True}
 
 
-@app.post("/v1/keys", dependencies=[Depends(admin_only)])
+@app.post("/v1/keys", dependencies=[Depends(keymint_only)])
 def create_key(body: KeyRequest) -> dict[str, str]:
     key = "jm_" + secrets.token_urlsafe(32)
     store.create_api_key(body.tenant, _hash(key), body.label)

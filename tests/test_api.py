@@ -9,7 +9,7 @@ pytestmark = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JEVMOD_DB", str(tmp_path / "t.sqlite"))
-    monkeypatch.setenv("JEVMOD_ADMIN_TOKEN", "admin-secret")
+    monkeypatch.setenv("JEVMOD_KEYMINT_TOKEN", "admin-secret")
     import importlib
 
     from jevmod.api import server

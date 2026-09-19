@@ -5,12 +5,16 @@ network call: those belong to whoever operates the service, not to the open pack
 the link, because `/mod upgrade` is a command of the open bot and a bot that cannot say where to pay is a bot
 that cannot be run commercially by anyone but its author.
 
-The signature is an HMAC over the guild id with the operator's admin token. Without it, anyone who knows a
+The signature is an HMAC over the guild id with `JEVMOD_BILLING_SECRET`. Without it, anyone who knows a
 guild id could open that owner's billing portal, which lists their invoices and can cancel their plan. There
 is deliberately no default key: a constant fallback would make every signature forgeable.
 
-`JEVMOD_PUBLIC_URL` and `JEVMOD_ADMIN_TOKEN` are the operator's. A self-hosted copy sets neither, `enabled()`
-is false, and the bot says there is nothing to pay.
+That secret used to be `JEVMOD_ADMIN_TOKEN`, which also authenticated the operator's admin panel and
+authorised minting an API key for any tenant. One secret doing three unrelated jobs means one leak opens all
+three, so they are three secrets now and this one signs links and nothing else.
+
+`JEVMOD_PUBLIC_URL` and `JEVMOD_BILLING_SECRET` are the operator's. A self-hosted copy sets neither,
+`enabled()` is false, and the bot says there is nothing to pay.
 """
 
 from __future__ import annotations
@@ -22,13 +26,13 @@ import os
 
 def enabled() -> bool:
     """True when this copy is operated as a paid service: a public URL and a key to sign links with."""
-    return bool(os.environ.get("JEVMOD_PUBLIC_URL") and os.environ.get("JEVMOD_ADMIN_TOKEN"))
+    return bool(os.environ.get("JEVMOD_PUBLIC_URL") and os.environ.get("JEVMOD_BILLING_SECRET"))
 
 
 def sign_tenant(tenant: str) -> str:
-    key = os.environ.get("JEVMOD_ADMIN_TOKEN", "")
+    key = os.environ.get("JEVMOD_BILLING_SECRET", "")
     if not key:
-        raise RuntimeError("JEVMOD_ADMIN_TOKEN must be set to sign billing links")
+        raise RuntimeError("JEVMOD_BILLING_SECRET must be set to sign billing links")
     return hmac.new(key.encode(), tenant.encode(), hashlib.sha256).hexdigest()[:24]
 
 
