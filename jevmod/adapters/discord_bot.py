@@ -666,19 +666,31 @@ async def log_cmd(itx: discord.Interaction) -> None:
     await itx.response.send_message("decisions will be logged here", ephemeral=True)
 
 
-@mod.command(name="recent", description="Last decisions with probabilities")
+@mod.command(name="recent", description="The last things jevmod caught here")
 async def recent_cmd(itx: discord.Interaction) -> None:
+    """A bare message id is useless: a moderator cannot click it, search it or act on it. Each line now says
+    who, when, and links to the message itself, which is the only thing that lets someone check the call."""
     rows = store.recent_decisions(tenant_of(itx.guild_id or 0), 10)
     if not rows:
-        await itx.response.send_message("no decisions yet", ephemeral=True)
+        await itx.response.send_message(
+            "Nothing caught yet. `/mod test` and any sentence shows what jevmod would say about it.",
+            ephemeral=True,
+        )
         return
-    await itx.response.send_message(
-        "\n".join(
-            f"`{r['category']} {float(r['p']):.0%} {r['action']}` {r['text'][:80] or 'message ' + str(r['message_id'])}"
-            for r in rows
-        ),
-        ephemeral=True,
-    )
+    did = {"flag": "told you about", "delete": "deleted", "timeout": "muted them for"}
+    lines = []
+    for r in rows:
+        when = f"<t:{int(r['ts'])}:R>" if r.get("ts") else ""
+        who = f"<@{r['author']}>" if r.get("author") else "someone"
+        what = did.get(r["action"], r["action"])
+        head = f"**{label(r['category'])}**, {how_sure(float(r['p']))}: {what} {who} {when}"
+        # No link: the `channel` column holds the channel's topic, not its id, so a jump URL cannot be built
+        # from what is stored. The topic is at least context a person can use.
+        if r.get("channel"):
+            head += f" · in a channel about: {r['channel']}"
+        body = f"\n> {r['text'][:120]}" if r.get("text") else ""
+        lines.append(head + body)
+    await itx.response.send_message("\n".join(lines)[:1900], ephemeral=True)
 
 
 @mod.command(name="upgrade", description="Payment link for the Pro plan of this server, or the billing portal")

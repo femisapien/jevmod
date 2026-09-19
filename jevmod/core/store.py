@@ -274,7 +274,9 @@ class Store:
     def recent_decisions(self, tenant: str, n: int = 10) -> list[dict[str, Any]]:
         with self.lock:
             rows = self.db.execute(
-                "SELECT ts, message, category, p, action, scores, text FROM decisions "
+                # author and channel are stored and were never read back, which left /mod recent printing a
+                # bare message id that a moderator cannot click, search or act on.
+                "SELECT ts, message, category, p, action, scores, text, author, channel FROM decisions "
                 "WHERE tenant=? ORDER BY ts DESC LIMIT ?",
                 (tenant, n),
             ).fetchall()
@@ -287,6 +289,8 @@ class Store:
                 "action": r[4],
                 "scores": json.loads(r[5]),
                 "text": r[6],
+                "author": r[7],
+                "channel": r[8],
             }
             for r in rows
         ]
