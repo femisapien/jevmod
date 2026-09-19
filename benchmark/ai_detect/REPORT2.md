@@ -1,5 +1,9 @@
 # Round two: the score is not a property of the message
 
+> **Superseded by [REPORT3.md](REPORT3.md).** This report answered "was this written by a
+> model". That is the wrong question: the product wants slop gone, whoever typed it. Asked the right
+> way, the encyclopedic-human failure mode below stops being a failure. Read REPORT3.md first.
+
 Run on 2026-09-19, after [REPORT.md](REPORT.md). Three questions it left open, answered with new data:
 
 1. Does a deterministic, model-free signal rescue the precision?
