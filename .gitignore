@@ -8,3 +8,8 @@ node_modules/
 packages/jevmod-js/dist/
 benchmark/results/report.md
 build/
+
+# Business notes: margins, pricing strategy, live Stripe object ids, launch drafts.
+# The published offer lives in PLANS.md, which the site cites. These do not belong in a public repo.
+PRODUCT.md
+launch/
