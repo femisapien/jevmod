@@ -1,0 +1,22 @@
+name: jev-review
+
+# Shadow mode: scores every changed file with Jev and posts one comment.
+# It never merges anything. `pull_request`, never `pull_request_target` --
+# this job holds a write token and must not run a fork's code.
+on: pull_request
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ohernandezdev/jev-pr-review@v1
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          config-path: .jev-review.yml
+          typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
