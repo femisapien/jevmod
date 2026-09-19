@@ -75,6 +75,7 @@ batcher = Batcher(2.0, handle_batch)
 
 @bot.event
 async def on_ready() -> None:
+    bot.add_view(FeedbackView())  # so the buttons on flags posted before this restart still answer
     await tree.sync()
     log.info("discord ready as %s in %d guilds", bot.user, len(bot.guilds))
 
@@ -94,6 +95,41 @@ async def on_message_edit(_before: discord.Message, after: discord.Message) -> N
     """Judge edits too: otherwise a member posts a harmless line and edits it into whatever they wanted."""
     if after.content != _before.content:
         await on_message(after)
+
+
+class FeedbackView(discord.ui.View):
+    """Two buttons under every flag. The view is persistent: its custom ids are fixed and the category is read
+    back from the embed title when clicked, so the buttons keep working after the bot restarts."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Wrong, it was fine", style=discord.ButtonStyle.secondary, custom_id="jevmod:fp")
+    async def wrong(self, itx: discord.Interaction, _button: discord.ui.Button) -> None:
+        await _apply_feedback(itx, 0.03)
+
+    @discord.ui.button(label="Right call", style=discord.ButtonStyle.secondary, custom_id="jevmod:ok")
+    async def right(self, itx: discord.Interaction, _button: discord.ui.Button) -> None:
+        await _apply_feedback(itx, -0.02)
+
+
+async def _apply_feedback(itx: discord.Interaction, delta: float) -> None:
+    """Move that category's line and say where it landed. Anyone who can see the log channel may do this."""
+    if not itx.guild_id or not itx.message or not itx.message.embeds:
+        return
+    title = itx.message.embeds[0].title or ""
+    category = title.split()[0] if title else ""
+    tenant = tenant_of(itx.guild_id)
+    policy = service.policy(tenant)
+    if category not in policy.thresholds and not category.startswith("rule:"):
+        await itx.response.send_message("That flag is too old to adjust.", ephemeral=True)
+        return
+    new = policy.nudge(category, delta)
+    service.save_policy(tenant, policy)
+    direction = "less often" if delta > 0 else "more often"
+    await itx.response.send_message(
+        f"Noted. **{category}** now acts from {new:.0%} confidence, so it will act {direction}.", ephemeral=True
+    )
 
 
 async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
@@ -131,10 +167,8 @@ async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
         )
         embed.add_field(name="author", value=m.author.mention, inline=True)
         embed.add_field(name="channel", value=getattr(m.channel, "mention", str(m.channel)), inline=True)
-        embed.set_footer(text=f"{top}   ·   ❌ false positive (raises threshold)  ·  ✅ correct (lowers it a notch)")
-        sent = await channel.send(embed=embed)
-        await sent.add_reaction("❌")
-        await sent.add_reaction("✅")
+        embed.set_footer(text=top)
+        await channel.send(embed=embed, view=FeedbackView())
 
 
 async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel | None:
@@ -156,7 +190,6 @@ async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel 
                 read_messages=True,
                 send_messages=True,
                 embed_links=True,
-                add_reactions=True,
                 read_message_history=True,
             ),
         }
@@ -165,7 +198,7 @@ async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel 
         for role in guild.roles:
             if role.permissions.manage_messages or role.permissions.manage_guild:
                 overwrites[role] = discord.PermissionOverwrite(
-                    read_messages=True, send_messages=True, add_reactions=True, read_message_history=True
+                    read_messages=True, send_messages=True, read_message_history=True
                 )
         ch = await guild.create_text_channel("jevmod-log", overwrites=overwrites, reason="jevmod decisions log")
         store.set_meta(tenant, log_channel=ch.id)
@@ -188,7 +221,8 @@ async def _notify_quota_once(guild: discord.Guild, tenant: str) -> None:
 
 @bot.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent) -> None:
-    """❌ = false positive (threshold up), ✅ = confirmed (threshold down a notch, floor 0.5)."""
+    """Reacting by hand still works, for flags posted before the buttons existed and for moderators who
+    prefer it. The bot no longer adds these reactions itself."""
     emoji = str(payload.emoji)
     if emoji not in ("❌", "✅") or (bot.user and payload.user_id == bot.user.id) or not payload.guild_id:
         return
@@ -231,7 +265,8 @@ async def on_guild_join(guild: discord.Guild) -> None:
         "**Testing it with your own account will look broken.** Anyone who can manage messages is never "
         "judged, which includes you. Use `/mod test <message>` to see what jevmod would say about any text, "
         "or post from an account without moderator permissions.\n\n"
-        "`/mod status` shows every line. React ❌ on a flag to raise that line, ✅ to lower it."
+        "`/mod status` shows every line. Each flag carries two buttons: use them when it got one wrong or right, "
+        "and the line for that category moves."
     )
 
 

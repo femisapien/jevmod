@@ -51,7 +51,7 @@ go into git; `.env` is ignored.
 1. [Developer Portal](https://discord.com/developers/applications) → New Application → Bot → **Reset Token** →
    enable **Message Content Intent** (the only privileged intent used).
 2. OAuth2 → URL Generator → scopes `bot` + `applications.commands`; permissions: Read Messages, Send Messages,
-   Manage Messages, Moderate Members, Manage Channels, Embed Links, Add Reactions. Open the URL, add it to your server.
+   Manage Messages, Moderate Members, Manage Channels, Embed Links. Open the URL, add it to your server.
 3. `pip install "jevmod[discord]"`, set `DISCORD_TOKEN`, run `jevmod discord`.
 
 The bot creates a private `#jevmod-log` channel and starts flagging there.
