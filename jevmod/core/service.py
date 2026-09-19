@@ -30,6 +30,13 @@ JEV_USD_PER_M_INPUT = 0.042
 # The most one check-then-spend window may commit. A quota is checked before a batch and written
 # after it, so a batch bigger than this is a ceiling overshot by exactly that much.
 MAX_BATCH = int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100)
+# Whether a tenant on the free plan may reach the model at all.
+#
+# On by default, because a self-hosted copy pays its own model bill and has no notion of plans: there, every
+# tenant is "free" and every tenant should be judged. The hosted service sets it to 0, which is what makes
+# its free tier free: not a quota that runs out, not a ceiling that pauses, but a plan that never spends.
+# Local rules are decided before this and are unaffected, which is the whole point of the free tier.
+MODEL_ON_FREE = (os.environ.get("JEVMOD_MODEL_ON_FREE", "1") or "1") != "0"
 
 
 class ModerationService:
@@ -62,6 +69,13 @@ class ModerationService:
         if not policy.active():
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
         self.store.purge_expired()
+        # The trial's expiry sweep runs right here, next to `purge_expired()`: one indexed row lookup on the
+        # tenant this batch is already reading, so it costs nothing extra rather than a table scan on a
+        # timer. Lazy per-tenant, same as retention above — a server that goes quiet does not get logged out
+        # of its trial until it sends another message, which is the same trade `purge_expired()` already
+        # makes. The Discord adapter checks the same flip again before it calls in, so the one log-channel
+        # message lands there instead of being lost inside a background thread with no guild to post to.
+        self.store.expire_trial(tenant)
 
         # Local rules cost nothing per message, so they run before every gate below: a tenant that is out of
         # quota, over the shared budget, or has never enabled a single Jev category still gets its link
@@ -87,6 +101,10 @@ class ModerationService:
     def _gate_and_judge(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
         """Everything that only governs what is left after local rules have already decided what they can:
         the per-tenant quota, the shared spend ceiling, and the batch-size cap."""
+        if not MODEL_ON_FREE and self.store.plan(tenant) == "free":
+            # Before the quota and before the ceiling, because this is not a limit being reached: nothing was
+            # ever going to be spent here. A trial is not free for this purpose and reaches the model.
+            return [Decision(m.id, "none", None, 0.0, {}, False, "free_plan") for m in messages]
         if self.store.over_quota(tenant):
             # note_quota_hit is a once-a-month latch, and the adapters use it to decide whether to post the
             # notice. Consuming it here meant the adapter always got False, so the notice never reached anyone.

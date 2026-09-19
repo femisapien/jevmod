@@ -16,12 +16,17 @@ from .policy import Decision, Policy
 # Optional cost guard per tenant per month. 0 (the default) means unlimited; set JEVMOD_MONTHLY_QUOTA=5000 to pause
 # judging for a tenant after 5,000 judged messages in a calendar month (nothing is deleted while paused).
 FREE_MONTHLY = int(os.environ.get("JEVMOD_MONTHLY_QUOTA", "0") or 0)
-# Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "free", "pro", "unlimited" (comped).
+# Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "free", "trial", "pro",
+# "unlimited" (comped). "trial" has no entry of its own: `quota_for` gives it Pro's number directly, because
+# a trial *is* Pro's judgement for fourteen days and a second place that could drift out of sync with
+# JEVMOD_PRO_MONTHLY_QUOTA is a bug waiting to happen.
 PLAN_QUOTAS: dict[str, int] = {
     "free": FREE_MONTHLY,
     "pro": int(os.environ.get("JEVMOD_PRO_MONTHLY_QUOTA", "50000") or 0),
     "unlimited": 0,
 }
+# One trial, fourteen days, no card. See `start_trial`.
+TRIAL_DAYS = 14
 
 # What the whole service may spend on the model in a calendar month, across every tenant at once.
 #
@@ -96,6 +101,15 @@ class Store:
                 """
             )
             self.db.commit()
+            # `trial_ends_at`, added for the fourteen day trial: a Unix timestamp, null on a tenant that has
+            # never had one. `CREATE TABLE IF NOT EXISTS` above leaves a database created before this column
+            # existed untouched, so the column is added here, once, checked against `PRAGMA table_info`
+            # rather than assumed — opening an old database is not an error and running this twice is not
+            # either.
+            cols = {row[1] for row in self.db.execute("PRAGMA table_info(tenants)").fetchall()}
+            if "trial_ends_at" not in cols:
+                self.db.execute("ALTER TABLE tenants ADD COLUMN trial_ends_at REAL")
+                self.db.commit()
 
     # ---- policy
     def get_policy(self, tenant: str) -> Policy:
@@ -167,7 +181,54 @@ class Store:
         plan = self.plan(tenant)
         if plan == "free":
             return self.monthly_quota
+        if plan == "trial":
+            # A trial opens the model's judgement at Pro's ceiling, not Free's — Free's quota exists to cap
+            # a plan that should not be spending on the model at all, and a trial is the opposite of that.
+            return PLAN_QUOTAS.get("pro", 0)
         return PLAN_QUOTAS.get(plan, 0)
+
+    # ---- the fourteen day trial
+    def trial_ends_at(self, tenant: str) -> float | None:
+        """None on a tenant that has never had a trial, or after CREATE-time defaults. Once set this stays
+        set even past expiry — see `start_trial`, which is the only thing this value has to answer for."""
+        with self.lock:
+            row = self.db.execute("SELECT trial_ends_at FROM tenants WHERE id=?", (tenant,)).fetchone()
+        return row[0] if row else None
+
+    def start_trial(self, tenant: str) -> bool:
+        """Starts the one trial a tenant ever gets: fourteen days of Pro's judgement, no card. Refused once
+        `trial_ends_at` has ever been set for this tenant, including after the trial already ran out —
+        the column is the ledger, and it is never cleared back to null by expiry, on purpose."""
+        with self.lock:
+            row = self.db.execute("SELECT trial_ends_at FROM tenants WHERE id=?", (tenant,)).fetchone()
+            if row and row[0] is not None:
+                return False
+            ends = time.time() + TRIAL_DAYS * 86400
+            self.db.execute(
+                "INSERT INTO tenants (id, policy, plan, trial_ends_at) VALUES (?, ?, 'trial', ?) "
+                "ON CONFLICT(id) DO UPDATE SET plan='trial', trial_ends_at=excluded.trial_ends_at",
+                (tenant, json.dumps(Policy().to_dict()), ends),
+            )
+            self.db.commit()
+            return True
+
+    def expire_trial(self, tenant: str) -> bool:
+        """True exactly once: the moment this tenant's fourteen days are up, flips the plan to `free` and
+        says so. A later call for the same tenant finds the plan already `free` and returns False, which is
+        what makes the log-channel notice in the Discord adapter a one-time thing rather than a latch of its
+        own.
+
+        Lazy and per-tenant, called from `ModerationService.moderate()` right next to `purge_expired()`: it
+        costs one indexed row lookup on a tenant already being read for this batch, not a sweep of every
+        trial in the database, so it runs on the tenant sending traffic rather than on a timer nothing here
+        should own."""
+        with self.lock:
+            row = self.db.execute("SELECT plan, trial_ends_at FROM tenants WHERE id=?", (tenant,)).fetchone()
+            if not row or row[0] != "trial" or row[1] is None or row[1] > time.time():
+                return False
+            self.db.execute("UPDATE tenants SET plan='free' WHERE id=?", (tenant,))
+            self.db.commit()
+            return True
 
     def over_quota(self, tenant: str) -> bool:
         q = self.quota_for(tenant)
@@ -192,12 +253,17 @@ class Store:
 
     def paying_tenants(self, max_age_s: float = 30.0) -> int:
         """How many servers are on a paid plan right now. Cached on the same window as the spend, because it
-        is read on the same path and changes on the timescale of a card payment, not of a batch."""
+        is read on the same path and changes on the timescale of a card payment, not of a batch.
+
+        Counts only `pro`, never `trial`: this number feeds `budget_ceiling`, which grows the hard ceiling by
+        one allowance per paying server. A trial brings no money with it, so counting it here would let a
+        trial raise the very ceiling it is itself spending against — the opposite of `over_budget` treating
+        it as free."""
         now = time.time()
         if self._paying_at + max_age_s > now:
             return self._paying
         with self.lock:
-            row = self.db.execute("SELECT COUNT(*) FROM tenants WHERE plan IS NOT NULL AND plan != 'free'").fetchone()
+            row = self.db.execute("SELECT COUNT(*) FROM tenants WHERE plan = 'pro'").fetchone()
         self._paying = int(row[0])
         self._paying_at = now
         return self._paying
@@ -230,7 +296,9 @@ class Store:
             ceiling = self.budget_ceiling()
         if ceiling and spend >= ceiling:
             return "global_budget"
-        if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) == "free":
+        # A trial counts as free here on purpose: it pauses at the lower, free-tenant ceiling rather than at
+        # the hard one, so trials give way before a server that is actually paying does.
+        if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) in ("free", "trial"):
             return "free_budget"
         return None
 
