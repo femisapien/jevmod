@@ -88,13 +88,21 @@ def score_block(block: str, policy: Policy) -> tuple[int, int, int, list[str]]:
             d = decide(policy, v)
             if r["expected"] == "skip":
                 continue  # the red team expected the pre-filter to skip these; now judged, no label to score
-            expected = set(r["expected"].split("|")) - {"clean"}
+            # A label prefixed with `?` is defensible rather than required: flagging it is not a mistake and
+            # not catching it is not a miss. `g4` is the case that forced this: a link to the CPython repo in
+            # a gaming channel is genuinely off-topic, so `offtopic` fires on about one run in six, and a
+            # budget of zero false positives turned an honest reading into a failing test.
+            raw = set(r["expected"].split("|")) - {"clean"}
+            tolerated = {e[1:] for e in raw if e.startswith("?")}
+            tolerated = {e if e in CATS else f"rule:{e}" for e in tolerated}
+            expected = {e for e in raw if not e.startswith("?")}
             expected = {e if e in CATS else f"rule:{e}" for e in expected}
             got = set()
             for c, p in {**v.scores, **{f"rule:{n}": p for n, p in v.custom.items()}}.items():
                 th = policy.thresholds.get(c, policy.rule_thresholds.get(c[5:], RULE_THRESHOLD))
                 if p >= th:
                     got.add(c)
+            got -= tolerated  # a defensible reading counts as neither a catch nor a mistake
             if expected and got & expected:
                 tp += 1
             elif expected and not got:
