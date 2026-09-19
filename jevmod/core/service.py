@@ -19,6 +19,8 @@ from typing import Any
 from typesafe_sdk import TypeSafeError
 
 from ..judge import Judge, Message
+from . import local
+from .local import RepeatWindow
 from .policy import Decision, Policy, decide
 from .store import Store
 
@@ -35,6 +37,10 @@ class ModerationService:
         self.store = store
         self._judge = judge
         self.fail_open = fail_open
+        # Anti-raid's repeat counter: in memory, per service instance, on purpose. It is a sixty second
+        # phenomenon, not something a disk write per message should pay for, and losing it on restart is the
+        # correct failure — see jevmod/core/local.py.
+        self._seen = RepeatWindow()
 
     @property
     def judge(self) -> Judge:
@@ -54,6 +60,31 @@ class ModerationService:
         if not policy.active():
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
         self.store.purge_expired()
+
+        # Local rules cost nothing per message, so they run before every gate below: a tenant that is out of
+        # quota, over the shared budget, or has never enabled a single Jev category still gets its link
+        # filter, its word list and its patterns. A message a local rule decides is logged like any other
+        # decision and never reaches a gate that only governs what is left for the model.
+        decided: dict[str, Decision] = {}
+        remaining: list[Message] = []
+        for m in messages:
+            d = local.check(m, policy, self._seen)
+            if d is None:
+                remaining.append(m)
+            else:
+                decided[m.id] = d
+                self.store.log_decision(tenant, m, d, rid)
+
+        if not remaining:
+            return [decided[m.id] for m in messages]
+
+        judged = self._gate_and_judge(tenant, policy, remaining, rid)
+        by_id: dict[str, Decision] = {**decided, **{d.message_id: d for d in judged}}
+        return [by_id[m.id] for m in messages]
+
+    def _gate_and_judge(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
+        """Everything that only governs what is left after local rules have already decided what they can:
+        the per-tenant quota, the shared spend ceiling, and the batch-size cap."""
         if self.store.over_quota(tenant):
             # note_quota_hit is a once-a-month latch, and the adapters use it to decide whether to post the
             # notice. Consuming it here meant the adapter always got False, so the notice never reached anyone.
@@ -69,9 +100,12 @@ class ModerationService:
         # overshot by. Two seconds of a raid is otherwise one batch of whatever arrived.
         if len(messages) > MAX_BATCH:
             head, tail = messages[:MAX_BATCH], messages[MAX_BATCH:]
-            return self.moderate(tenant, head, rid) + [
+            return self._gate_and_judge(tenant, policy, head, rid) + [
                 Decision(m.id, "none", None, 0.0, {}, False, "over_batch") for m in tail
             ]
+        return self._judge_batch(tenant, policy, messages, rid)
+
+    def _judge_batch(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
         j = self.judge
         before = (j.requests, j.input_tokens, j.judged_messages)
         t0 = time.perf_counter()

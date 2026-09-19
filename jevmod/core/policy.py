@@ -2,12 +2,40 @@
 
 from __future__ import annotations
 
+import re
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from typing import Any
 
 from ..judge import CATEGORIES, Verdict
 
 ACTIONS = ("off", "flag", "delete", "timeout")  # ordered by severity
+LINK_MODES = ("off", "invites", "allowlist", "all")
+# A pattern is refused at write time rather than discovered at moderation time. The probe is close to the
+# spec's 2 KB and deliberately ends on a character the pattern cannot consume, so a classic catastrophic
+# backtracker (e.g. `(a+)+$`) is forced through its worst case instead of matching on the first attempt.
+_PATTERN_MAX_MATCH_S = 0.05
+# The match runs in a throwaway interpreter, not a thread and not a `multiprocessing` child.
+#
+# Not a thread, because CPython's `re` engine does not release the GIL while backtracking: a thread stuck in
+# a catastrophic match freezes the whole interpreter rather than leaking one thread. Only a real process can
+# be killed out of that.
+#
+# Not `multiprocessing`, because its `spawn` start method re-imports the caller's `__main__` in the child.
+# Measured: a script that calls this runs its own top level twice. In production the caller's `__main__` is
+# the Discord bot, so validating a pattern would have started a second bot. The child here is
+# `sys.executable -c`, which imports `re` and nothing of ours.
+_PATTERN_PROBE_SRC = """import re, sys, time
+pattern = sys.argv[1]
+probe = "a" * 2000 + "!"
+t0 = time.perf_counter()
+re.compile(pattern).search(probe)
+print(time.perf_counter() - t0)
+"""
+# Generous, because it also covers interpreter start-up. The 50ms figure is still the one enforced, against
+# the time the child actually spent inside `search()`.
+_PATTERN_PROCESS_TIMEOUT_S = 5.0
 DEFAULT_THRESHOLDS = {
     "spam": 0.85,
     "scam": 0.75,
@@ -45,12 +73,33 @@ class Policy:
     rule_actions: dict[str, str] = field(default_factory=dict)  # name -> action (default flag)
     rule_thresholds: dict[str, float] = field(default_factory=dict)
     timeout_minutes: int = 10
+    # Local rules (Free tier): zero cost per message, evaluated by jevmod.core.local before any model call.
+    link_mode: str = "off"  # off | invites | allowlist | all
+    link_action: str = "flag"
+    link_allowlist: list[str] = field(default_factory=list)
+    words: list[str] = field(default_factory=list)
+    word_action: str = "flag"
+    patterns: dict[str, str] = field(default_factory=dict)  # name -> regex
+    pattern_actions: dict[str, str] = field(default_factory=dict)  # name -> action
+    raid_joins: int = 0  # 0 = off; else 3-100 joins per 60s
+    raid_repeats: int = 0  # 0 = off; else 3-50 identical messages per 60s
+    raid_action: str = "flag"
 
     def enabled_categories(self) -> list[str]:
         return [c for c in CATEGORIES if self.actions.get(c, "off") != "off"]
 
     def active(self) -> bool:
-        return bool(self.enabled_categories() or self.rules)
+        # True the moment any local rule exists too, even with every category off and no natural-language
+        # rule: a server on Free with the model off must still get its link filter and word list run.
+        return bool(
+            self.enabled_categories()
+            or self.rules
+            or self.link_mode != "off"
+            or self.words
+            or self.patterns
+            or self.raid_joins
+            or self.raid_repeats
+        )
 
     def set_category(self, category: str, action: str, threshold: float | None = None) -> None:
         if category not in CATEGORIES:
@@ -82,6 +131,65 @@ class Policy:
         if threshold is not None:
             self.rule_thresholds[name] = _clamp(threshold)
 
+    def set_link_mode(self, mode: str) -> None:
+        if mode not in LINK_MODES:
+            raise ValueError(f"unknown link_mode {mode!r}; one of {', '.join(LINK_MODES)}")
+        self.link_mode = mode
+
+    def set_link_action(self, action: str) -> None:
+        if action not in ACTIONS:
+            raise ValueError(f"unknown action {action!r}; one of {', '.join(ACTIONS)}")
+        self.link_action = action
+
+    def set_link_allowlist(self, domains: list[str]) -> None:
+        if len(domains) > 25:
+            raise ValueError("link_allowlist accepts up to 25 domains")
+        for d in domains:
+            if len(d) > 253:
+                raise ValueError(f"domain {d!r} is longer than 253 characters")
+        self.link_allowlist = list(domains)
+
+    def set_words(self, words: list[str]) -> None:
+        if len(words) > 100:
+            raise ValueError("words accepts up to 100 entries")
+        for w in words:
+            if not 2 <= len(w) <= 64:
+                raise ValueError(f"word {w!r} must be 2 to 64 characters")
+        self.words = list(words)
+
+    def set_word_action(self, action: str) -> None:
+        if action not in ACTIONS:
+            raise ValueError(f"unknown action {action!r}; one of {', '.join(ACTIONS)}")
+        self.word_action = action
+
+    def set_pattern(self, name: str, pattern: str | None, action: str = "flag") -> None:
+        name = name.strip().lower().replace(" ", "_")[:30]
+        if pattern is None or not pattern.strip():
+            self.patterns.pop(name, None)
+            self.pattern_actions.pop(name, None)
+            return
+        if len(self.patterns) >= 5 and name not in self.patterns:
+            raise ValueError("up to 5 patterns")
+        if action not in ACTIONS:
+            raise ValueError(f"unknown action {action!r}; one of {', '.join(ACTIONS)}")
+        _validate_pattern(pattern)
+        self.patterns[name] = pattern
+        self.pattern_actions[name] = action
+
+    def set_raid(self, joins: int | None = None, repeats: int | None = None, action: str | None = None) -> None:
+        if joins is not None:
+            if joins != 0 and not (3 <= joins <= 100):
+                raise ValueError("raid_joins must be 0 (off) or 3 to 100")
+            self.raid_joins = joins
+        if repeats is not None:
+            if repeats != 0 and not (3 <= repeats <= 50):
+                raise ValueError("raid_repeats must be 0 (off) or 3 to 50")
+            self.raid_repeats = repeats
+        if action is not None:
+            if action not in ACTIONS:
+                raise ValueError(f"unknown action {action!r}; one of {', '.join(ACTIONS)}")
+            self.raid_action = action
+
     def nudge(self, category: str, delta: float = 0.03) -> float:
         """False-positive feedback: raise that category's threshold a notch.
 
@@ -106,17 +214,43 @@ class Policy:
             "rule_actions": self.rule_actions,
             "rule_thresholds": self.rule_thresholds,
             "timeout_minutes": self.timeout_minutes,
+            "link_mode": self.link_mode,
+            "link_action": self.link_action,
+            "link_allowlist": self.link_allowlist,
+            "words": self.words,
+            "word_action": self.word_action,
+            "patterns": self.patterns,
+            "pattern_actions": self.pattern_actions,
+            "raid_joins": self.raid_joins,
+            "raid_repeats": self.raid_repeats,
+            "raid_action": self.raid_action,
             "version": POLICY_VERSION,
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Policy:
         p = cls()
-        for k in ("thresholds", "actions", "rules", "rule_actions", "rule_thresholds"):
+        for k in ("thresholds", "actions", "rules", "rule_actions", "rule_thresholds", "patterns", "pattern_actions"):
             if isinstance(d.get(k), dict):
                 getattr(p, k).update(d[k])
         if "timeout_minutes" in d:
             p.timeout_minutes = int(d["timeout_minutes"])
+        if "link_mode" in d:
+            p.link_mode = d["link_mode"]
+        if "link_action" in d:
+            p.link_action = d["link_action"]
+        if isinstance(d.get("link_allowlist"), list):
+            p.link_allowlist = list(d["link_allowlist"])
+        if isinstance(d.get("words"), list):
+            p.words = list(d["words"])
+        if "word_action" in d:
+            p.word_action = d["word_action"]
+        if "raid_joins" in d:
+            p.raid_joins = int(d["raid_joins"])
+        if "raid_repeats" in d:
+            p.raid_repeats = int(d["raid_repeats"])
+        if "raid_action" in d:
+            p.raid_action = d["raid_action"]
         return p
 
 
@@ -166,3 +300,33 @@ def decide(policy: Policy, v: Verdict) -> Decision:
 
 def _clamp(x: float) -> float:
     return max(0.5, min(0.99, round(float(x), 2)))
+
+
+
+def _validate_pattern(pattern: str) -> None:
+    """Refuse a pattern that fails to compile, is longer than 200 characters, or is too slow against a 2 KB
+    probe. See the comment on `_PATTERN_PROCESS_TIMEOUT_S` for why this runs in a subprocess rather than a
+    thread or a signal-based timeout."""
+    if len(pattern) > 200:
+        raise ValueError(f"pattern is longer than 200 characters: {pattern[:40]!r}...")
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        raise ValueError(f"pattern {pattern!r} does not compile: {exc}") from exc
+    try:
+        done = subprocess.run(
+            [sys.executable, "-c", _PATTERN_PROBE_SRC, pattern],
+            capture_output=True,
+            text=True,
+            timeout=_PATTERN_PROCESS_TIMEOUT_S,
+        )
+        elapsed = float(done.stdout.strip()) if done.returncode == 0 else None
+    except (subprocess.TimeoutExpired, ValueError):
+        # The timeout is the catastrophic case itself; a ValueError means the child printed something that
+        # was not a duration, which is the same answer: this pattern is not one we will run.
+        elapsed = None
+    if elapsed is None or elapsed > _PATTERN_MAX_MATCH_S:
+        raise ValueError(
+            f"pattern {pattern!r} took more than {int(_PATTERN_MAX_MATCH_S * 1000)}ms against a 2 KB probe "
+            "string (catastrophic backtracking?)"
+        )
