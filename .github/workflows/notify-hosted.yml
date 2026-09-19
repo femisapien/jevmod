@@ -1,0 +1,30 @@
+# The hosted Discord bot builds straight from this repository's main, so what moderates a real server is
+# exactly the code anyone can read here. Docker caches that git context, which means a push to main does
+# not reach production by itself: this tells the private repository to rebuild the bot without the cache.
+#
+# Needs a secret, HOSTED_DISPATCH_TOKEN: a fine-grained personal access token scoped to
+# ohernandezdev/jevmod-hosted with the `Contents: read and write` permission.
+name: notify hosted
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  dispatch:
+    # A broken core must not reach the bot, so only a green ci on main triggers the rebuild.
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: ask the hosted repository to rebuild the bot
+        env:
+          GH_TOKEN: ${{ secrets.HOSTED_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "HOSTED_DISPATCH_TOKEN is not set: the bot on jevmod.dev still runs the previous core."
+            exit 1
+          fi
+          gh api repos/ohernandezdev/jevmod-hosted/dispatches \
+            -f event_type=core-updated \
+            -F 'client_payload[sha]=${{ github.event.workflow_run.head_sha }}'
