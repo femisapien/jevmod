@@ -366,3 +366,23 @@ def test_validating_a_pattern_does_not_re_run_the_program_that_asked(tmp_path):
     )
     assert done.stdout.count("CALLER BODY") == 1, done.stdout
     assert "REFUSED" in done.stdout, done.stdout
+
+
+def test_a_trusted_author_is_not_caught_by_the_local_rules_either():
+    """Trust is a statement about the person, not about which code path the message takes.
+
+    `prefilter()` has always exempted a trusted author from the model. The local rules were written without
+    that check, so a moderator saying a word on the server's own block list had their message deleted by the
+    filter they wrote. The price list also promises trusted roles are never moderated, and on Free the model
+    is never reached at all, so this check is the only place that promise can be kept.
+    """
+    policy = Policy()
+    policy.set_words(["nitro"])
+    policy.set_pattern("caps", r"[A-Z]{5,}", "delete")
+    policy.set_link_mode("all")
+
+    ordinary = Message("m1", "free NITRO at http://example.com", author="a")
+    assert check(ordinary, policy, RepeatWindow()) is not None, "the rules do fire for an ordinary member"
+
+    trusted = Message("m2", "free NITRO at http://example.com", author="mod", author_trusted=True)
+    assert check(trusted, policy, RepeatWindow()) is None

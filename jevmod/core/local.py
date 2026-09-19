@@ -101,6 +101,12 @@ def check(message: Message, policy: Policy, seen: RepeatWindow) -> Decision | No
     """The first rule to hit decides — patterns, then words, then links, then raid — because an operator who
     wrote a pattern meant that pattern; the "most severe action wins" rule `decide()` uses for Jev categories
     does not apply to rules an operator wrote by hand."""
+    # Trust is a statement about the person, not about which code path their message takes. `prefilter()`
+    # has always exempted a trusted author from the model; leaving that check out here meant a moderator
+    # saying a word on their own block list had the message deleted by the filter they wrote themselves.
+    if message.author_trusted:
+        return None
+
     text = message.text or ""
 
     for name, pattern in policy.patterns.items():
