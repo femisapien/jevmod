@@ -33,8 +33,14 @@ PLAN_QUOTAS: dict[str, int] = {
 # the people who pay are not moderated worse because the people who do not have been busy. The hard ceiling
 # stops everybody, and reaching it is an operator failure to be alerted on rather than a state to live in.
 # 0 disables a ceiling, which is what a self-hosted copy paying its own model bill wants.
+# The hard ceiling is a floor plus what the paying servers have already funded. A fixed figure pauses a
+# customer who paid this month because other customers who also paid were busy, which is the wrong failure:
+# every Pro subscription brings its own money, so it should bring its own allowance with it. Set
+# JEVMOD_PAID_BUDGET_USD to the model cost of one subscription's full quota, under what that subscription
+# nets after card fees. At 0 it is off and the ceiling is the flat figure it has always been.
 GLOBAL_BUDGET_USD = float(os.environ.get("JEVMOD_GLOBAL_BUDGET_USD", "0") or 0)
 FREE_BUDGET_USD = float(os.environ.get("JEVMOD_FREE_BUDGET_USD", "0") or 0)
+PAID_BUDGET_USD = float(os.environ.get("JEVMOD_PAID_BUDGET_USD", "0") or 0)
 USD_PER_M_INPUT = 0.042  # Jev list price per million input tokens
 
 
@@ -60,6 +66,8 @@ class Store:
         self.lock = threading.Lock()
         self._spend = 0.0        # month-to-date spend, cached; see month_spend_usd
         self._spend_at = 0.0
+        self._paying = 0         # paid-plan tenants, cached; see paying_tenants
+        self._paying_at = 0.0
         self.keep_text_chars = (
             int(os.environ.get("JEVMOD_KEEP_TEXT_CHARS", "300")) if keep_text_chars is None else keep_text_chars
         )
@@ -180,6 +188,26 @@ class Store:
         self._spend_at = now
         return self._spend
 
+    def paying_tenants(self, max_age_s: float = 30.0) -> int:
+        """How many servers are on a paid plan right now. Cached on the same window as the spend, because it
+        is read on the same path and changes on the timescale of a card payment, not of a batch."""
+        now = time.time()
+        if self._paying_at + max_age_s > now:
+            return self._paying
+        with self.lock:
+            row = self.db.execute("SELECT COUNT(*) FROM tenants WHERE plan IS NOT NULL AND plan != 'free'").fetchone()
+        self._paying = int(row[0])
+        self._paying_at = now
+        return self._paying
+
+    def budget_ceiling(self) -> float:
+        """The hard ceiling for this month: the operator's own floor, plus the allowance each paying server
+        brought with it. 0 means no ceiling at all, and stays 0 however many subscriptions exist, because an
+        operator who turned the ceiling off did not ask for one to grow back."""
+        if not GLOBAL_BUDGET_USD:
+            return 0.0
+        return GLOBAL_BUDGET_USD + PAID_BUDGET_USD * self.paying_tenants()
+
     def over_budget(self, tenant: str) -> str | None:
         """Which ceiling this tenant has run into, if any: `global_budget` or `free_budget`.
 
@@ -189,7 +217,8 @@ class Store:
         if not GLOBAL_BUDGET_USD and not FREE_BUDGET_USD:
             return None
         spend = self.month_spend_usd()
-        if GLOBAL_BUDGET_USD and spend >= GLOBAL_BUDGET_USD:
+        ceiling = self.budget_ceiling()
+        if ceiling and spend >= ceiling:
             return "global_budget"
         if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) == "free":
             return "free_budget"
