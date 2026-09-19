@@ -6,7 +6,8 @@ __pycache__/
 benchmark/data/
 node_modules/
 packages/jevmod-js/dist/
-benchmark/results/report.md
+# benchmark/results/report.md is tracked: 18 sentences on jevmod.dev cite it as their
+# source, and evidence that is not in the repository is not evidence.
 build/
 
 # Business notes: margins, pricing strategy, live Stripe object ids, launch drafts.
