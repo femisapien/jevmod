@@ -237,3 +237,18 @@ def test_the_quota_notice_reaches_the_adapter(tmp_path):
     assert [d.reason for d in decisions] == ["quota"]
     assert store.note_quota_hit("t") is True, "the adapter must still be able to claim the notice"
     assert store.note_quota_hit("t") is False, "and only once"
+
+
+def test_a_threshold_can_be_typed_as_a_percentage():
+    """The bot shows percentages everywhere, so 75 and 0.75 have to mean the same line. Someone who reads
+    'from 75%' in /mod status and types 75 into /mod set must not end up with a threshold of 1.0."""
+    import os
+
+    os.environ.setdefault("DISCORD_TOKEN", "test")
+    from jevmod.adapters.discord_bot import _as_probability
+
+    assert _as_probability(75) == 0.75
+    assert _as_probability(0.75) == 0.75
+    assert _as_probability(99) == 0.99
+    assert _as_probability(1) == 1
+    assert _as_probability(None) is None

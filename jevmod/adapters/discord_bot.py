@@ -108,7 +108,7 @@ async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
             note = "deleted"
         elif d.action == "timeout" and isinstance(m.author, discord.Member):
             await m.author.timeout(
-                timedelta(minutes=policy.timeout_minutes), reason=f"jevmod: {d.category} p={d.probability:.2f}"
+                timedelta(minutes=policy.timeout_minutes), reason=f"jevmod: {d.category} {d.probability:.0%}"
             )
             note = f"timed out {policy.timeout_minutes} min"
     except discord.Forbidden:
@@ -123,9 +123,9 @@ async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
             )
     channel = await log_channel(guild, tenant)
     if channel:
-        top = " · ".join(f"{c} {p:.2f}" for c, p in sorted(d.scores.items(), key=lambda kv: -kv[1])[:3])
+        top = " · ".join(f"{c} {p:.0%}" for c, p in sorted(d.scores.items(), key=lambda kv: -kv[1])[:3])
         embed = discord.Embed(
-            title=f"{d.category}  p={d.probability:.2f}  →  {d.action}" + (f" ({note})" if note else ""),
+            title=f"{d.category} {d.probability:.0%}  →  {d.action}" + (f" ({note})" if note else ""),
             description=m.content[:500],
             colour=0x2FBF83 if d.action == "flag" else 0xD9A441,
         )
@@ -210,7 +210,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent) -> None:
     if category in policy.thresholds or category.startswith("rule:"):
         new = policy.nudge(category, 0.03 if emoji == "❌" else -0.02)
         service.save_policy(tenant, policy)
-        await msg.reply(f"noted: threshold for **{category}** is now {new:.2f}", mention_author=False)
+        await msg.reply(f"noted: the line for **{category}** is now {new:.0%}", mention_author=False)
 
 
 @bot.event
@@ -253,7 +253,7 @@ async def status(itx: discord.Interaction) -> None:
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     judged, requests, tokens = store.usage(tenant)
-    lines = [f"**{c}**: {p.actions.get(c, 'off')} at p ≥ {p.thresholds.get(c, 0.9):.2f}" for c in CATEGORIES]
+    lines = [f"**{c}**: {p.actions.get(c, 'off')} from {p.thresholds.get(c, 0.9):.0%}" for c in CATEGORIES]
     lines += [f'**rule {n}**: {p.rule_actions.get(n, "flag")} · "{r}"' for n, r in p.rules.items()]
     plan = store.plan(tenant)
     q = store.quota_for(tenant)
@@ -327,20 +327,32 @@ def _explain(decision: Decision, policy: Policy) -> str:
     return f"{head}\n{table}\n{tail}\n\n{footer}"
 
 
+def _as_probability(value: float | None) -> float | None:
+    """The bot talks in percentages, so 75 and 0.75 both mean the same line. Anything above 1 is read as a
+    percentage, which is also what someone typing 80 into `/mod set` means."""
+    if value is None:
+        return None
+    return value / 100 if value > 1 else value
+
+
 @mod.command(name="set", description="Action and threshold for a category")
 @app_commands.describe(
-    category="spam, scam, harassment, nsfw, offtopic", action="off, flag, delete, timeout", threshold="0.5 to 0.99"
+    category="spam, scam, harassment, nsfw, offtopic",
+    action="off, flag, delete, timeout",
+    threshold="How sure jevmod must be, 50 to 99. Higher acts less often.",
 )
 async def set_cmd(itx: discord.Interaction, category: str, action: str, threshold: float | None = None) -> None:
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     try:
-        p.set_category(category, action, threshold)
+        p.set_category(category, action, _as_probability(threshold))
     except ValueError as exc:
         await itx.response.send_message(str(exc), ephemeral=True)
         return
     service.save_policy(tenant, p)
-    await itx.response.send_message(f"**{category}** → {action} at p ≥ {p.thresholds[category]:.2f}", ephemeral=True)
+    await itx.response.send_message(
+        f"**{category}** → {action} from {p.thresholds[category]:.0%} confidence", ephemeral=True
+    )
 
 
 @mod.command(name="rule", description="Add or remove a rule in plain language")
@@ -356,7 +368,7 @@ async def rule_cmd(
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     try:
-        p.set_rule(name, text, action, threshold)
+        p.set_rule(name, text, action, _as_probability(threshold))
     except ValueError as exc:
         await itx.response.send_message(str(exc), ephemeral=True)
         return
@@ -365,7 +377,7 @@ async def rule_cmd(
     if key in p.rules:
         th = p.rule_thresholds.get(key, RULE_THRESHOLD)
         await itx.response.send_message(
-            f'rule **{key}** → {p.rule_actions[key]} at p ≥ {th:.2f}: "{p.rules[key]}"', ephemeral=True
+            f'rule **{key}** → {p.rule_actions[key]} from {th:.0%} confidence: "{p.rules[key]}"', ephemeral=True
         )
     else:
         await itx.response.send_message(f"rule **{key}** removed", ephemeral=True)
@@ -421,7 +433,7 @@ async def recent_cmd(itx: discord.Interaction) -> None:
         return
     await itx.response.send_message(
         "\n".join(
-            f"`{r['category']} {r['p']:.2f} {r['action']}` {r['text'][:80] or 'message ' + str(r['message_id'])}"
+            f"`{r['category']} {float(r['p']):.0%} {r['action']}` {r['text'][:80] or 'message ' + str(r['message_id'])}"
             for r in rows
         ),
         ephemeral=True,
