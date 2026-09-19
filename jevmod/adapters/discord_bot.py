@@ -692,7 +692,16 @@ async def upgrade_cmd(itx: discord.Interaction) -> None:
             ephemeral=True,
         )
         return
-    from ..api.billing import checkout_url
+    try:
+        from ..api.billing import checkout_url
+    except ImportError:
+        # Billing is not part of the open package. A copy without it is by definition self-hosted.
+        await itx.response.send_message(
+            "This copy of jevmod has no billing built in, so there is nothing to pay. Raise "
+            "JEVMOD_MONTHLY_QUOTA on the server to lift the limit.",
+            ephemeral=True,
+        )
+        return
 
     plan = store.plan(tenant)
     what = "manage or cancel the subscription" if plan != "free" else "upgrade this server to Pro"
