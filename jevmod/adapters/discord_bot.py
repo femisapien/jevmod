@@ -16,7 +16,7 @@ from datetime import timedelta
 import discord
 from discord import app_commands
 
-from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Store
+from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Policy, Store
 from ..judge import CATEGORIES, Message
 
 log = logging.getLogger("jevmod.discord")
@@ -40,13 +40,14 @@ async def handle_batch(tenant: str, batch: list[discord.Message]) -> None:
     meta = store.get_meta(tenant)
     trusted = set(meta.get("trusted_roles", []))
     topics = meta.get("channel_topics", {})
+    staff_exempt = bool(store.get_meta(tenant).get("staff_exempt", True))
     msgs = [
         Message(
             id=str(m.id),
             text=m.content,
             author=str(m.author.id),  # kept only in your local log for erasure requests; never sent to Jev
             channel_topic=topics.get(str(m.channel.id), getattr(m.channel, "topic", "") or "general chat"),
-            author_trusted=_trusted(m.author, trusted),
+            author_trusted=_trusted(m.author, trusted, staff_exempt),
         )
         for m in batch
     ]
@@ -59,10 +60,14 @@ async def handle_batch(tenant: str, batch: list[discord.Message]) -> None:
             await act(guild, m, d)
 
 
-def _trusted(author: discord.User | discord.Member, trusted_roles: set[int]) -> bool:
+def _trusted(author: discord.User | discord.Member, trusted_roles: set[int], staff_exempt: bool = True) -> bool:
+    """Roles the owner marked are never judged. Staff are exempt by default, which `/mod staff` can turn off for
+    a server that wants its moderators held to the same line."""
     if not isinstance(author, discord.Member):
         return False
-    return author.guild_permissions.manage_messages or bool(trusted_roles & {r.id for r in author.roles})
+    if trusted_roles & {r.id for r in author.roles}:
+        return True
+    return staff_exempt and author.guild_permissions.manage_messages
 
 
 batcher = Batcher(2.0, handle_batch)
@@ -277,13 +282,49 @@ async def test_cmd(itx: discord.Interaction, message: str) -> None:
         await itx.followup.send(f"not sent to the model: {decision.reason}", ephemeral=True)
         return
     policy = service.policy(tenant)
-    scores = sorted(decision.scores.items(), key=lambda kv: -kv[1])[:4]
-    lines = [f"**{c}** {p:.2f} (line {policy.thresholds.get(c, 0.9):.2f})" for c, p in scores]
+    await itx.followup.send(_explain(decision, policy), ephemeral=True)
+
+
+WHAT_HAPPENS = {
+    "flag": "It would be posted to the log channel for your moderators. The message stays up and the member is "
+    "not told.",
+    "delete": "It would be deleted, and the member would get a direct message saying an automated system "
+    "removed it and how to appeal.",
+    "timeout": "The member would be timed out, and would get a direct message saying so and how to appeal. The "
+    "message stays up.",
+}
+
+
+def _bar(p: float, width: int = 18) -> str:
+    filled = max(0, min(width, round(p * width)))
+    return "#" * filled + "." * (width - filled)
+
+
+def _explain(decision: Decision, policy: Policy) -> str:
+    """Percentages and a bar per category, then what would actually happen to the message."""
+    scores = sorted(decision.scores.items(), key=lambda kv: -kv[1])
+    shown = [(c, p) for c, p in scores if p >= 0.01][:5] or scores[:3]
+    rows = []
+    for category, p in shown:
+        line = policy.thresholds.get(category, 0.9)
+        over = " over your line" if p >= line and policy.actions.get(category, "off") != "off" else ""
+        rows.append(f"{category:<12}{_bar(p)} {p:>4.0%}{over}")
+    table = "```\n" + "\n".join(rows) + "\n```"
+
     if decision.action == "none":
-        head = "Nothing over its line. This would pass."
+        head = "**Nothing here crosses a line. This message would be left alone.**"
+        tail = (
+            "The strongest reading was "
+            + f"{shown[0][0]} at {shown[0][1]:.0%}, under your {policy.thresholds.get(shown[0][0], 0.9):.0%} line."
+        )
     else:
-        head = f"**{decision.category}** {decision.probability:.2f}: this would be **{decision.action}**."
-    await itx.followup.send(head + "\n" + "\n".join(lines), ephemeral=True)
+        # an acting decision always carries its category; name it so the type checker knows too
+        category = decision.category or "a rule"
+        head = f"**This would be treated as {category}.** jevmod is {decision.probability:.0%} sure, and "
+        head += f"your line for {category} is {policy.thresholds.get(category, RULE_THRESHOLD):.0%}."
+        tail = WHAT_HAPPENS.get(decision.action, "")
+    footer = "Nothing was done to anyone: this command only rates the text. `/mod set` moves any line."
+    return f"{head}\n{table}\n{tail}\n\n{footer}"
 
 
 @mod.command(name="set", description="Action and threshold for a category")
@@ -342,6 +383,19 @@ async def trust_cmd(itx: discord.Interaction, role: discord.Role) -> None:
         msg = f"{role.mention} is trusted: never judged"
     store.set_meta(tenant, trusted_roles=roles)
     await itx.response.send_message(msg, ephemeral=True)
+
+
+@mod.command(name="staff", description="Whether moderators are judged like everyone else")
+@app_commands.describe(judged="True judges anyone who can manage messages. False exempts them, the default.")
+async def staff_cmd(itx: discord.Interaction, judged: bool) -> None:
+    tenant = tenant_of(itx.guild_id or 0)
+    store.set_meta(tenant, staff_exempt=not judged)
+    await itx.response.send_message(
+        "Moderators are judged like everyone else now. Your own messages included."
+        if judged
+        else "Moderators are exempt again. Anyone who can manage messages is never judged.",
+        ephemeral=True,
+    )
 
 
 @mod.command(name="topic", description="What this channel is for (used by the offtopic check)")
