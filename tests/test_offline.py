@@ -252,3 +252,18 @@ def test_a_threshold_can_be_typed_as_a_percentage():
     assert _as_probability(99) == 0.99
     assert _as_probability(1) == 1
     assert _as_probability(None) is None
+
+
+def test_a_flag_title_maps_back_to_its_category():
+    """The flag title shows a human label and the buttons need the key behind it. Taking the first word of the
+    title worked only while the title was the key, so changing the title silently broke both buttons."""
+    import os
+
+    os.environ.setdefault("DISCORD_TOKEN", "test")
+    from jevmod.adapters.discord_bot import LABEL, category_of, label
+
+    for key in LABEL:
+        for verb in ("Flagged", "Deleted", "Muted the member"):
+            assert category_of(f"{verb} — {label(key)}") == key
+    assert category_of('Flagged — your rule "no politics"') == "rule:no politics"
+    assert category_of("Deleted — something nobody ships") == ""

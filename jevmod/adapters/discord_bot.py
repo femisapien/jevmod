@@ -17,6 +17,7 @@ import discord
 from discord import app_commands
 
 from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Policy, Store
+from ..core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS
 from ..judge import CATEGORIES, Message
 
 log = logging.getLogger("jevmod.discord")
@@ -70,6 +71,45 @@ def _trusted(author: discord.User | discord.Member, trusted_roles: set[int], sta
     return staff_exempt and author.guild_permissions.manage_messages
 
 
+# What a category is called when a person reads it. The keys stay as they are for the API and the store.
+LABEL = {c: CATEGORIES[c].get("label", c) for c in CATEGORIES}
+
+
+def label(category: str | None) -> str:
+    """`minors` reads as 'messages from children' and means the opposite, so nothing user-facing uses the key."""
+    if not category:
+        return "a rule"
+    if category.startswith("rule:"):
+        return f'your rule "{category[5:]}"'
+    return LABEL.get(category, category)
+
+
+def category_of(title: str) -> str:
+    """The key behind a flag's title, which reads `Deleted — scam / phishing`.
+
+    The buttons need the key and the reader needs the label, so the title carries the label and this maps it
+    back. It used to take the first word of the title, which stopped working the moment the title got prettier.
+    """
+    tail = title.split(" — ", 1)[-1].strip()
+    for key, text in LABEL.items():
+        if text == tail:
+            return key
+    if tail.startswith('your rule "') and tail.endswith('"'):
+        return "rule:" + tail[len('your rule "') : -1]
+    return tail if tail in LABEL else ""
+
+
+def how_sure(p: float) -> str:
+    """Words, not a percentage. Nobody outside this codebase knows what 87% confidence is 87% of."""
+    if p >= 0.95:
+        return "very sure"
+    if p >= 0.85:
+        return "sure"
+    if p >= 0.70:
+        return "fairly sure"
+    return "not very sure"
+
+
 batcher = Batcher(2.0, handle_batch)
 
 
@@ -104,11 +144,11 @@ class FeedbackView(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Wrong, it was fine", style=discord.ButtonStyle.secondary, custom_id="jevmod:fp")
+    @discord.ui.button(label="Be less strict about this", style=discord.ButtonStyle.secondary, custom_id="jevmod:fp")
     async def wrong(self, itx: discord.Interaction, _button: discord.ui.Button) -> None:
         await _apply_feedback(itx, 0.03)
 
-    @discord.ui.button(label="Right call", style=discord.ButtonStyle.secondary, custom_id="jevmod:ok")
+    @discord.ui.button(label="Be more strict about this", style=discord.ButtonStyle.secondary, custom_id="jevmod:ok")
     async def right(self, itx: discord.Interaction, _button: discord.ui.Button) -> None:
         await _apply_feedback(itx, -0.02)
 
@@ -117,19 +157,38 @@ async def _apply_feedback(itx: discord.Interaction, delta: float) -> None:
     """Move that category's line and say where it landed. Anyone who can see the log channel may do this."""
     if not itx.guild_id or not itx.message or not itx.message.embeds:
         return
-    title = itx.message.embeds[0].title or ""
-    category = title.split()[0] if title else ""
+    category = category_of(itx.message.embeds[0].title or "")
     tenant = tenant_of(itx.guild_id)
     policy = service.policy(tenant)
-    if category not in policy.thresholds and not category.startswith("rule:"):
-        await itx.response.send_message("That flag is too old to adjust.", ephemeral=True)
+    if not category or (category not in policy.thresholds and not category.startswith("rule:")):
+        await itx.response.send_message(
+            "This flag is from an older version of jevmod, so these buttons cannot tell which setting to "
+            "change. The next one will work.",
+            ephemeral=True,
+        )
         return
+    before = policy.thresholds.get(category, RULE_THRESHOLD)
     new = policy.nudge(category, delta)
+    if new == before:
+        await itx.response.send_message(
+            f"{label(category)} is experimental, so its setting does not move.", ephemeral=True
+        )
+        return
     service.save_policy(tenant, policy)
-    direction = "less often" if delta > 0 else "more often"
+    softer = delta > 0
     await itx.response.send_message(
-        f"Noted. **{category}** now acts from {new:.0%} confidence, so it will act {direction}.", ephemeral=True
+        f"Done. From now on jevmod acts on **{label(category)}** "
+        + ("only when it is more sure, so it will act less often." if softer else "sooner, so it will act more often.")
+        + "\n\nThis changed the setting for the whole server, not just this message. `/mod status` shows where "
+        "everything sits and `/mod reset` puts it all back.",
+        ephemeral=True,
     )
+    # The owner cannot see an ephemeral reply, so leave the trace where they will find it.
+    with contextlib.suppress(Exception):
+        await itx.channel.send(  # type: ignore[union-attr]
+            f"{itx.user.mention} made jevmod {'less' if softer else 'more'} strict about "
+            f"**{label(category)}** for the whole server."
+        )
 
 
 async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
@@ -144,30 +203,43 @@ async def act(guild: discord.Guild, m: discord.Message, d: Decision) -> None:
             note = "deleted"
         elif d.action == "timeout" and isinstance(m.author, discord.Member):
             await m.author.timeout(
-                timedelta(minutes=policy.timeout_minutes), reason=f"jevmod: {d.category} {d.probability:.0%}"
+                timedelta(minutes=policy.timeout_minutes),
+                reason=f"jevmod: {label(d.category)}, {how_sure(d.probability)}",
             )
             note = f"timed out {policy.timeout_minutes} min"
     except discord.Forbidden:
-        note = "missing permissions to act"
+        note = "Drag the jevmod role above your members in Server Settings, Roles, and it will work."
     if note and "missing" not in note:
-        what = "was removed" if d.action == "delete" else f"led to a {policy.timeout_minutes} minute timeout for you"
+        what = "was deleted" if d.action == "delete" else f"got you muted for {policy.timeout_minutes} minutes"
+        quoted = m.content[:400].replace("\n", " ")
         with contextlib.suppress(Exception):  # DMs closed
+            # Their own words back, not a number. They cannot argue with a percentage and neither can the
+            # moderator they are about to message.
             await m.author.send(
-                f"Your message in **{guild.name}** #{m.channel} {what} because an automated moderation system "
-                f"rated it {d.category} with confidence {d.probability:.0%}. If you think this was a mistake, contact "
-                "the server's moderators; they can review the decision and adjust the rules."
+                f"Your message in **{guild.name}** #{m.channel} {what} automatically, because it looked like "
+                f"{label(d.category)}.\n\n> {quoted}\n\n"
+                "No person reviewed this before it happened. If it is wrong, say so in the server and a "
+                "moderator can pass it to whoever runs it."
             )
     channel = await log_channel(guild, tenant)
     if channel:
-        top = " · ".join(f"{c} {p:.0%}" for c, p in sorted(d.scores.items(), key=lambda kv: -kv[1])[:3])
+        did = {"flag": "Flagged", "delete": "Deleted", "timeout": "Muted the member"}.get(d.action, d.action)
+        problem = "missing" in note
         embed = discord.Embed(
-            title=f"{d.category} {d.probability:.0%}  →  {d.action}" + (f" ({note})" if note else ""),
-            description=m.content[:500],
-            colour=0x2FBF83 if d.action == "flag" else 0xD9A441,
+            title=(f"Could not act on {label(d.category)}" if problem else f"{did} — {label(d.category)}"),
+            description=m.content[:1000],
+            colour=0xD9A441 if problem else (0x2FBF83 if d.action == "flag" else 0xDC2626),
         )
-        embed.add_field(name="author", value=m.author.mention, inline=True)
-        embed.add_field(name="channel", value=getattr(m.channel, "mention", str(m.channel)), inline=True)
-        embed.set_footer(text=top)
+        embed.add_field(name="who", value=m.author.mention, inline=True)
+        embed.add_field(name="where", value=getattr(m.channel, "mention", str(m.channel)), inline=True)
+        # A moderator needs the conversation, not a screenshot of one line. A deleted message has no link left.
+        if d.action == "delete":
+            embed.add_field(name="the message", value="Deleted. Discord cannot restore it.", inline=False)
+        else:
+            embed.add_field(name="go to it", value=f"[open the message]({m.jump_url})", inline=False)
+        if problem:
+            embed.add_field(name="what to do", value=note, inline=False)
+        embed.set_footer(text=f"jevmod was {how_sure(d.probability)} about this one")
         await channel.send(embed=embed, view=FeedbackView())
 
 
@@ -257,16 +329,16 @@ async def on_guild_join(guild: discord.Guild) -> None:
         log.info("joined guild %s but could not create a log channel", guild.id)
         return
     policy = service.policy(tenant)
-    on = ", ".join(policy.enabled_categories())
+    kinds = "\n".join(f"- {label(c)}" for c in policy.enabled_categories())
     await channel.send(
-        "**jevmod is on.** Every message here gets a probability for: "
-        f"{on}. Nothing is deleted: everything over its line is flagged into this channel until you change "
-        "that with `/mod set`.\n\n"
-        "**Testing it with your own account will look broken.** Anyone who can manage messages is never "
-        "judged, which includes you. Use `/mod test <message>` to see what jevmod would say about any text, "
-        "or post from an account without moderator permissions.\n\n"
-        "`/mod status` shows every line. Each flag carries two buttons: use them when it got one wrong or right, "
-        "and the line for that category moves."
+        "**jevmod is watching this server.** It reads each message and decides how likely it is to be one "
+        f"of these:\n{kinds}\n\n"
+        "**Right now it deletes nothing.** Anything it catches lands here, and you decide whether it was "
+        "right. Turn on deleting later with `/mod set`, once you have seen a week of it.\n\n"
+        "**Trying it on yourself will look broken.** jevmod ignores your moderators, and you are one, so "
+        "your own messages are never checked. Type `/mod test` and any sentence to see what it would say.\n\n"
+        "`/mod status` shows how it is set up. Every catch here carries two buttons to make jevmod stricter "
+        "or gentler about that kind of thing."
     )
 
 
@@ -279,8 +351,25 @@ async def on_guild_remove(guild: discord.Guild) -> None:
 
 # ------------------------------------------------------------------ /mod
 mod = app_commands.Group(
-    name="mod", description="jevmod settings", default_permissions=discord.Permissions(manage_guild=True)
+    name="mod",
+    description="What jevmod caught, and how it is set up",
+    # Manage Messages, not Manage Server: the log channel is opened to moderators, so the commands that explain
+    # what is in it have to be too. The ones that change settings ask for Manage Server themselves, below.
+    default_permissions=discord.Permissions(manage_messages=True),
 )
+
+
+async def owner_only(itx: discord.Interaction) -> bool:
+    """True when this member may change settings. Moderators can look; changing is for whoever runs the server."""
+    perms = getattr(itx.user, "guild_permissions", None)
+    if perms and perms.manage_guild:
+        return True
+    await itx.response.send_message(
+        "Only someone who can manage the server can change this. You can see how it is set up with "
+        "`/mod status`, and try any text with `/mod test`.",
+        ephemeral=True,
+    )
+    return False
 
 
 @mod.command(name="status", description="Settings and this month's usage")
@@ -288,12 +377,23 @@ async def status(itx: discord.Interaction) -> None:
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     judged, requests, tokens = store.usage(tenant)
-    lines = [f"**{c}**: {p.actions.get(c, 'off')} from {p.thresholds.get(c, 0.9):.0%}" for c in CATEGORIES]
+    lines = []
+    for c in CATEGORIES:
+        action = p.actions.get(c, "off")
+        if action == "off":
+            lines.append(f"**{label(c)}**: not checked")
+        else:
+            does = {
+                "flag": "tells you",
+                "delete": "deletes the message",
+                "timeout": f"mutes the member for {p.timeout_minutes} minutes",
+            }.get(action, action)
+            lines.append(f"**{label(c)}**: {does}, once it is {how_sure(p.thresholds.get(c, 0.9))}")
     lines += [f'**rule {n}**: {p.rule_actions.get(n, "flag")} · "{r}"' for n, r in p.rules.items()]
     plan = store.plan(tenant)
     q = store.quota_for(tenant)
     quota = f"{judged:,}/{q:,} judged this month ({plan})" if q else f"{judged:,} judged this month ({plan}, unlimited)"
-    lines.append(f"\n{quota} · {requests} Jev requests · {tokens:,} tokens")
+    lines.append(f"\n{quota}")
     await itx.response.send_message("\n".join(lines), ephemeral=True)
 
 
@@ -342,23 +442,22 @@ def _explain(decision: Decision, policy: Policy) -> str:
     rows = []
     for category, p in shown:
         line = policy.thresholds.get(category, 0.9)
-        over = " over your line" if p >= line and policy.actions.get(category, "off") != "off" else ""
-        rows.append(f"{category:<12}{_bar(p)} {p:>4.0%}{over}")
+        enough = p >= line and policy.actions.get(category, "off") != "off"
+        # the bar carries the reading and the marker carries your setting, so the two are comparable at a glance
+        rows.append(f"{label(category)[:22]:<24}{_bar(p)}  {'acts' if enough else 'not enough'}")
     table = "```\n" + "\n".join(rows) + "\n```"
 
     if decision.action == "none":
-        head = "**Nothing here crosses a line. This message would be left alone.**"
-        tail = (
-            "The strongest reading was "
-            + f"{shown[0][0]} at {shown[0][1]:.0%}, under your {policy.thresholds.get(shown[0][0], 0.9):.0%} line."
-        )
+        head = "**jevmod would leave this alone.**"
+        tail = f"The closest it came was {label(shown[0][0])}, and even there it was only {how_sure(shown[0][1])}."
     else:
         # an acting decision always carries its category; name it so the type checker knows too
         category = decision.category or "a rule"
-        head = f"**This would be treated as {category}.** jevmod is {decision.probability:.0%} sure, and "
-        head += f"your line for {category} is {policy.thresholds.get(category, RULE_THRESHOLD):.0%}."
+        head = f"**jevmod would treat this as {label(category)},** and it is {how_sure(decision.probability)}."
         tail = WHAT_HAPPENS.get(decision.action, "")
-    footer = "Nothing was done to anyone: this command only rates the text. `/mod set` moves any line."
+    footer = (
+        "Nothing happened to anyone: this only reads the text you typed. `/mod set` changes how strict any of these is."
+    )
     return f"{head}\n{table}\n{tail}\n\n{footer}"
 
 
@@ -370,6 +469,23 @@ def _as_probability(value: float | None) -> float | None:
     return value / 100 if value > 1 else value
 
 
+@mod.command(name="reset", description="Put every setting back the way it started")
+async def reset_cmd(itx: discord.Interaction) -> None:
+    """The buttons move settings a little at a time, so after a busy week nobody remembers where they were."""
+    if not await owner_only(itx):
+        return
+    tenant = tenant_of(itx.guild_id or 0)
+    p = service.policy(tenant)
+    kept = dict(p.rules)
+    p.thresholds = dict(DEFAULT_THRESHOLDS)
+    p.actions = dict(DEFAULT_ACTIONS)
+    service.save_policy(tenant, p)
+    rules = f" Your {len(kept)} rule(s) were left alone." if kept else ""
+    await itx.response.send_message(
+        "Every category is back to how jevmod ships: it tells you and deletes nothing." + rules, ephemeral=True
+    )
+
+
 @mod.command(name="set", description="Action and threshold for a category")
 @app_commands.describe(
     category="spam, scam, harassment, nsfw, offtopic",
@@ -377,6 +493,8 @@ def _as_probability(value: float | None) -> float | None:
     threshold="How sure jevmod must be, 50 to 99. Higher acts less often.",
 )
 async def set_cmd(itx: discord.Interaction, category: str, action: str, threshold: float | None = None) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     try:
@@ -400,6 +518,8 @@ async def set_cmd(itx: discord.Interaction, category: str, action: str, threshol
 async def rule_cmd(
     itx: discord.Interaction, name: str, text: str | None = None, action: str = "flag", threshold: float | None = None
 ) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     p = service.policy(tenant)
     try:
@@ -420,6 +540,8 @@ async def rule_cmd(
 
 @mod.command(name="trust", description="Toggle a role whose messages are never judged")
 async def trust_cmd(itx: discord.Interaction, role: discord.Role) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     roles = list(store.get_meta(tenant).get("trusted_roles", []))
     if role.id in roles:
@@ -435,6 +557,8 @@ async def trust_cmd(itx: discord.Interaction, role: discord.Role) -> None:
 @mod.command(name="staff", description="Whether moderators are judged like everyone else")
 @app_commands.describe(judged="True judges anyone who can manage messages. False exempts them, the default.")
 async def staff_cmd(itx: discord.Interaction, judged: bool) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     store.set_meta(tenant, staff_exempt=not judged)
     await itx.response.send_message(
@@ -447,6 +571,8 @@ async def staff_cmd(itx: discord.Interaction, judged: bool) -> None:
 
 @mod.command(name="topic", description="What this channel is for (used by the offtopic check)")
 async def topic_cmd(itx: discord.Interaction, topic: str) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     topics = dict(store.get_meta(tenant).get("channel_topics", {}))
     topics[str(itx.channel_id)] = topic.strip()[:200]
@@ -456,6 +582,8 @@ async def topic_cmd(itx: discord.Interaction, topic: str) -> None:
 
 @mod.command(name="log", description="Log decisions in this channel")
 async def log_cmd(itx: discord.Interaction) -> None:
+    if not await owner_only(itx):
+        return
     store.set_meta(tenant_of(itx.guild_id or 0), log_channel=itx.channel_id)
     await itx.response.send_message("decisions will be logged here", ephemeral=True)
 
@@ -477,6 +605,8 @@ async def recent_cmd(itx: discord.Interaction) -> None:
 
 @mod.command(name="upgrade", description="Payment link for the Pro plan of this server, or the billing portal")
 async def upgrade_cmd(itx: discord.Interaction) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     if not _billing_enabled():
         await itx.response.send_message(
@@ -499,6 +629,8 @@ def _billing_enabled() -> bool:
 
 @mod.command(name="forget", description="Delete everything jevmod stored about this server (GDPR)")
 async def forget_cmd(itx: discord.Interaction) -> None:
+    if not await owner_only(itx):
+        return
     tenant = tenant_of(itx.guild_id or 0)
     # Deleting the local rows does not cancel anything at Stripe, so a paying owner would keep being charged
     # with no record left here to explain it. Say so before deleting, and leave the portal link in reach.
@@ -515,6 +647,8 @@ async def forget_cmd(itx: discord.Interaction) -> None:
 
 @mod.command(name="forget_user", description="Delete this member's entries from the decision log (erasure request)")
 async def forget_user_cmd(itx: discord.Interaction, member: discord.Member) -> None:
+    if not await owner_only(itx):
+        return
     n = store.delete_user(tenant_of(itx.guild_id or 0), str(member.id))
     await itx.response.send_message(f"deleted {n} log entries for {member.mention}", ephemeral=True)
 
