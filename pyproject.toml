@@ -11,17 +11,24 @@ requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Omar Hernandez" }]
 dependencies = ["typesafe-sdk>=0.6", "fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2"]
-keywords = ["moderation", "discord", "telegram", "reddit", "content-moderation", "typesafe", "jev"]
+keywords = ["moderation", "discord", "telegram", "reddit", "twitch", "content-moderation", "typesafe", "jev"]
 classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Topic :: Communications :: Chat"]
 
 [project.optional-dependencies]
 discord = ["discord.py>=2.3"]
 telegram = ["python-telegram-bot>=21"]
 reddit = ["praw>=7.7"]
+# Twitch chat is IRC framed over a WebSocket (wss://irc-ws.chat.twitch.tv), not plain IRC-over-TCP -- the
+# stdlib's `socket`/`ssl` give a raw byte stream, not RFC 6455 framing, and reimplementing the handshake and
+# frame format by hand is exactly the kind of protocol surface a moderation bot should not be hand-rolling.
+# `websockets` is the minimal, dependency-free, actively maintained client for that one job; it does not pull
+# in an HTTP stack, unlike aiohttp, and this adapter's REST calls to Twitch's Helix API go over the stdlib's
+# `urllib.request` (inside `asyncio.to_thread`) instead of adding a second HTTP dependency for that.
+twitch = ["websockets>=12"]
 billing = ["stripe>=12"]
 mcp = ["mcp>=2"]
 keys = ["keyring>=25"]
-all = ["discord.py>=2.3", "python-telegram-bot>=21", "praw>=7.7", "mcp>=2", "keyring>=25", "stripe>=12"]
+all = ["discord.py>=2.3", "python-telegram-bot>=21", "praw>=7.7", "websockets>=12", "mcp>=2", "keyring>=25", "stripe>=12"]
 examples = ["langchain-core>=0.3", "httpx"]
 dev = ["pytest", "ruff", "mypy", "httpx"]
 
