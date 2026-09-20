@@ -448,3 +448,23 @@ def test_forgetting_a_tenant_reaches_tables_this_file_has_never_heard_of(tmp_pat
     rows = store.db.execute("SELECT tenant FROM contacts").fetchall()
     assert rows == [("discord:2",)], "the other server's contact must survive"
     assert store.db.execute("SELECT COUNT(*) FROM tenants WHERE id='discord:1'").fetchone()[0] == 0
+
+
+def test_no_adapter_can_ban_anybody():
+    """The terms say it plainly: "The bot never bans anyone: its only actions are off, flag, delete and
+    timeout." That was false on Reddit, where timeout mapped to removal plus a one day ban, because Reddit
+    has no per-comment mute and somebody reached for the nearest thing. A promise in the binding document
+    that the code contradicts is worse than no promise, so this asserts it across every adapter rather than
+    trusting a comment."""
+    from pathlib import Path
+
+    adapters = Path(__file__).resolve().parents[1] / "jevmod" / "adapters"
+    files = list(adapters.glob("*_bot.py"))
+    assert files, "no adapters found, so this test is not checking what it thinks"
+
+    for f in files:
+        code = "\n".join(
+            line for line in f.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")
+        )
+        for forbidden in ("banned.add", ".ban(", "ban_reason", ".kick("):
+            assert forbidden not in code, f"{f.name} can ban or kick somebody: {forbidden}"

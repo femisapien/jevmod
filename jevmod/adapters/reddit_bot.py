@@ -1,5 +1,8 @@
-"""Reddit adapter over the official API (PRAW). Streams new comments and posts of the subreddits you moderate;
-`flag` reports the item to the mod queue with the probabilities, `delete` removes it. Runs as a moderator account.
+"""Reddit adapter over the official API (PRAW). Streams new comments of the subreddits you moderate; `flag`
+reports the item to the mod queue with the probabilities, `delete` removes it. Runs as a moderator account.
+
+Comments only, today. The submission stream is a second call this adapter does not make, and saying it read
+posts when it does not is the kind of thing somebody finds out after an afternoon of wondering why.
 
     REDDIT_CLIENT_ID=... REDDIT_CLIENT_SECRET=... REDDIT_USERNAME=... REDDIT_PASSWORD=... REDDIT_SUBREDDITS=sub1,sub2
     TYPESAFE_API_KEY=... python -m jevmod.adapters.reddit_bot
@@ -36,9 +39,11 @@ def act(item, d) -> None:
         if d.action == "flag":
             item.report(reason)
         elif d.action in ("delete", "timeout"):
+            # Timeout removes the comment and stops there. Reddit has no per-comment mute, so this used to
+            # map it to a one day ban, which made the promise the rest of the product is built on - that
+            # jevmod cannot ban anybody - false on this platform and false in the terms. A ban is a
+            # moderator's decision about a person; this only ever acts on a message.
             item.mod.remove(mod_note=reason)
-            if d.action == "timeout" and getattr(item, "author", None):
-                item.subreddit.banned.add(item.author, duration=1, ban_reason=reason[:100], note="jevmod timeout")
     except Exception as exc:
         log.warning("cannot act on %s: %s", item.id, exc)
 
