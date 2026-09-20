@@ -86,3 +86,17 @@ def test_clear_cancellation_removes_the_queued_row():
     assert len(s.pending_cancellations()) == 1
     s.clear_cancellation("sub_done")
     assert s.pending_cancellations() == []
+
+
+def test_deleting_a_tenant_over_the_api_queues_its_cancellation_too():
+    """`DELETE /v1/tenant` deletes the subscription row along with everything else, so without this the card
+    keeps being charged for a tenant that no longer exists. It is the same hole `on_guild_remove` had, and
+    it matters more here: `/mod forget` is typed by a person who can be told to cancel, and an API call is
+    nobody reading anything."""
+    import inspect
+
+    from jevmod.api import server
+
+    src = inspect.getsource(server.delete_tenant)
+    assert "leave_tenant" in src, "the API delete must queue the cancellation"
+    assert "store.delete_tenant(" not in src, "and must not call the one that forgets the subscription id"

@@ -599,7 +599,7 @@
     },
     "/v1/tenant": {
       "delete": {
-        "description": "GDPR: forget this tenant's policy, usage and decision log.",
+        "description": "GDPR: forget this tenant's policy, usage and decision log.\n\n`leave_tenant` rather than `delete_tenant`, because this call deletes the subscription row too and the\ncard would otherwise keep being charged for a tenant that no longer exists. It reads the subscription id\nfirst and queues it after, and a deployment with nobody draining that queue - a self-hosted copy, which\nhas no Stripe at all - is left with one harmless row.\n\nThis is the same hole `on_guild_remove` had. The difference here is that nobody is present to read a\nwarning: `/mod forget` is typed by a person who can be told to cancel, and an API call is not.",
         "operationId": "delete_tenant_v1_tenant_delete",
         "parameters": [
           {

@@ -191,8 +191,16 @@ def decisions(limit: int = 50, tenant: str = Depends(tenant_from_auth)) -> list[
 
 @app.delete("/v1/tenant")
 def delete_tenant(tenant: str = Depends(tenant_from_auth)) -> dict[str, bool]:
-    """GDPR: forget this tenant's policy, usage and decision log."""
-    store.delete_tenant(tenant)
+    """GDPR: forget this tenant's policy, usage and decision log.
+
+    `leave_tenant` rather than `delete_tenant`, because this call deletes the subscription row too and the
+    card would otherwise keep being charged for a tenant that no longer exists. It reads the subscription id
+    first and queues it after, and a deployment with nobody draining that queue - a self-hosted copy, which
+    has no Stripe at all - is left with one harmless row.
+
+    This is the same hole `on_guild_remove` had. The difference here is that nobody is present to read a
+    warning: `/mod forget` is typed by a person who can be told to cancel, and an API call is not."""
+    store.leave_tenant(tenant)
     return {"deleted": True}
 
 
