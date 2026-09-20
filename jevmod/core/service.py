@@ -69,19 +69,6 @@ class ModerationService:
         if not policy.active():
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
         self.store.purge_expired()
-        # The trial's expiry sweep runs right here, next to `purge_expired()`: one indexed row lookup on the
-        # tenant this batch is already reading, so it costs nothing extra rather than a table scan on a
-        # timer. Lazy per-tenant, same as retention above — a server that goes quiet does not get logged out
-        # of its trial until it sends another message, which is the same trade `purge_expired()` already
-        # makes. The Discord adapter checks the same flip again before it calls in, so the one log-channel
-        # message lands there instead of being lost inside a background thread with no guild to post to.
-        self.store.expire_trial(tenant)
-        # The three-day warning sweep runs right here too, on the same tenant row `expire_trial` just read,
-        # for the same reason: one indexed lookup per batch rather than a scan of every trial on a timer.
-        # Discarded here exactly like `expire_trial` above — a caller that wants to react (send the "trial
-        # ends in 3 days" email) checks `Store.note_trial_warning` itself before calling in, the same way
-        # the Discord adapter checks `expire_trial` before calling `moderate()`.
-        self.store.note_trial_warning(tenant)
 
         # Local rules cost nothing per message, so they run before every gate below: a tenant that is out of
         # quota, over the shared budget, or has never enabled a single Jev category still gets its link

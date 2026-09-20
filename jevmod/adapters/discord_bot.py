@@ -10,9 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import math
 import os
-import time
 from datetime import timedelta
 
 import discord
@@ -40,13 +38,6 @@ async def handle_batch(tenant: str, batch: list[discord.Message]) -> None:
     guild = batch[0].guild
     if guild is None:
         return
-    # `service.moderate` also flips an overdue trial (see `Store.expire_trial`), but it runs in a worker
-    # thread with no guild to post to. Checking it here, once per batch, before the messages in this batch
-    # are even judged, is what lets the one log-channel message this spec asks for reach a guild at all:
-    # `expire_trial` is exactly-once by construction, so the redundant check inside `moderate()` below finds
-    # the plan already `free` and does nothing.
-    if await asyncio.to_thread(store.expire_trial, tenant):
-        await _notify_trial_expired(guild, tenant)
     meta = store.get_meta(tenant)
     trusted = set(meta.get("trusted_roles", []))
     topics = meta.get("channel_topics", {})
@@ -296,32 +287,6 @@ async def log_channel(guild: discord.Guild, tenant: str) -> discord.TextChannel 
         return None
 
 
-def _trial_days_left(ends_at: float | None, now: float | None = None) -> int | None:
-    """None off trial. Otherwise the whole days left, rounded up so "expires in a few hours" still reads as
-    1 rather than 0, and floored at 0 for a trial this process has not swept yet (`expire_trial` runs lazily,
-    on the next message, so a read between the deadline and the next message can still see `trial`)."""
-    if ends_at is None:
-        return None
-    return max(0, math.ceil((ends_at - (now if now is not None else time.time())) / 86400))
-
-
-async def _notify_trial_expired(guild: discord.Guild, tenant: str) -> None:
-    """The one message the spec asks for: what stopped, named plainly, and what still works, named from
-    what `jevmod/core/local.py` actually runs rather than a slogan. `store.expire_trial` already guarantees
-    this fires exactly once, so there is no `note_*_once` latch to check here."""
-    ch = await log_channel(guild, tenant)
-    if ch:
-        await ch.send(
-            "Your 14-day trial has ended — this server is back on the **Free** plan.\n"
-            "**Stopped:** the categories Jev judged and any natural-language rules you wrote. They stay "
-            "saved, they just are not checked until you start a new plan.\n"
-            "**Still running, right now, for free:** blocked links and invites, blocked words, your "
-            "patterns, trusted-role exemptions, and raid alerts.\n"
-            "Nothing was deleted and jevmod has not left the server. `/mod upgrade` moves to Pro any time; "
-            "`/mod trial` will say this trial was already used."
-        )
-
-
 async def _notify_quota_once(guild: discord.Guild, tenant: str) -> None:
     if not store.note_quota_hit(tenant):
         return
@@ -447,9 +412,6 @@ async def owner_only(itx: discord.Interaction) -> bool:
 @mod.command(name="status", description="Settings and this month's usage")
 async def status(itx: discord.Interaction) -> None:
     tenant = tenant_of(itx.guild_id or 0)
-    # Read-fresh: a server that goes quiet keeps the DB's `plan` at `trial` until its next message runs the
-    # sweep in `moderate()`, and a status check must not report a trial that has actually already ended.
-    store.expire_trial(tenant)
     p = service.policy(tenant)
     judged, requests, tokens = store.usage(tenant)
     lines = []
@@ -483,9 +445,6 @@ async def status(itx: discord.Interaction) -> None:
     plan = store.plan(tenant)
     q = store.quota_for(tenant)
     quota = f"{judged:,}/{q:,} judged this month ({plan})" if q else f"{judged:,} judged this month ({plan}, unlimited)"
-    if plan == "trial":
-        days = _trial_days_left(store.trial_ends_at(tenant))
-        quota += f" — {days} day{'s' if days != 1 else ''} left"
     lines.append(f"\n{quota}")
     await itx.response.send_message("\n".join(lines), ephemeral=True)
 
@@ -1016,36 +975,6 @@ async def recent_cmd(itx: discord.Interaction) -> None:
         body = f"\n> {r['text'][:120]}" if r.get("text") else ""
         lines.append(head + body)
     await itx.response.send_message("\n".join(lines)[:1900], ephemeral=True)
-
-
-@mod.command(name="trial", description="Start this server's one 14-day trial of Jev's judgement, no card")
-async def trial_cmd(itx: discord.Interaction) -> None:
-    if not await owner_only(itx):
-        return
-    tenant = tenant_of(itx.guild_id or 0)
-    store.expire_trial(tenant)  # read-fresh, same reason `status` does it
-    if store.start_trial(tenant):
-        await itx.response.send_message(
-            "Trial started: for the next 14 days jevmod also judges every category and rule you turn on, "
-            "on top of the local rules that already run for free. No card needed. `/mod status` shows how "
-            "many days are left, and it expires back into Free rather than out of your server.",
-            ephemeral=True,
-        )
-        return
-    plan = store.plan(tenant)
-    if plan == "trial":
-        days = _trial_days_left(store.trial_ends_at(tenant))
-        await itx.response.send_message(
-            f"This server is already on its trial — {days} day{'s' if days != 1 else ''} left. "
-            "`/mod status` shows the rest.",
-            ephemeral=True,
-        )
-        return
-    await itx.response.send_message(
-        "This server already used its one trial. `/mod upgrade` moves to Pro; the local rules — links, "
-        "words, patterns, trusted roles, raid alerts — keep running for free either way.",
-        ephemeral=True,
-    )
 
 
 @mod.command(name="upgrade", description="Payment link for the Pro plan of this server, or the billing portal")

@@ -1,17 +1,19 @@
-"""T1: the fourteen day trial's state machine (`trial_ends_at`, the plan transition, the expiry sweep) and
-the schema migration that adds it. T2's `/mod trial` and `/mod status` wrap `Store.start_trial` and
-`Store.trial_ends_at` directly, so their behaviour is covered here rather than through a mocked Discord
-interaction — see `tests/test_discord_local_commands.py` for why the slash callbacks themselves are not.
+"""What is left of the trial in the open package after Stripe took over owning it
+(`odd/tasks/free-tier.md`, "the free tier that never calls the model" superseded by Omar's later call: Stripe
+owns the subscription lifecycle, including the trial, and this package is a mirror). `Store.start_trial`,
+`expire_trial` and `note_trial_warning` are gone — a tenant reaches `plan == "trial"` only because the hosted
+webhook wrote it there (`jevmod_hosted/billing.py`), mirroring Stripe's own `trialing` status. This file keeps
+exactly what is still this package's job: reading a `trial` plan correctly once it is set, by whatever means,
+and opening a database that predates this change without choking on the columns it left behind.
 
-Five things the spec calls out by name get their own test: one trial per tenant ever, Pro's quota while on
-trial, the free-budget classification while on trial, `paying_tenants()` ignoring trials, and expiry leaving
-the local rules running.
+`tests/test_discord_local_commands.py` covers the Discord surface; `jevmod_hosted/tests/test_billing.py` (the
+private repository) covers the mirror table itself, status by status, and is where the actual state machine
+now lives.
 """
 
 from __future__ import annotations
 
 import sqlite3
-import time
 
 import pytest
 
@@ -36,12 +38,12 @@ class _CountingJudge:
         return [Verdict(m.id, {c: 0.99 for c in categories}, True, "jev") for m in messages]
 
 
-# ---- migration: an existing database opens and keeps working
+# ---- migration: a database written before `trial_ends_at`/`trial_warned` existed still opens and reads,
+# and one written *with* those columns (every production database, as of this change) still opens too.
 
 
 def test_a_pre_trial_database_still_opens_and_reads(tmp_path):
     path = tmp_path / "old.sqlite"
-    # The schema exactly as it was before this column existed.
     con = sqlite3.connect(str(path))
     con.executescript(
         """
@@ -60,38 +62,36 @@ def test_a_pre_trial_database_still_opens_and_reads(tmp_path):
     store = Store(path)
 
     assert store.plan("discord:old") == "pro", "a row written before this column existed must still read"
-    assert store.trial_ends_at("discord:old") is None
-    # The migrated column must accept writes too, not just reads.
-    assert store.start_trial("discord:new") is True
-    assert store.trial_ends_at("discord:new") is not None
 
 
-# ---- one trial per tenant, ever
+def test_a_database_carrying_the_old_trial_columns_still_opens_and_reads(tmp_path):
+    """The column this package used to write is not dropped (see the comment above `PLAN_QUOTAS` in
+    `store.py`): a production database still has it, and opening one must not choke on an extra column
+    nothing here looks at any more."""
+    path = tmp_path / "with_columns.sqlite"
+    con = sqlite3.connect(str(path))
+    con.executescript(
+        """
+        CREATE TABLE tenants (
+            id TEXT PRIMARY KEY, policy TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'free',
+            meta TEXT NOT NULL DEFAULT '{}', quota_notified TEXT DEFAULT '',
+            trial_ends_at REAL, trial_warned INTEGER);
+        """
+    )
+    con.execute(
+        "INSERT INTO tenants (id, policy, plan, trial_ends_at) VALUES (?, ?, ?, ?)",
+        ("discord:withcol", '{"actions": {}}', "trial", 4_000_000_000.0),
+    )
+    con.commit()
+    con.close()
+
+    store = Store(path)
+
+    assert store.plan("discord:withcol") == "trial"
+    assert store.quota_for("discord:withcol") == store.quota_for("discord:withcol")  # does not raise
 
 
-def test_a_tenant_can_start_exactly_one_trial_ever(tmp_path):
-    store = Store(tmp_path / "s.sqlite")
-    assert store.start_trial("t") is True
-    assert store.plan("t") == "trial"
-    ends = store.trial_ends_at("t")
-    assert ends is not None and ends == pytest.approx(time.time() + 14 * 86400, abs=5)
-
-
-def test_a_second_trial_is_refused_even_after_the_first_expired(tmp_path):
-    store = Store(tmp_path / "s.sqlite")
-    assert store.start_trial("t") is True
-    assert store.expire_trial("t") is False, "not due yet"
-    # Force the trial into the past and let it expire.
-    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() - 1, "t"))
-    store.db.commit()
-    assert store.expire_trial("t") is True
-    assert store.plan("t") == "free"
-
-    assert store.start_trial("t") is False, "trial_ends_at was set once and a tenant gets exactly one, ever"
-    assert store.plan("t") == "free"
-
-
-# ---- quota while on trial: Pro's ceiling, not Free's
+# ---- quota while on trial: Pro's ceiling, not Free's, however `plan` got set to "trial"
 
 
 def test_a_trial_tenant_gets_pro_quota(monkeypatch, tmp_path):
@@ -102,7 +102,7 @@ def test_a_trial_tenant_gets_pro_quota(monkeypatch, tmp_path):
 
     importlib.reload(store_mod)
     store = store_mod.Store(tmp_path / "s.sqlite", monthly_quota=5)
-    store.start_trial("t")
+    store.set_plan("t", "trial")
 
     assert store.quota_for("t") == 50000, "a trial must not be capped at Free's quota"
 
@@ -117,7 +117,7 @@ def test_a_trial_tenant_counts_as_free_for_the_budget_ceiling(monkeypatch, tmp_p
     monkeypatch.setattr(store_mod, "FREE_BUDGET_USD", 15.0)
     store = store_mod.Store(tmp_path / "s.sqlite")
     store.set_plan("pro-tenant", "pro")
-    store.start_trial("trial-tenant")
+    store.set_plan("trial-tenant", "trial")
 
     tokens = round(20.0 * 1e6 / store_mod.USD_PER_M_INPUT)  # past the free ceiling, nowhere near the hard one
     store.add_usage("noise", judged=1, requests=1, tokens=tokens)
@@ -137,30 +137,36 @@ def test_paying_tenants_ignores_trials(monkeypatch, tmp_path):
     monkeypatch.setattr(store_mod, "PAID_BUDGET_USD", 100.0)
     store = store_mod.Store(tmp_path / "s.sqlite")
     store.set_plan("pro-tenant", "pro")
-    store.start_trial("trial-tenant")
-    store.start_trial("trial-tenant-2")
+    store.set_plan("trial-tenant", "trial")
+    store.set_plan("trial-tenant-2", "trial")
 
     assert store.paying_tenants() == 1, "trials are not subscriptions and must not raise the spend ceiling"
     assert store.budget_ceiling() == pytest.approx(160.0)
 
 
-# ---- expiry: the plan becomes free, the model stops, the local rules keep running
+# ---- a live trial still reaches the model; local rules run regardless of plan
 
 
-def test_expiry_flips_the_plan_and_local_rules_keep_running(tmp_path, monkeypatch):
-    """`moderate()` applies the sweep for the tenant it is already reading, so the plan is `free` by the time
-    this very call finishes gating — no separate sweep gets to run first. The local word list, which never
-    depended on plan at all, keeps deciding regardless."""
-    monkeypatch.setenv("JEVMOD_PRO_MONTHLY_QUOTA", "50000")
-    import importlib
+def test_a_trial_tenant_still_reaches_the_model(tmp_path):
+    store = Store(tmp_path / "s.sqlite")
+    store.set_plan("t", "trial")
+    policy = Policy()
+    policy.set_category("spam", "flag")
+    store.save_policy("t", policy)
 
-    from jevmod.core import store as store_mod
+    judge = _CountingJudge()
+    service = ModerationService(store=store, judge=judge)
+    service.moderate("t", [Message("m1", "hello there, a perfectly normal message")])
 
-    importlib.reload(store_mod)
-    store = store_mod.Store(tmp_path / "s.sqlite", monthly_quota=0)
-    store.start_trial("t")
-    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() - 1, "t"))
-    store.db.commit()
+    assert judge.seen_texts == ["hello there, a perfectly normal message"]
+
+
+def test_local_rules_keep_running_once_a_trial_becomes_free(tmp_path):
+    """Whatever flips `plan` back to `free` — the webhook mirroring Stripe now, an admin comp, anything — the
+    local word list never depended on plan at all and keeps deciding regardless."""
+    store = Store(tmp_path / "s.sqlite", monthly_quota=0)
+    store.set_plan("t", "trial")
+    store.set_plan("t", "free")
 
     policy = Policy()
     policy.set_category("spam", "flag")
@@ -175,105 +181,9 @@ def test_expiry_flips_the_plan_and_local_rules_keep_running(tmp_path, monkeypatc
         [Message("m1", "free nitro codes"), Message("m2", "hello there, a perfectly normal message")],
     )
 
-    assert store.plan("t") == "free", "moderate() must apply the sweep for the tenant it is already reading"
     assert decisions[0].category == "local:word" and decisions[0].reason == "local", "local rules still run"
-    assert store.quota_for("t") == 0, "expiry drops the trial's Pro quota back to Free's"
-    assert judge.seen_texts == ["hello there, a perfectly normal message"], (
-        "on a self-hosted copy, which pays its own model bill and has no notion of plans, expiry changes "
-        "only the quota and the budget classification; the hosted deployment sets JEVMOD_MODEL_ON_FREE=0 "
-        "and is covered by its own test below"
-    )
+    assert store.quota_for("t") == 0, "back on free, the trial's Pro quota is gone"
 
-
-# ---- the three-day warning latch: fires once, alongside the batch sweep that already runs for expiry
-
-
-def test_trial_warning_fires_once_inside_the_three_day_window(tmp_path):
-    store = Store(tmp_path / "s.sqlite")
-    store.start_trial("t")
-    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() + 2 * 86400, "t"))
-    store.db.commit()
-
-    assert store.note_trial_warning("t") is True, "two days left is inside the three-day window"
-    assert store.note_trial_warning("t") is False, "a second check must not warn twice"
-
-
-def test_trial_warning_does_not_fire_before_the_window(tmp_path):
-    store = Store(tmp_path / "s.sqlite")
-    store.start_trial("t")  # fourteen days left: outside the three-day window
-
-    assert store.note_trial_warning("t") is False, "a fresh trial is not due for a warning yet"
-
-
-def test_trial_warning_does_not_fire_once_the_trial_has_already_expired(tmp_path):
-    store = Store(tmp_path / "s.sqlite")
-    store.start_trial("t")
-    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() - 1, "t"))
-    store.db.commit()
-
-    assert store.note_trial_warning("t") is False, "an expired trial gets the 'ended' email, not the warning"
-
-
-def test_trial_warning_latch_survives_twenty_batches_in_the_window(tmp_path):
-    """The sweep in `moderate()` must run on every batch and still send exactly one warning, or a batcher
-    that flushes twenty times during the window would fire twenty emails instead of one.
-
-    RED, observed before `note_trial_warning` existed:
-        AttributeError: 'Store' object has no attribute 'note_trial_warning'
-    """
-    store = Store(tmp_path / "s.sqlite")
-    store.start_trial("t")
-    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() + 2 * 86400, "t"))
-    store.db.commit()
-
-    judge = _CountingJudge()
-    service = ModerationService(store=store, judge=judge)
-
-    fires = 0
-    for _ in range(20):
-        # A caller that wants to react (send the email) checks the latch before handing the batch to
-        # `moderate()`, exactly the way `discord_bot.handle_batch` checks `expire_trial` before calling it.
-        if store.note_trial_warning("t"):
-            fires += 1
-        service.moderate("t", [Message("m", "hello there, a perfectly normal message")])
-
-    assert fires == 1, "twenty batches inside the window must warn exactly once"
-
-
-def test_a_trial_that_is_not_due_yet_still_reaches_the_model(tmp_path):
-    """The companion to the test above: a live trial must not be mistaken for a free tenant."""
-    store = Store(tmp_path / "s.sqlite")
-    store.start_trial("t")
-    policy = Policy()
-    policy.set_category("spam", "flag")
-    store.save_policy("t", policy)
-
-    judge = _CountingJudge()
-    service = ModerationService(store=store, judge=judge)
-    service.moderate("t", [Message("m1", "hello there, a perfectly normal message")])
-
-    assert judge.seen_texts == ["hello there, a perfectly normal message"]
-
-
-# ---- _trial_days_left: the pure helper `/mod trial` and `/mod status` report from
-
-
-def test_trial_days_left_is_none_off_trial():
-    discord_mod = pytest.importorskip("jevmod.adapters.discord_bot")
-    assert discord_mod._trial_days_left(None) is None
-
-
-def test_trial_days_left_rounds_up_a_partial_day():
-    discord_mod = pytest.importorskip("jevmod.adapters.discord_bot")
-    now = 1_000_000.0
-    ends = now + 3600  # one hour left
-    assert discord_mod._trial_days_left(ends, now=now) == 1
-
-
-def test_trial_days_left_floors_at_zero_past_the_deadline():
-    discord_mod = pytest.importorskip("jevmod.adapters.discord_bot")
-    now = 1_000_000.0
-    assert discord_mod._trial_days_left(now - 3600, now=now) == 0
 
 def test_the_hosted_free_plan_never_reaches_the_model_but_keeps_its_local_rules(tmp_path, monkeypatch):
     """What actually makes the free tier free.
@@ -309,7 +219,7 @@ def test_the_hosted_free_plan_never_reaches_the_model_but_keeps_its_local_rules(
         assert decisions[1].reason == "free_plan"
 
         # A trial is not free for this purpose.
-        store.start_trial("t")
+        store.set_plan("t", "trial")
         service.moderate("t", [Message("m3", "hello there, a perfectly normal message")])
         assert judge.seen_texts == ["hello there, a perfectly normal message"]
     finally:

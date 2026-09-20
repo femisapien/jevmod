@@ -37,6 +37,20 @@ def sign_tenant(tenant: str) -> str:
 
 
 def checkout_url(tenant: str) -> str:
-    """The operator's checkout endpoint for one tenant. Valid for that tenant only."""
+    """The operator's checkout endpoint for one tenant. Valid for that tenant only.
+
+    Also where an already-subscribed tenant ends up: the operator's `/billing/checkout` route sends a
+    tenant that is not on Free straight to the billing portal instead of starting a second subscription, so
+    `/mod upgrade` can hand out this one link regardless of whether the server is new or already paying."""
     base = os.environ.get("JEVMOD_PUBLIC_URL", "").rstrip("/")
     return f"{base}/billing/checkout?tenant={tenant}&sig={sign_tenant(tenant)}"
+
+
+def portal_url(tenant: str) -> str:
+    """A direct link to Stripe's own billing portal for one tenant: cancel, switch plans, update the card,
+    see invoices — all inside Stripe's UI, never reimplemented here. Valid for that tenant only.
+
+    Anything that wants a "manage your subscription" link without `checkout_url`'s free/paying branch —
+    the web app's own account page, for one — calls this instead."""
+    base = os.environ.get("JEVMOD_PUBLIC_URL", "").rstrip("/")
+    return f"{base}/billing/portal?tenant={tenant}&sig={sign_tenant(tenant)}"

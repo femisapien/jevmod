@@ -18,17 +18,17 @@ from .policy import Decision, Policy
 FREE_MONTHLY = int(os.environ.get("JEVMOD_MONTHLY_QUOTA", "0") or 0)
 # Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "free", "trial", "pro",
 # "unlimited" (comped). "trial" has no entry of its own: `quota_for` gives it Pro's number directly, because
-# a trial *is* Pro's judgement for fourteen days and a second place that could drift out of sync with
-# JEVMOD_PRO_MONTHLY_QUOTA is a bug waiting to happen.
+# a trial *is* Pro's judgement and a second place that could drift out of sync with JEVMOD_PRO_MONTHLY_QUOTA
+# is a bug waiting to happen.
+#
+# `plan` itself is no longer a state machine this package owns: on the hosted service it is written only by
+# the Stripe webhook, which mirrors the subscription's own status (`jevmod_hosted/billing.py`). A self-hosted
+# copy never sees anything but "free", which is exactly what `set_plan` already defaults every tenant to.
 PLAN_QUOTAS: dict[str, int] = {
     "free": FREE_MONTHLY,
     "pro": int(os.environ.get("JEVMOD_PRO_MONTHLY_QUOTA", "50000") or 0),
     "unlimited": 0,
 }
-# One trial, fourteen days, no card. See `start_trial`.
-TRIAL_DAYS = 14
-# How far out the "trial ends soon" warning fires. See `note_trial_warning`.
-TRIAL_WARNING_DAYS = 3
 
 # What the whole service may spend on the model in a calendar month, across every tenant at once.
 #
@@ -103,21 +103,13 @@ class Store:
                 """
             )
             self.db.commit()
-            # `trial_ends_at`, added for the fourteen day trial: a Unix timestamp, null on a tenant that has
-            # never had one. `CREATE TABLE IF NOT EXISTS` above leaves a database created before this column
-            # existed untouched, so the column is added here, once, checked against `PRAGMA table_info`
-            # rather than assumed — opening an old database is not an error and running this twice is not
-            # either.
-            cols = {row[1] for row in self.db.execute("PRAGMA table_info(tenants)").fetchall()}
-            if "trial_ends_at" not in cols:
-                self.db.execute("ALTER TABLE tenants ADD COLUMN trial_ends_at REAL")
-                self.db.commit()
-            # `trial_warned`, added for the three-day-left email (`odd/tasks/notifications.md`, N4): a plain
-            # flag, 1 once the warning has fired for this tenant and NULL otherwise. Unlike `quota_notified`
-            # this is never month-scoped, because the trial itself never repeats — see `note_trial_warning`.
-            if "trial_warned" not in cols:
-                self.db.execute("ALTER TABLE tenants ADD COLUMN trial_warned INTEGER")
-                self.db.commit()
+            # `trial_ends_at` and `trial_warned` used to live here, added for a trial this package ran itself.
+            # That state machine is gone (see the mirror-table comment above `PLAN_QUOTAS`) and nothing reads
+            # or writes either column any more. Neither is dropped: a production database already has them,
+            # `ALTER TABLE ... DROP COLUMN` is a real risk for no benefit when an unused column costs nothing
+            # to leave in place, and a schema statement that runs once and then never again is not "honest
+            # migration", it is dead weight. A database that predates them (or postdates this change) never
+            # gets them, which is fine, because nothing here looks for them either way.
 
     # ---- policy
     def get_policy(self, tenant: str) -> Policy:
@@ -192,77 +184,10 @@ class Store:
         if plan == "trial":
             # A trial opens the model's judgement at Pro's ceiling, not Free's — Free's quota exists to cap
             # a plan that should not be spending on the model at all, and a trial is the opposite of that.
+            # `plan` reaches "trial" only through the hosted webhook mirroring Stripe's own `trialing`
+            # status now; this package never puts a tenant on trial itself.
             return PLAN_QUOTAS.get("pro", 0)
         return PLAN_QUOTAS.get(plan, 0)
-
-    # ---- the fourteen day trial
-    def trial_ends_at(self, tenant: str) -> float | None:
-        """None on a tenant that has never had a trial, or after CREATE-time defaults. Once set this stays
-        set even past expiry — see `start_trial`, which is the only thing this value has to answer for."""
-        with self.lock:
-            row = self.db.execute("SELECT trial_ends_at FROM tenants WHERE id=?", (tenant,)).fetchone()
-        return row[0] if row else None
-
-    def start_trial(self, tenant: str) -> bool:
-        """Starts the one trial a tenant ever gets: fourteen days of Pro's judgement, no card. Refused once
-        `trial_ends_at` has ever been set for this tenant, including after the trial already ran out —
-        the column is the ledger, and it is never cleared back to null by expiry, on purpose."""
-        with self.lock:
-            row = self.db.execute("SELECT trial_ends_at FROM tenants WHERE id=?", (tenant,)).fetchone()
-            if row and row[0] is not None:
-                return False
-            ends = time.time() + TRIAL_DAYS * 86400
-            self.db.execute(
-                "INSERT INTO tenants (id, policy, plan, trial_ends_at) VALUES (?, ?, 'trial', ?) "
-                "ON CONFLICT(id) DO UPDATE SET plan='trial', trial_ends_at=excluded.trial_ends_at",
-                (tenant, json.dumps(Policy().to_dict()), ends),
-            )
-            self.db.commit()
-            return True
-
-    def expire_trial(self, tenant: str) -> bool:
-        """True exactly once: the moment this tenant's fourteen days are up, flips the plan to `free` and
-        says so. A later call for the same tenant finds the plan already `free` and returns False, which is
-        what makes the log-channel notice in the Discord adapter a one-time thing rather than a latch of its
-        own.
-
-        Lazy and per-tenant, called from `ModerationService.moderate()` right next to `purge_expired()`: it
-        costs one indexed row lookup on a tenant already being read for this batch, not a sweep of every
-        trial in the database, so it runs on the tenant sending traffic rather than on a timer nothing here
-        should own."""
-        with self.lock:
-            row = self.db.execute("SELECT plan, trial_ends_at FROM tenants WHERE id=?", (tenant,)).fetchone()
-            if not row or row[0] != "trial" or row[1] is None or row[1] > time.time():
-                return False
-            self.db.execute("UPDATE tenants SET plan='free' WHERE id=?", (tenant,))
-            self.db.commit()
-            return True
-
-    def note_trial_warning(self, tenant: str) -> bool:
-        """True exactly once: the moment a live trial has `TRIAL_WARNING_DAYS` or fewer left, so a caller can
-        send the "trial ends in 3 days" email without sending it once per batch. Modeled on `note_quota_hit`
-        rather than on `expire_trial`: quota's latch resets every month because the quota does too, but a
-        trial happens once in a tenant's whole lifetime, so this is a plain flag, never cleared.
-
-        Refused before the window opens, refused once the trial has already expired (that tenant gets the
-        "ended" email instead, via `expire_trial`, not this one), and refused every time after the first
-        for the same reason `expire_trial` never fires twice: the flag, once set, is never unset.
-
-        Same call shape as `expire_trial` on purpose — see `ModerationService.moderate()`, which calls both
-        right next to `purge_expired()` so the three-day sweep costs the same one indexed row lookup on a
-        tenant already being read for this batch, not a scan of every trial in the database on a timer."""
-        with self.lock:
-            row = self.db.execute(
-                "SELECT plan, trial_ends_at, trial_warned FROM tenants WHERE id=?", (tenant,)
-            ).fetchone()
-            if not row or row[0] != "trial" or row[1] is None or row[2]:
-                return False
-            remaining = row[1] - time.time()
-            if remaining <= 0 or remaining > TRIAL_WARNING_DAYS * 86400:
-                return False
-            self.db.execute("UPDATE tenants SET trial_warned=1 WHERE id=?", (tenant,))
-            self.db.commit()
-            return True
 
     def over_quota(self, tenant: str) -> bool:
         q = self.quota_for(tenant)
