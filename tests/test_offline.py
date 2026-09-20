@@ -1,5 +1,6 @@
 """No key needed: policy decisions, store, quota, retention, erasure, pre-filters."""
 
+import os
 import time
 from pathlib import Path
 
@@ -323,17 +324,57 @@ def test_the_hosted_bot_can_still_say_where_to_pay(monkeypatch):
     importlib.reload(paylink)
     assert paylink.enabled() is True
     url = paylink.checkout_url("discord:123")
-    assert url.startswith("https://example.test/billing/checkout?tenant=discord:123&sig=")
+    assert url.startswith("https://example.test/billing/checkout?tenant=discord:123&exp=")
+    assert "&sig=" in url
 
-    # A signature for one guild must not open another guild's billing portal.
-    assert paylink.sign_tenant("discord:123") != paylink.sign_tenant("discord:124")
+    # A signature for one guild must not open another guild's billing portal, for the same expiry.
+    exp = int(time.time()) + 600
+    assert paylink.sign_tenant("discord:123", exp) != paylink.sign_tenant("discord:124", exp)
 
     # No fallback key, and in particular not the admin token: one secret for three jobs meant one leak
     # opened the admin panel, the key minting and every customer's billing portal at once.
     monkeypatch.delenv("JEVMOD_BILLING_SECRET")
     importlib.reload(paylink)
     with pytest.raises(RuntimeError):
-        paylink.sign_tenant("discord:123")
+        paylink.sign_tenant("discord:123", exp)
+
+
+def test_billing_link_signature_expires():
+    """The finding this closes: `HMAC(tenant)` alone never expires, so a screenshot of a link is a
+    forever-valid capability token. The fix folds the expiry into the signed message, so tampering with
+    `exp` to extend a link's life breaks the signature instead of quietly working."""
+    import importlib
+
+    from jevmod.api import paylink
+
+    os.environ["JEVMOD_BILLING_SECRET"] = "secret-token"
+    importlib.reload(paylink)
+    try:
+        now = int(time.time())
+
+        # A fresh link (issued just now, expiring in the future) verifies.
+        future_exp = now + 600
+        fresh_sig = paylink.sign_tenant("discord:1", future_exp)
+        assert paylink.verify_signature("discord:1", str(future_exp), fresh_sig) is True
+        assert paylink.link_expired(str(future_exp)) is False
+
+        # An honestly-signed link whose expiry has already passed is expired, even though the signature
+        # itself is genuine.
+        past_exp = now - 1
+        expired_sig = paylink.sign_tenant("discord:1", past_exp)
+        assert paylink.verify_signature("discord:1", str(past_exp), expired_sig) is True
+        assert paylink.link_expired(str(past_exp)) is True
+
+        # Extending `exp` on a link without re-signing is a tamper, not a renewal: the old signature was
+        # over the old `exp`, so it does not match the stretched one.
+        assert paylink.verify_signature("discord:1", str(future_exp + 100000), expired_sig) is False
+
+        # A signature for a different tenant, replayed against this tenant's link, does not verify either.
+        other_sig = paylink.sign_tenant("discord:2", future_exp)
+        assert paylink.verify_signature("discord:1", str(future_exp), other_sig) is False
+    finally:
+        del os.environ["JEVMOD_BILLING_SECRET"]
+        importlib.reload(paylink)
 
 
 def test_the_store_survives_two_processes(tmp_path):
@@ -373,10 +414,11 @@ def test_the_three_operator_secrets_are_independent(monkeypatch):
     importlib.reload(paylink)
 
     # The billing signature must come from the billing secret alone.
-    sig = paylink.sign_tenant("discord:1")
+    exp = int(time.time()) + 600
+    sig = paylink.sign_tenant("discord:1", exp)
     monkeypatch.setenv("JEVMOD_BILLING_SECRET", "a-different-billing-secret")
     importlib.reload(paylink)
-    assert paylink.sign_tenant("discord:1") != sig, "the signature must follow its own secret"
+    assert paylink.sign_tenant("discord:1", exp) != sig, "the signature must follow its own secret"
 
     # Neither of the other two may mint a key.
     from fastapi import HTTPException
