@@ -130,6 +130,40 @@ The shape matters more than the number: above 0.9 the probabilities match the ob
 0.85 they run high (harassment bin 0.8: mean p 0.85, observed 51%; bin 0.5: 0.55 vs 17%). That is why the shipped
 thresholds sit mostly at 0.75 to 0.85 (minors 0.70, off-topic 0.90) and why "flag" is the default action: a 0.6 is a maybe, not a 60%.
 
+## A message's score moves with where it sits in its batch
+
+Measured on 2026-09-20, because it had been suspected and never tested. Thirty real Discord messages, each
+scored seven ways: alone, first in a batch of twenty-five clean ones, last in that same batch, first among
+twenty-five violations, and in a mixture, plus two byte-identical repeats to establish a noise floor. 210
+calls, $0.18, no cache involved — the probe calls `system_one` directly and never builds a `Judge`, so the
+twenty-four hour verdict cache cannot have served any of them.
+
+| category | threshold | noise floor, max | spread, max | crossed the threshold |
+|---|---|---|---|---|
+| spam | 0.85 | 0.050 | 0.380 | 5 of 30 |
+| scam | 0.75 | 0.070 | 0.310 | 3 of 30 |
+| doxxing | 0.80 | 0.070 | 0.320 | 1 of 30 |
+| harassment | 0.75 | 0.070 | 0.210 | none |
+| nsfw | 0.80 | 0.040 | 0.380 | none |
+| selfharm | 0.80 | 0.010 | 0.240 | none |
+| minors | 0.70 | 0.030 | 0.140 | none |
+
+**The spread is five to fifteen times the noise floor, so this is the batch and not sampling.** What drives
+it is position, not company: moving a message from the first slot to the twenty-fifth moves its spam score
+by 0.071 on average, while swapping every neighbour for a violation moves it by 0.035 and dropping the
+batch entirely moves it by 0.030. The worst case observed was a scam-labelled message reading 0.73 in the
+first slot and 0.93 in the last, straddling its own shipped threshold on position alone.
+
+**What this does and does not invalidate.** AUROC is a ranking measure and the per-message movement is small
+against the distributions being ranked, so the figures above stand. The threshold does not stand in the same
+way: for spam and scam, a borderline message can land on either side of the shipped default depending on
+where it fell in its batch of twenty-five. Nine of 210 category-message cells crossed, all of them in the
+three loosest categories.
+
+It is disclosed rather than corrected because correcting it means scoring each message more than once, which
+doubles what judging costs, and because it bites only messages already sitting within a few hundredths of a
+line the operator chose. An operator who wants a hard line should set it further from the mass.
+
 ## Caveats
 
 - 2,531 messages across three public sets is a sanity benchmark, not a leaderboard. No system was tuned on this
