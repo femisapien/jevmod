@@ -462,16 +462,24 @@ class Store:
         return self.recent_decisions(tenant, 100000)
 
     def delete_tenant(self, tenant: str) -> None:
-        """GDPR: forget everything about a community or API tenant."""
+        """GDPR: forget everything about a community or API tenant.
+
+        The tables are discovered from the schema rather than listed here. A hardcoded list is a promise
+        that rots: the hosted service creates its own tables on this same database, and the first one added
+        after this method was written was already being missed. Anything with a `tenant` column is this
+        tenant's data by construction, and `tenants.id` is the same thing under an older name."""
         with self.lock:
-            for table, col in (
-                ("tenants", "id"),
-                ("usage", "tenant"),
-                ("decisions", "tenant"),
-                ("api_keys", "tenant"),
-                ("subscriptions", "tenant"),
-            ):
-                self.db.execute(f"DELETE FROM {table} WHERE {col}=?", (tenant,))
+            names = [
+                r[0]
+                for r in self.db.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                ).fetchall()
+            ]
+            for table in names:
+                cols = {r[1] for r in self.db.execute(f"PRAGMA table_info({table})").fetchall()}
+                col = "tenant" if "tenant" in cols else ("id" if table == "tenants" else None)
+                if col:
+                    self.db.execute(f"DELETE FROM {table} WHERE {col}=?", (tenant,))
             self.db.commit()
 
     # ---- API keys (developers)

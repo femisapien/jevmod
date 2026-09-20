@@ -385,3 +385,24 @@ def test_the_three_operator_secrets_are_independent(monkeypatch):
         with pytest.raises(HTTPException):
             server.keymint_only(f"Bearer {wrong}")
     server.keymint_only("Bearer keymint-secret")  # the right one does not raise
+
+
+def test_forgetting_a_tenant_reaches_tables_this_file_has_never_heard_of(tmp_path):
+    """`/mod forget` promises everything about a server is gone, and the list of tables it deleted from was
+    written by hand. The hosted service creates its own tables on this same database, so the first one added
+    after that list was written was already being missed and the promise was quietly false. The tables are
+    discovered from the schema now, and this asserts it by inventing one the core has never heard of."""
+    from jevmod.core import Store
+
+    store = Store(tmp_path / "forget.sqlite")
+    store.set_plan("discord:1", "pro")
+    store.set_plan("discord:2", "pro")
+    store.db.execute("CREATE TABLE contacts (tenant TEXT PRIMARY KEY, email TEXT)")
+    store.db.executemany("INSERT INTO contacts VALUES (?, ?)", [("discord:1", "a@b.c"), ("discord:2", "d@e.f")])
+    store.db.commit()
+
+    store.delete_tenant("discord:1")
+
+    rows = store.db.execute("SELECT tenant FROM contacts").fetchall()
+    assert rows == [("discord:2",)], "the other server's contact must survive"
+    assert store.db.execute("SELECT COUNT(*) FROM tenants WHERE id='discord:1'").fetchone()[0] == 0
