@@ -185,6 +185,61 @@ def test_expiry_flips_the_plan_and_local_rules_keep_running(tmp_path, monkeypatc
     )
 
 
+# ---- the three-day warning latch: fires once, alongside the batch sweep that already runs for expiry
+
+
+def test_trial_warning_fires_once_inside_the_three_day_window(tmp_path):
+    store = Store(tmp_path / "s.sqlite")
+    store.start_trial("t")
+    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() + 2 * 86400, "t"))
+    store.db.commit()
+
+    assert store.note_trial_warning("t") is True, "two days left is inside the three-day window"
+    assert store.note_trial_warning("t") is False, "a second check must not warn twice"
+
+
+def test_trial_warning_does_not_fire_before_the_window(tmp_path):
+    store = Store(tmp_path / "s.sqlite")
+    store.start_trial("t")  # fourteen days left: outside the three-day window
+
+    assert store.note_trial_warning("t") is False, "a fresh trial is not due for a warning yet"
+
+
+def test_trial_warning_does_not_fire_once_the_trial_has_already_expired(tmp_path):
+    store = Store(tmp_path / "s.sqlite")
+    store.start_trial("t")
+    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() - 1, "t"))
+    store.db.commit()
+
+    assert store.note_trial_warning("t") is False, "an expired trial gets the 'ended' email, not the warning"
+
+
+def test_trial_warning_latch_survives_twenty_batches_in_the_window(tmp_path):
+    """The sweep in `moderate()` must run on every batch and still send exactly one warning, or a batcher
+    that flushes twenty times during the window would fire twenty emails instead of one.
+
+    RED, observed before `note_trial_warning` existed:
+        AttributeError: 'Store' object has no attribute 'note_trial_warning'
+    """
+    store = Store(tmp_path / "s.sqlite")
+    store.start_trial("t")
+    store.db.execute("UPDATE tenants SET trial_ends_at=? WHERE id=?", (time.time() + 2 * 86400, "t"))
+    store.db.commit()
+
+    judge = _CountingJudge()
+    service = ModerationService(store=store, judge=judge)
+
+    fires = 0
+    for _ in range(20):
+        # A caller that wants to react (send the email) checks the latch before handing the batch to
+        # `moderate()`, exactly the way `discord_bot.handle_batch` checks `expire_trial` before calling it.
+        if store.note_trial_warning("t"):
+            fires += 1
+        service.moderate("t", [Message("m", "hello there, a perfectly normal message")])
+
+    assert fires == 1, "twenty batches inside the window must warn exactly once"
+
+
 def test_a_trial_that_is_not_due_yet_still_reaches_the_model(tmp_path):
     """The companion to the test above: a live trial must not be mistaken for a free tenant."""
     store = Store(tmp_path / "s.sqlite")

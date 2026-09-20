@@ -27,6 +27,8 @@ PLAN_QUOTAS: dict[str, int] = {
 }
 # One trial, fourteen days, no card. See `start_trial`.
 TRIAL_DAYS = 14
+# How far out the "trial ends soon" warning fires. See `note_trial_warning`.
+TRIAL_WARNING_DAYS = 3
 
 # What the whole service may spend on the model in a calendar month, across every tenant at once.
 #
@@ -109,6 +111,12 @@ class Store:
             cols = {row[1] for row in self.db.execute("PRAGMA table_info(tenants)").fetchall()}
             if "trial_ends_at" not in cols:
                 self.db.execute("ALTER TABLE tenants ADD COLUMN trial_ends_at REAL")
+                self.db.commit()
+            # `trial_warned`, added for the three-day-left email (`odd/tasks/notifications.md`, N4): a plain
+            # flag, 1 once the warning has fired for this tenant and NULL otherwise. Unlike `quota_notified`
+            # this is never month-scoped, because the trial itself never repeats — see `note_trial_warning`.
+            if "trial_warned" not in cols:
+                self.db.execute("ALTER TABLE tenants ADD COLUMN trial_warned INTEGER")
                 self.db.commit()
 
     # ---- policy
@@ -227,6 +235,32 @@ class Store:
             if not row or row[0] != "trial" or row[1] is None or row[1] > time.time():
                 return False
             self.db.execute("UPDATE tenants SET plan='free' WHERE id=?", (tenant,))
+            self.db.commit()
+            return True
+
+    def note_trial_warning(self, tenant: str) -> bool:
+        """True exactly once: the moment a live trial has `TRIAL_WARNING_DAYS` or fewer left, so a caller can
+        send the "trial ends in 3 days" email without sending it once per batch. Modeled on `note_quota_hit`
+        rather than on `expire_trial`: quota's latch resets every month because the quota does too, but a
+        trial happens once in a tenant's whole lifetime, so this is a plain flag, never cleared.
+
+        Refused before the window opens, refused once the trial has already expired (that tenant gets the
+        "ended" email instead, via `expire_trial`, not this one), and refused every time after the first
+        for the same reason `expire_trial` never fires twice: the flag, once set, is never unset.
+
+        Same call shape as `expire_trial` on purpose — see `ModerationService.moderate()`, which calls both
+        right next to `purge_expired()` so the three-day sweep costs the same one indexed row lookup on a
+        tenant already being read for this batch, not a scan of every trial in the database on a timer."""
+        with self.lock:
+            row = self.db.execute(
+                "SELECT plan, trial_ends_at, trial_warned FROM tenants WHERE id=?", (tenant,)
+            ).fetchone()
+            if not row or row[0] != "trial" or row[1] is None or row[2]:
+                return False
+            remaining = row[1] - time.time()
+            if remaining <= 0 or remaining > TRIAL_WARNING_DAYS * 86400:
+                return False
+            self.db.execute("UPDATE tenants SET trial_warned=1 WHERE id=?", (tenant,))
             self.db.commit()
             return True
 
