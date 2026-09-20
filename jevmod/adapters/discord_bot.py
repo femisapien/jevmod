@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
+import time
 from datetime import timedelta
 
 import discord
 from discord import app_commands
+from discord.ext import tasks
 
 from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Policy, Store
 from ..core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS, LINK_MODES
@@ -28,6 +31,34 @@ bot = discord.Client(intents=intents)
 tree = app_commands.CommandTree(bot)
 store = Store(os.environ.get("JEVMOD_DB", "jevmod.sqlite"))
 service = ModerationService(store)
+
+# Liveness for something outside this process to read -- the hosted monitor's own `bot_heartbeat` check
+# (`jevmod_hosted/monitor.py`, in the private repo), which watches the demo API and the web app but must
+# not reach into this container. Unset by default: a self-hosted deployment of this open bot never writes
+# this file, never starts the loop below, and never has to know a hosted monitor exists at all.
+HEARTBEAT_FILE = os.environ.get("JEVMOD_HEARTBEAT_FILE", "") or ""
+HEARTBEAT_EVERY_S = int(os.environ.get("JEVMOD_HEARTBEAT_EVERY_S", "60") or 60)
+
+
+@tasks.loop(seconds=HEARTBEAT_EVERY_S)
+async def _write_heartbeat() -> None:
+    """Write `{"ts": <now>}` to `HEARTBEAT_FILE`, but only while `bot.is_ready()` says the gateway session
+    is actually up. That "only while ready" is the entire mechanism: if the websocket drops, this simply
+    stops writing, the file's age grows past whatever the monitor's own staleness threshold is, and it
+    finds out without this process ever calling out to it. `discord.py` already handles ordinary
+    reconnects on its own, so a real gap here means a real outage, not a network blip.
+
+    Best-effort like `monitor.py`'s own `_save_state`: a heartbeat writer that raises has turned "the bot
+    is unreachable" into "the bot is unreachable, and also crash-looping", which is strictly worse."""
+    if not HEARTBEAT_FILE or not bot.is_ready():
+        return
+    try:
+        tmp = f"{HEARTBEAT_FILE}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"ts": time.time()}, f)
+        os.replace(tmp, HEARTBEAT_FILE)
+    except OSError:
+        log.exception("could not write the heartbeat file at %s", HEARTBEAT_FILE)
 
 
 def tenant_of(guild_id: int) -> str:
@@ -117,6 +148,8 @@ batcher = Batcher(2.0, handle_batch)
 async def on_ready() -> None:
     bot.add_view(FeedbackView())  # so the buttons on flags posted before this restart still answer
     await tree.sync()
+    if HEARTBEAT_FILE and not _write_heartbeat.is_running():
+        _write_heartbeat.start()
     # Record each server's name. Only Discord knows it, and the things that write to a person later - the
     # hosted service's emails, the admin panel - have nothing but `discord:<id>`, which is not a name anybody
     # recognises as their own server. Written here rather than once on join so a rename catches up, and only
