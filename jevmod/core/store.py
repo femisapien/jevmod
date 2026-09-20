@@ -100,6 +100,8 @@ class Store:
                     current_period_end REAL, updated REAL);
                 CREATE TABLE IF NOT EXISTS api_keys (
                     key_hash TEXT PRIMARY KEY, tenant TEXT NOT NULL, created REAL, label TEXT);
+                CREATE TABLE IF NOT EXISTS cancellation_queue (
+                    subscription_id TEXT PRIMARY KEY, tenant TEXT NOT NULL, requested_at REAL NOT NULL);
                 """
             )
             self.db.commit()
@@ -439,6 +441,52 @@ class Store:
                 col = "tenant" if "tenant" in cols else ("id" if table == "tenants" else None)
                 if col:
                     self.db.execute(f"DELETE FROM {table} WHERE {col}=?", (tenant,))
+            self.db.commit()
+
+    def leave_tenant(self, tenant: str) -> None:
+        """A server jevmod is no longer in: forget its data (`delete_tenant`, above) and, if it was paying,
+        make sure the money stops too.
+
+        This package has no idea what Stripe is and must not learn: it is the thing a self-hoster runs with
+        no billing at all. What it does know, already, is that a tenant can have a `subscription_id` (see
+        `set_subscription`/`subscription`), so queuing "this subscription needs to be cancelled" is a plain
+        continuation of that existing vocabulary, not a new dependency. The trial notifier
+        (`jevmod_hosted/quota_notify.py`) solved the identical split the same way: one SQLite file, written
+        by this process, read by the hosted service's own sweep, which is the only thing that ever calls
+        Stripe.
+
+        Order matters. The subscription id has to be read *before* `delete_tenant` wipes the `subscriptions`
+        row, and the queue row has to be written *after* `delete_tenant` runs, or `delete_tenant`'s own
+        generic "any table with a `tenant` column" sweep would delete the very row this method just wrote,
+        since `cancellation_queue` has one too. `subscription_id` is the primary key, so a server that
+        leaves and rejoins and leaves again queues the same cancellation once, not twice."""
+        sub = self.subscription(tenant)
+        self.delete_tenant(tenant)
+        sub_id = sub.get("subscription_id") if sub else None
+        if sub_id:
+            with self.lock:
+                self.db.execute(
+                    "INSERT OR IGNORE INTO cancellation_queue (subscription_id, tenant, requested_at) "
+                    "VALUES (?, ?, ?)",
+                    (sub_id, tenant, time.time()),
+                )
+                self.db.commit()
+
+    def pending_cancellations(self) -> list[dict[str, Any]]:
+        """Read by the hosted service's own sweep; never by this package. Oldest first, so a backlog (a
+        Stripe outage, say) drains in the order servers actually left."""
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT subscription_id, tenant, requested_at FROM cancellation_queue ORDER BY requested_at"
+            ).fetchall()
+        keys = ("subscription_id", "tenant", "requested_at")
+        return [dict(zip(keys, r, strict=True)) for r in rows]
+
+    def clear_cancellation(self, subscription_id: str) -> None:
+        """Written only after the hosted sweep confirms Stripe actually cancelled this subscription, so a
+        failed attempt leaves the row queued for the next pass instead of losing it."""
+        with self.lock:
+            self.db.execute("DELETE FROM cancellation_queue WHERE subscription_id=?", (subscription_id,))
             self.db.commit()
 
     # ---- API keys (developers)

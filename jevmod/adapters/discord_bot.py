@@ -414,9 +414,13 @@ async def on_member_join(member: discord.Member) -> None:
 
 @bot.event
 async def on_guild_remove(guild: discord.Guild) -> None:
-    """Kicked or left: forget everything about that server."""
-    store.delete_tenant(tenant_of(guild.id))
-    log.info("left guild %s; data deleted", guild.id)
+    """Kicked or left: forget everything about that server, and if it was paying, queue its subscription for
+    cancellation. Nobody is at the keyboard to click cancel when the bot itself gets removed — that is the
+    billing hole `/mod forget` already warns about explicitly and this event cannot, because there is no
+    interaction to warn *in*. This process still never calls Stripe: `Store.leave_tenant` only writes to
+    SQLite, and the hosted service's own sweep does the rest. See its docstring."""
+    store.leave_tenant(tenant_of(guild.id))
+    log.info("left guild %s; data deleted, subscription (if any) queued for cancellation", guild.id)
 
 
 # ------------------------------------------------------------------ /mod
