@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Omar Hernandez" }]
 dependencies = ["typesafe-sdk>=0.6", "fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2"]
-keywords = ["moderation", "discord", "telegram", "reddit", "twitch", "content-moderation", "typesafe", "jev"]
+keywords = ["moderation", "discord", "telegram", "reddit", "twitch", "youtube", "content-moderation", "typesafe", "jev"]
 classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Topic :: Communications :: Chat"]
 
 [project.optional-dependencies]
@@ -25,6 +25,10 @@ reddit = ["praw>=7.7"]
 # in an HTTP stack, unlike aiohttp, and this adapter's REST calls to Twitch's Helix API go over the stdlib's
 # `urllib.request` (inside `asyncio.to_thread`) instead of adding a second HTTP dependency for that.
 twitch = ["websockets>=12"]
+# YouTube's Data API is plain REST/JSON over HTTPS -- `liveChatMessages.list` is an ordinary polling GET, so
+# this adapter needs nothing beyond the standard library's `urllib.request` (see youtube_bot.py's module
+# docstring for why it does not reach for the push-based `streamList` alternative instead). No new dependency.
+youtube = []
 billing = ["stripe>=12"]
 mcp = ["mcp>=2"]
 keys = ["keyring>=25"]
