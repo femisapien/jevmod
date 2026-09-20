@@ -126,6 +126,14 @@ batcher = Batcher(2.0, handle_batch)
 async def on_ready() -> None:
     bot.add_view(FeedbackView())  # so the buttons on flags posted before this restart still answer
     await tree.sync()
+    # Record each server's name. Only Discord knows it, and the things that write to a person later - the
+    # hosted service's emails, the admin panel - have nothing but `discord:<id>`, which is not a name anybody
+    # recognises as their own server. Written here rather than once on join so a rename catches up, and only
+    # when it changed, so a restart is not one write per guild for nothing.
+    for guild in bot.guilds:
+        tenant = tenant_of(guild.id)
+        if service.store.get_meta(tenant).get("name") != guild.name:
+            service.store.set_meta(tenant, name=guild.name)
     log.info("discord ready as %s in %d guilds", bot.user, len(bot.guilds))
 
 
@@ -359,6 +367,7 @@ async def on_guild_join(guild: discord.Guild) -> None:
     """Create the log channel and explain the two things that surprise every new owner: staff are never judged,
     so testing it yourself shows nothing, and the bot only flags until someone turns on more."""
     tenant = tenant_of(guild.id)
+    service.store.set_meta(tenant, name=guild.name)
     channel = await log_channel(guild, tenant)
     if not channel:
         log.info("joined guild %s but could not create a log channel", guild.id)
