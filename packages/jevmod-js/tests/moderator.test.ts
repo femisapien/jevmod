@@ -13,7 +13,10 @@ describe.skipIf(!HAS_KEY)("Moderator against the real Jev API", () => {
     expect(d.judged).toBe(true);
     expect(d.reason).toBe("jev");
     expect(d.action).toBe("flag");
-    expect(d.category).toBe("scam");
+    // Both are defensible for a fake Nitro giveaway on a lookalike domain, and the model picks one or the
+    // other run to run. This test is about the shape of a Decision, so pinning the category made a model's
+    // judgement a gate on CI, and a suite that fails at random is a suite people learn to ignore.
+    expect(["scam", "spam"]).toContain(d.category);
     expect(d.probability).toBeGreaterThanOrEqual(0.75);
     expect(Object.keys(d.scores).sort()).toEqual(["doxxing", "harassment", "minors", "nsfw", "scam", "selfharm", "spam"]);
     for (const p of Object.values(d.scores)) expect(p).toBe(Math.round(p * 1e4) / 1e4);

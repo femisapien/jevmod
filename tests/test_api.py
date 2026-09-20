@@ -32,10 +32,15 @@ def test_keys_policy_moderate_and_audit(client):
     assert client.post("/v1/keys", json={"tenant": "x"}, headers=auth).status_code == 403  # tenants cannot mint keys
     assert client.post("/v1/moderate", json={"messages": [{"text": "hi"}]}).status_code == 401
 
-    # policy: scam -> delete, plus a custom rule
+    # policy: scam -> delete, plus a custom rule. Spam gets the same action deliberately: a fake Nitro
+    # giveaway on a lookalike domain is both, the model picks one or the other run to run, and this test is
+    # about the pipeline rather than about which of two defensible categories won.
     r = client.put(
         "/v1/policy",
-        json={"actions": {"scam": "delete"}, "rules": {"no_politics": "No political discussion here."}},
+        json={
+            "actions": {"scam": "delete", "spam": "delete"},
+            "rules": {"no_politics": "No political discussion here."},
+        },
         headers=auth,
     )
     assert r.status_code == 200 and r.json()["actions"]["scam"] == "delete"
@@ -64,7 +69,7 @@ def test_keys_policy_moderate_and_audit(client):
     body = r.json()
     assert body["request_id"] == "req-1"
     d = {x["message_id"]: x for x in body["decisions"]}
-    assert d["a"]["action"] == "delete" and d["a"]["category"] == "scam", d["a"]
+    assert d["a"]["action"] == "delete" and d["a"]["category"] in ("scam", "spam"), d["a"]
     assert d["b"]["action"] == "none" and d["b"]["judged"]
     assert d["c"]["action"] == "flag" and d["c"]["category"] == "rule:no_politics", d["c"]
     assert d["d"]["judged"] is False and d["d"]["reason"] == "too short"
