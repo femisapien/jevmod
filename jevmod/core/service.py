@@ -22,7 +22,7 @@ from ..judge import Judge, Message
 from . import local
 from .local import RepeatWindow
 from .policy import Decision, Policy, decide
-from .store import Store
+from .store import ENFORCE_PLANS, INACTIVE, Store
 
 log = logging.getLogger("jevmod")
 
@@ -30,13 +30,8 @@ JEV_USD_PER_M_INPUT = 0.042
 # The most one check-then-spend window may commit. A quota is checked before a batch and written
 # after it, so a batch bigger than this is a ceiling overshot by exactly that much.
 MAX_BATCH = int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100)
-# Whether a tenant on the free plan may reach the model at all.
-#
-# On by default, because a self-hosted copy pays its own model bill and has no notion of plans: there, every
-# tenant is "free" and every tenant should be judged. The hosted service sets it to 0, which is what makes
-# its free tier free: not a quota that runs out, not a ceiling that pauses, but a plan that never spends.
-# Local rules are decided before this and are unaffected, which is the whole point of the free tier.
-MODEL_ON_FREE = (os.environ.get("JEVMOD_MODEL_ON_FREE", "1") or "1") != "0"
+# Whether plans mean anything here, and the plan a tenant sits on when nothing is paying for it. Both are
+# defined in `store` so that the gate and the quota that enforce them cannot drift apart.
 
 
 class ModerationService:
@@ -70,6 +65,18 @@ class ModerationService:
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
         self.store.purge_expired()
 
+        # An inactive tenant is stopped here, above local rules rather than below them.
+        #
+        # The plan this replaced, `free`, sat below: it never reached the model but its link filters, word
+        # lists and patterns kept running, which is what made it a usable free tier. That tier was removed
+        # as an offer on 2026-09-21, and with it the reason for the gate to sit further down. A server that
+        # is not paying gets nothing evaluated; what it configured stays stored and stops being applied.
+        #
+        # Only on the hosted service. `ENFORCE_PLANS` is off by default, so a self-hosted copy, where every
+        # tenant sits on the default plan and there is no billing at all, never takes this branch.
+        if ENFORCE_PLANS and self.store.plan(tenant) == INACTIVE:
+            return [Decision(m.id, "none", None, 0.0, {}, False, "inactive") for m in messages]
+
         # Local rules cost nothing per message, so they run before every gate below: a tenant that is out of
         # quota, over the shared budget, or has never enabled a single Jev category still gets its link
         # filter, its word list and its patterns. A message a local rule decides is logged like any other
@@ -94,10 +101,6 @@ class ModerationService:
     def _gate_and_judge(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
         """Everything that only governs what is left after local rules have already decided what they can:
         the per-tenant quota, the shared spend ceiling, and the batch-size cap."""
-        if not MODEL_ON_FREE and self.store.plan(tenant) == "free":
-            # Before the quota and before the ceiling, because this is not a limit being reached: nothing was
-            # ever going to be spent here. A trial is not free for this purpose and reaches the model.
-            return [Decision(m.id, "none", None, 0.0, {}, False, "free_plan") for m in messages]
         if self.store.over_quota(tenant):
             # note_quota_hit is a once-a-month latch, and the adapters use it to decide whether to post the
             # notice. Consuming it here meant the adapter always got False, so the notice never reached anyone.

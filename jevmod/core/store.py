@@ -16,16 +16,53 @@ from .policy import Decision, Policy
 # Optional cost guard per tenant per month. 0 (the default) means unlimited; set JEVMOD_MONTHLY_QUOTA=5000 to pause
 # judging for a tenant after 5,000 judged messages in a calendar month (nothing is deleted while paused).
 FREE_MONTHLY = int(os.environ.get("JEVMOD_MONTHLY_QUOTA", "0") or 0)
-# Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "free", "trial", "pro",
-# "unlimited" (comped). "trial" has no entry of its own: `quota_for` gives it Pro's number directly, because
-# a trial *is* Pro's judgement and a second place that could drift out of sync with JEVMOD_PRO_MONTHLY_QUOTA
-# is a bug waiting to happen.
+# The plan a tenant is on when nothing is paying for it: never subscribed, trial expired, or subscription
+# no longer active. It replaced "free" on 2026-09-21, when the free plan was removed as an offer; see
+# `odd/tasks/remove-free-plan.md` in the hosted repository.
+INACTIVE = "inactive"
+# Whether plans mean anything in this deployment.
+#
+# Off by default, and that default is what keeps a self-hosted copy working. Self-hosting has no billing,
+# no Stripe and no plans: every tenant sits on the default plan, and with this off, that fact is ignored
+# and everything is judged. The hosted service sets JEVMOD_ENFORCE_PLANS=1, and only there does a plan
+# decide whether a message is looked at.
+#
+# It was previously spelled JEVMOD_MODEL_ON_FREE, inverted, and named after the plan it happened to gate
+# rather than after what it does.
+def _enforce_plans() -> bool:
+    """Whether plans mean anything in this deployment.
+
+    Reads the old variable when the new one is absent, and this fallback is not politeness. The hosted
+    service carries `JEVMOD_MODEL_ON_FREE=0` in a file on the VPS that exists in no repository and is the
+    only copy of itself. A deploy that renamed the variable without touching that file would leave the new
+    one unset, default it to off, and quietly stop enforcing plans: every lapsed tenant judged by the
+    model, with `PLAN_QUOTAS.get(plan, 0)` granting them unlimited. Nothing crashes, and the first sign is
+    the bill.
+
+    So an un-updated deployment keeps the behaviour it had. Remove this once the VPS sets the new name.
+    """
+    explicit = os.environ.get("JEVMOD_ENFORCE_PLANS")
+    if explicit is not None:
+        return explicit != "0"
+    legacy = os.environ.get("JEVMOD_MODEL_ON_FREE")
+    if legacy is not None:
+        # `JEVMOD_MODEL_ON_FREE=0` meant "the free plan never reaches the model", which is the same
+        # deployment that wants plans enforced now.
+        return legacy == "0"
+    return False
+
+
+ENFORCE_PLANS = _enforce_plans()
+# Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "inactive", "trial",
+# "pro", "unlimited" (comped). "trial" has no entry of its own: `quota_for` gives it Pro's number directly,
+# because a trial *is* Pro's judgement and a second place that could drift out of sync with
+# JEVMOD_PRO_MONTHLY_QUOTA is a bug waiting to happen.
 #
 # `plan` itself is no longer a state machine this package owns: on the hosted service it is written only by
 # the Stripe webhook, which mirrors the subscription's own status (`jevmod_hosted/billing.py`). A self-hosted
-# copy never sees anything but "free", which is exactly what `set_plan` already defaults every tenant to.
+# copy never sees anything but the default plan, and ENFORCE_PLANS being off is what makes that harmless.
 PLAN_QUOTAS: dict[str, int] = {
-    "free": FREE_MONTHLY,
+    INACTIVE: FREE_MONTHLY,
     "pro": int(os.environ.get("JEVMOD_PRO_MONTHLY_QUOTA", "50000") or 0),
     "unlimited": 0,
 }
@@ -86,7 +123,7 @@ class Store:
             self.db.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS tenants (
-                    id TEXT PRIMARY KEY, policy TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'free',
+                    id TEXT PRIMARY KEY, policy TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'inactive',
                     meta TEXT NOT NULL DEFAULT '{}', quota_notified TEXT DEFAULT '');
                 CREATE TABLE IF NOT EXISTS usage (
                     tenant TEXT, month TEXT, judged INTEGER, requests INTEGER, tokens INTEGER,
@@ -145,7 +182,7 @@ class Store:
     def plan(self, tenant: str) -> str:
         with self.lock:
             row = self.db.execute("SELECT plan FROM tenants WHERE id=?", (tenant,)).fetchone()
-        return row[0] if row else "free"
+        return row[0] if row else INACTIVE
 
     def set_plan(self, tenant: str, plan: str) -> None:
         with self.lock:
@@ -179,9 +216,16 @@ class Store:
         return tuple(row) if row else (0, 0, 0)
 
     def quota_for(self, tenant: str) -> int:
-        """Judged messages allowed this month for the tenant's plan; 0 means unlimited."""
+        """Judged messages allowed this month for the tenant's plan.
+
+        0 means unlimited and -1 means none at all. The negative case exists because 0 already meant
+        unlimited before plans did, and an inactive tenant falling through to `PLAN_QUOTAS.get(plan, 0)`
+        would therefore be granted unlimited judgement rather than none: the exact failure this change was
+        written to avoid."""
         plan = self.plan(tenant)
-        if plan == "free":
+        if ENFORCE_PLANS and plan == INACTIVE:
+            return -1
+        if plan == INACTIVE:
             return self.monthly_quota
         if plan == "trial":
             # A trial opens the model's judgement at Pro's ceiling, not Free's — Free's quota exists to cap
@@ -193,6 +237,8 @@ class Store:
 
     def over_quota(self, tenant: str) -> bool:
         q = self.quota_for(tenant)
+        if q < 0:
+            return True
         return q > 0 and self.usage(tenant)[0] >= q
 
     def month_spend_usd(self, max_age_s: float = 30.0) -> float:
@@ -257,9 +303,11 @@ class Store:
             ceiling = self.budget_ceiling()
         if ceiling and spend >= ceiling:
             return "global_budget"
-        # A trial counts as free here on purpose: it pauses at the lower, free-tenant ceiling rather than at
-        # the hard one, so trials give way before a server that is actually paying does.
-        if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) in ("free", "trial"):
+        # A trial pauses at the lower ceiling rather than the hard one, so trials give way before a server
+        # that is actually paying does. An inactive tenant is listed too, although it cannot reach here:
+        # it is gated long before any spending, and leaving it out would make this the one place that
+        # treats an unpaid tenant as a paying one if that gate ever moved.
+        if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) in (INACTIVE, "trial"):
             return "free_budget"
         return None
 
@@ -310,7 +358,7 @@ class Store:
         with self.lock:
             rows = self.db.execute(
                 "WITH ids AS (SELECT id FROM tenants UNION SELECT tenant FROM usage WHERE month = ?) "
-                "SELECT ids.id, COALESCE(t.plan, 'free'), COALESCE(u.judged, 0), COALESCE(u.requests, 0), "
+                "SELECT ids.id, COALESCE(t.plan, 'inactive'), COALESCE(u.judged, 0), COALESCE(u.requests, 0), "
                 "COALESCE(u.tokens, 0), s.status, s.current_period_end, s.customer_id FROM ids "
                 "LEFT JOIN tenants t ON t.id = ids.id "
                 "LEFT JOIN usage u ON u.tenant = ids.id AND u.month = ? "
@@ -320,7 +368,7 @@ class Store:
         out = []
         for r in rows:
             plan = r[1]
-            quota = self.monthly_quota if plan == "free" else PLAN_QUOTAS.get(plan, 0)
+            quota = self.monthly_quota if plan == INACTIVE else PLAN_QUOTAS.get(plan, 0)
             out.append(
                 {
                     "tenant": r[0],

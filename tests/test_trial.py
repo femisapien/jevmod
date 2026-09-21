@@ -166,7 +166,7 @@ def test_local_rules_keep_running_once_a_trial_becomes_free(tmp_path):
     local word list never depended on plan at all and keeps deciding regardless."""
     store = Store(tmp_path / "s.sqlite", monthly_quota=0)
     store.set_plan("t", "trial")
-    store.set_plan("t", "free")
+    store.set_plan("t", "inactive")
 
     policy = Policy()
     policy.set_category("spam", "flag")
@@ -182,26 +182,32 @@ def test_local_rules_keep_running_once_a_trial_becomes_free(tmp_path):
     )
 
     assert decisions[0].category == "local:word" and decisions[0].reason == "local", "local rules still run"
-    assert store.quota_for("t") == 0, "back on free, the trial's Pro quota is gone"
+    assert store.quota_for("t") == 0, "back to inactive, the trial's Pro quota is gone"
 
 
-def test_the_hosted_free_plan_never_reaches_the_model_but_keeps_its_local_rules(tmp_path, monkeypatch):
-    """What actually makes the free tier free.
+def test_an_inactive_tenant_is_judged_by_nothing_at_all(tmp_path, monkeypatch):
+    """What replaced the free tier.
 
-    Not a quota that runs out and not a ceiling that pauses: a plan that never spends. The switch exists
-    because a self-hosted copy pays its own model bill and has no notion of plans, so there every tenant is
-    "free" and every tenant should be judged. Only the hosted deployment turns it off, and the test above
-    describes that other deployment rather than this one.
+    Until 2026-09-21 a server that was not paying sat on `free`: it never reached the model, and its local
+    rules kept running, which is what made it a usable free tier. That tier was removed as an offer, and
+    `inactive` replaced it. An inactive server gets nothing evaluated, not even the rules that cost nothing,
+    and the gate that does it sits above local rules rather than below them.
+
+    `ENFORCE_PLANS` is what keeps this off a self-hosted copy, where every tenant sits on the default plan
+    and there is no billing to be inactive from. The test above describes that other deployment.
     """
     import importlib
 
-    monkeypatch.setenv("JEVMOD_MODEL_ON_FREE", "0")
+    monkeypatch.setenv("JEVMOD_ENFORCE_PLANS", "1")
+    from jevmod.core import store as store_mod
+
+    importlib.reload(store_mod)
     from jevmod.core import service as service_mod
 
     importlib.reload(service_mod)
-    assert service_mod.MODEL_ON_FREE is False
+    assert service_mod.ENFORCE_PLANS is True
     try:
-        store = Store(tmp_path / "free.sqlite")
+        store = store_mod.Store(tmp_path / "inactive.sqlite")
         policy = Policy()
         policy.set_category("spam", "flag")
         policy.set_words(["nitro"])
@@ -214,14 +220,99 @@ def test_the_hosted_free_plan_never_reaches_the_model_but_keeps_its_local_rules(
             [Message("m1", "free nitro codes"), Message("m2", "hello there, a perfectly normal message")],
         )
 
-        assert judge.seen_texts == [], "a free tenant must not cost a single token"
-        assert decisions[0].category == "local:word", "and must still get the rules that cost nothing"
-        assert decisions[1].reason == "free_plan"
+        assert judge.seen_texts == [], "an inactive tenant must not cost a single token"
+        assert [d.reason for d in decisions] == ["inactive", "inactive"]
+        assert decisions[0].category is None, "not even the word list runs; that is what changed"
+        assert all(d.action == "none" for d in decisions)
 
-        # A trial is not free for this purpose.
+        # A trial is not inactive, and reaches the model.
         store.set_plan("t", "trial")
         service.moderate("t", [Message("m3", "hello there, a perfectly normal message")])
         assert judge.seen_texts == ["hello there, a perfectly normal message"]
     finally:
-        monkeypatch.delenv("JEVMOD_MODEL_ON_FREE")
+        monkeypatch.delenv("JEVMOD_ENFORCE_PLANS")
+        importlib.reload(store_mod)
         importlib.reload(service_mod)
+
+
+def test_an_inactive_tenant_is_never_granted_unlimited_quota(tmp_path, monkeypatch):
+    """The trap this whole change was written around.
+
+    `quota_for` returns 0 for unlimited, and its fallback is `PLAN_QUOTAS.get(plan, 0)`. So a plan name
+    that is not in the table gets unlimited judgement rather than none, silently, and the first sign of it
+    would be the model bill. Removing the free plan without moving every one of its four touch points
+    together is exactly how a tenant ends up in that state.
+
+    This asserts the other direction explicitly: enforced and inactive means a negative quota, which
+    `over_quota` reads as none allowed, not as unlimited.
+    """
+    import importlib
+
+    monkeypatch.setenv("JEVMOD_ENFORCE_PLANS", "1")
+    from jevmod.core import store as store_mod
+
+    importlib.reload(store_mod)
+    try:
+        store = store_mod.Store(tmp_path / "quota.sqlite")
+        store.save_policy("t", Policy())
+
+        assert store.plan("t") == "inactive", "the default plan is the one nothing is paying for"
+        assert store.quota_for("t") == -1, "none allowed, and not 0, which means unlimited here"
+        assert store.over_quota("t") is True
+    finally:
+        monkeypatch.delenv("JEVMOD_ENFORCE_PLANS")
+        importlib.reload(store_mod)
+
+
+def test_a_self_hosted_copy_ignores_plans_entirely(tmp_path):
+    """The default, and the reason the flag exists.
+
+    Self-hosting has no billing and no Stripe, so every tenant sits on the default plan, which is now
+    called `inactive`. If that name alone decided anything, removing the free plan would have switched off
+    every self-hosted deployment in the world. `ENFORCE_PLANS` is off unless a deployment asks for it, and
+    this asserts that the name is inert without it.
+    """
+    from jevmod.core import service as service_mod
+    from jevmod.core import store as store_mod
+
+    assert store_mod.ENFORCE_PLANS is False, "plans must not be enforced by default"
+
+    store = store_mod.Store(tmp_path / "selfhost.sqlite")
+    policy = Policy()
+    policy.set_category("spam", "flag")
+    store.save_policy("t", policy)
+    assert store.plan("t") == "inactive"
+    assert store.quota_for("t") != -1, "a self-hosted tenant is not gated by a plan it never chose"
+
+    judge = _CountingJudge()
+    service = service_mod.ModerationService(store=store, judge=judge)
+    service.moderate("t", [Message("m1", "hello there, a perfectly normal message")])
+    assert judge.seen_texts == ["hello there, a perfectly normal message"]
+
+
+def test_the_old_env_var_still_enforces_plans_until_the_vps_is_updated(monkeypatch):
+    """The deploy that renames a variable is the deploy that can silently stop charging.
+
+    `JEVMOD_MODEL_ON_FREE=0` lives in a file on the VPS that is in no repository and is the only copy of
+    itself. Shipping the rename without touching that file would leave the new name unset, default it to
+    off, and judge every lapsed tenant for free with no quota. This asserts the old name still works, so
+    the code can ship before the server does.
+    """
+    import importlib
+
+    from jevmod.core import store as store_mod
+
+    monkeypatch.setenv("JEVMOD_MODEL_ON_FREE", "0")
+    monkeypatch.delenv("JEVMOD_ENFORCE_PLANS", raising=False)
+    importlib.reload(store_mod)
+    try:
+        assert store_mod.ENFORCE_PLANS is True, "the old variable must keep enforcing plans"
+
+        # And the new name wins when both are present.
+        monkeypatch.setenv("JEVMOD_ENFORCE_PLANS", "0")
+        importlib.reload(store_mod)
+        assert store_mod.ENFORCE_PLANS is False
+    finally:
+        monkeypatch.delenv("JEVMOD_MODEL_ON_FREE", raising=False)
+        monkeypatch.delenv("JEVMOD_ENFORCE_PLANS", raising=False)
+        importlib.reload(store_mod)

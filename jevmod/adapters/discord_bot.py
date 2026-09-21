@@ -19,7 +19,7 @@ import discord
 from discord import app_commands
 from discord.ext import tasks
 
-from ..core import RULE_THRESHOLD, Batcher, Decision, ModerationService, Policy, Store
+from ..core import INACTIVE, RULE_THRESHOLD, Batcher, Decision, ModerationService, Policy, Store
 from ..core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS, LINK_MODES
 from ..judge import CATEGORIES, Message
 
@@ -328,7 +328,7 @@ async def _notify_quota_once(guild: discord.Guild, tenant: str) -> None:
         await ch.send(
             f"jevmod paused for this month: the {store.plan(tenant)} plan covers {store.quota_for(tenant):,} judged "
             "messages. Messages are not being judged until next month. Nothing is deleted while paused."
-            + (" `/mod upgrade` lifts the limit." if store.plan(tenant) == "free" and _billing_enabled() else "")
+            + (" `/mod upgrade` lifts the limit." if store.plan(tenant) == INACTIVE and _billing_enabled() else "")
         )
 
 
@@ -1028,7 +1028,7 @@ async def upgrade_cmd(itx: discord.Interaction) -> None:
     from ..api.paylink import checkout_url
 
     plan = store.plan(tenant)
-    what = "manage or cancel the subscription" if plan != "free" else "upgrade this server to Pro"
+    what = "manage or cancel the subscription" if plan != INACTIVE else "start this server's trial"
     await itx.response.send_message(
         f"Link to {what} (valid for this server only, opens Stripe): {checkout_url(tenant)}", ephemeral=True
     )
@@ -1049,7 +1049,7 @@ async def forget_cmd(itx: discord.Interaction) -> None:
     tenant = tenant_of(itx.guild_id or 0)
     # Deleting the local rows does not cancel anything at Stripe, so a paying owner would keep being charged
     # with no record left here to explain it. Say so before deleting, and leave the portal link in reach.
-    paying = store.plan(tenant) != "free"
+    paying = store.plan(tenant) != INACTIVE
     store.delete_tenant(tenant)
     note = "all settings, usage and decision logs for this server were deleted"
     if paying:
