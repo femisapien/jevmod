@@ -26,13 +26,13 @@ def test_leave_tenant_deletes_data_like_delete_tenant_did():
     s.set_plan(t, "pro")
     s.add_usage(t, 10, 1, 100)
     s.leave_tenant(t)
-    assert s.usage(t) == (0, 0, 0) and s.plan(t) == "free"
+    assert s.usage(t) == (0, 0, 0) and s.plan(t) == "inactive"
 
 
 def test_leave_tenant_with_no_subscription_queues_nothing():
     s = Store(":memory:")
     t = "discord:free-server"
-    s.set_plan(t, "free")
+    s.set_plan(t, "inactive")
     s.leave_tenant(t)
     assert s.pending_cancellations() == []
 
@@ -56,7 +56,7 @@ def test_leave_tenant_never_queues_another_servers_subscription():
     _with_subscription(s, other, "sub_other")
 
     mine = "discord:my-server"
-    s.set_plan(mine, "free")  # no subscription of its own
+    s.set_plan(mine, "inactive")  # no subscription of its own
     s.leave_tenant(mine)
 
     pending = s.pending_cancellations()

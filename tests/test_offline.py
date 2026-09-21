@@ -86,7 +86,7 @@ def test_store_quota_retention_and_erasure():
     s.db.execute("UPDATE decisions SET ts=?", (time.time() - 3 * 86400,))
     assert s.purge_expired() == 1
     s.delete_tenant(t)
-    assert s.usage(t) == (0, 0, 0) and s.plan(t) == "free"
+    assert s.usage(t) == (0, 0, 0) and s.plan(t) == "inactive"
 
 
 def test_api_keys_are_hashed_lookups():

@@ -47,14 +47,18 @@ scores, judged, reason, custom)`. Errors surface as `typesafe_sdk.TypeSafeError`
 
 CLI: `jevmod check [text | -] [--topic T] [--rule R]... [--threshold X] [--json]`; exit 0 clean,
 1 something triggered, 2 error. `jevmod init` stores the key. `jevmod api|discord|telegram|reddit|mcp`
-run that role.
+run that role. **`jevmod twitch` and `jevmod youtube` do not exist yet** although both adapters ship and
+work: run them with `python -m jevmod.adapters.twitch_bot`. Tracked as JEV-35.
 
 HTTP (`jevmod api`, FastAPI, port 8080): `POST /v1/moderate` (`{"messages":[{"id","text",
 "author","channel_topic","author_trusted"}]}`, max 50, bearer tenant key) returns `{"request_id",
 "decisions":[Decision without policy_version],"usage"}`; `GET/PUT /v1/policy`; `GET
 /v1/decisions?limit=50`; `DELETE /v1/tenant`; `POST /v1/keys` (admin token
 `JEVMOD_ADMIN_TOKEN`); `GET /v1/health`; `GET /metrics`. OpenAPI at `/docs`. Jev down:
-`action="none", judged=false, reason="error_open"`. Free quota exceeded: `reason="quota"`.
+`action="none", judged=false, reason="error_open"`. Quota exceeded: `reason="quota"`. A server that is not paying is `inactive` and comes back
+`reason="inactive"`: it is not judged and its local rules do not run either. The Free plan was removed on
+2026-09-21; `JEVMOD_ENFORCE_PLANS` (default off) is what makes plans mean anything, and a self-hosted copy
+leaves it off and judges everything.
 
 MCP (`jevmod mcp`, stdio, official MCP Python SDK, extra `pip install "jevmod[mcp]"`): tools `moderate(texts: list[str], channel_topic: str = "",
 rules: dict[str, str] | None = None)` (up to 50 texts, actions `none`/`flag` only, nothing stored)
@@ -79,7 +83,7 @@ the exact exports; it is developed in parallel with this file.
 | `jevmod/cli.py`, `jevmod/__main__.py` | `jevmod check` and the role runner |
 | `jevmod/api/server.py` | the HTTP API |
 | `jevmod/mcp_server.py` | the MCP server |
-| `jevmod/adapters/` | Discord, Telegram, Reddit bots over the same core |
+| `jevmod/adapters/` | Discord, Telegram, Reddit, Twitch and YouTube bots over the same core |
 | `packages/jevmod-js/` | npm package |
 | `plugin/` | Claude Code plugin: skills `jevmod-integrate`, `jevmod-moderate`, `.mcp.json` |
 | `tests/` | `test_offline.py` (no key); `test_judge.py`, `test_cli.py`, `test_api.py`, `test_redteam.py`, `test_mcp.py`, `test_keys.py`, `test_examples.py` (real Jev; `test_examples.py` needs the `examples` extra) |
@@ -110,7 +114,9 @@ red-team suite calls Jev about a hundred times; expect a minute and a few cents.
 - Every question carries `criteria` with `true` and `false`. Change questions only in
   `categories.json`, and re-run `tests/test_redteam.py`.
 - `selfharm` stays flag-only. `offtopic` stays off by default.
-- Only message text and `channel_topic` go to TypeSafe. No author names, ids or emails.
+- Only message text and `channel_topic` go to TypeSafe. No author names, ids or emails. This is enforced
+  at `jevmod/judge.py:141`, promised in the privacy notice and stated on the home page. A decision exists
+  to change it, gated on a rewritten privacy notice and a DPA: **do not change the code first.**
 - Never write a key into a file. `.env` is git-ignored. Nothing prints or logs the key.
 - Every external call has a timeout and a defined failure behaviour. Fail open, log once per batch.
 - Plain English in code and docs. No marketing adjectives, no emoji. Numbers only when measured.
