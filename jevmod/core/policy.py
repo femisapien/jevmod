@@ -73,7 +73,7 @@ class Policy:
     rule_actions: dict[str, str] = field(default_factory=dict)  # name -> action (default flag)
     rule_thresholds: dict[str, float] = field(default_factory=dict)
     timeout_minutes: int = 10
-    # Local rules (Free tier): zero cost per message, evaluated by jevmod.core.local before any model call.
+    # Local rules: zero cost per message, evaluated by jevmod.core.local before any model call.
     link_mode: str = "off"  # off | invites | allowlist | all
     link_action: str = "flag"
     link_allowlist: list[str] = field(default_factory=list)
