@@ -164,6 +164,19 @@ held the *composition* constant and regrouped the *membership*. Its 11% is this 
 That correction strengthens REPORT2's conclusion rather than weakening it, and it removes the only
 number in it that suggested the model was unstable for no reason at all.
 
+**Its composition finding also stands, and the contrast with this report is the interesting part.**
+REPORT2 had a membership-only control all along, once its middle column is read correctly: regrouping
+moved the wiki-style false-positive rate from 0.300 to 0.250, nothing, while the 50/50 arm moved it
+to 0.667. Composition carries the whole effect there and none of it here.
+
+The likely reason is the one REPORT3 section 3 noticed without following up: `ai_generated` asks *who
+wrote this*, and a batch full of machine text is real evidence about the world for that question, so
+a model that uses it is behaving sensibly rather than erratically. Spam and harassment ask *what is
+this text*, where a neighbour is evidence for nothing, and the movement that remains is not about the
+neighbours at all. **That predicts which future questions will be composition-sensitive: the ones
+that ask about the author or the world rather than about the message.** `doxxing` and `minors` are
+the two shipped categories closest to that shape, and both are unmeasured.
+
 ## 5. What this does not measure, and one claim withdrawn
 
 **The direction of failure is not established.** The first draft of this report said the dominant

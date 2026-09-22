@@ -122,7 +122,7 @@ Pools, from `benchmark/data/items.jsonl` (2,531 labelled: 1,658 clean, 319 haras
       McNemar tests and the Holm correction itself, labels only `reshuffled` against `mixed_shuffled`
       as the composition test, and prints no lost-against-gained table.
 - [ ] T6. Carry it back: JEV-56, and the two documents this contradicts, in T6a and T6b.
-- [ ] T6a. `AGENTS.md` says "Jev's probabilities move about plus or minus 0.03 between runs". That
+- [x] T6a. `AGENTS.md` says "Jev's probabilities move about plus or minus 0.03 between runs". That
       holds in the mean for a repeated identical request and not in the tail (max 0.110, and 12% of
       harassment positives move further than 0.03), and not at all for anything else (p95 0.15 to
       0.20, max 0.55). The rule that depends on it, how tests assert with margin, needs the
@@ -130,9 +130,20 @@ Pools, from `benchmark/data/items.jsonl` (2,531 labelled: 1,658 clean, 319 haras
 - [ ] T6b. The site publishes thresholds to two decimals and a harassment recall figure. The recall
       figure survives: aggregate recall moves 2.7 to 6.7 points across conditions. The per-message
       verdict does not. Decide what, if anything, the site owes a reader about that.
-- [ ] T6c. `REPORT2.md` section 1 says 17 of 156 items flip "with nothing changed at all". Its rerun
+- [x] T6c. `REPORT2.md` section 1 says 17 of 156 items flip "with nothing changed at all". Its rerun
       control calls `rng.shuffle(sample)` before chunking (`deterministic.py:618`), so it regrouped
-      the membership: its 11% is this report's `reshuffled`, not its `pure2`. Correct that sentence.
+      the membership: its 11% is this report's `reshuffled`, not its `pure2`. Corrected in the report,
+      in `deterministic.py`'s docstring and in the column headings its `composition` command prints,
+      so the table and the prose cannot disagree again.
+- [x] T6f. **REPORT2's composition finding stands, and that is the more interesting half.** Read
+      correctly, its middle column is a membership-only control: regrouping moved the wiki-style
+      false-positive rate 0.300 to 0.250, nothing, while the 50/50 arm moved it to 0.667. Composition
+      carries the whole effect for `ai_generated` and none of it for spam and harassment. The reason
+      is probably the one REPORT3 noticed and did not follow: `ai_generated` asks who wrote this, and
+      a batch full of machine text is real evidence for that question. Spam asks what this text is.
+      **That predicts which categories will be composition-sensitive**: the ones asking about the
+      author or the world. `doxxing` and `minors` are the two shipped categories closest to that
+      shape and both are unmeasured. Written into both reports.
 - [ ] T6d. The reaction nudge in `discord_bot.py:358` moves a threshold by 0.03 on one reaction,
       which is inside the noise for 65% of spam messages. That mechanism needs its own look.
 - [ ] T6e. The one-message-per-request arm. Absolute movement correlates with each score's own
@@ -169,4 +180,9 @@ claims that stand:
   harassment messages in the labelled set. It needs about 500, which reverses this issue's own
   argument that it must come before JEV-11.
 
-Next: T6, carrying it back to the four documents it touches.
+T6a and T6c done: `AGENTS.md` now says how much margin a test may assume and why it depends on
+whether the request repeats, and `REPORT2.md`, `REPORT3.md` and `deterministic.py` no longer describe
+a regrouping as "nothing changed at all".
+
+Next: T6b (what the site owes a reader), T6d (the Discord reaction nudge moves 0.03, inside the noise
+for 65% of spam messages), T6e (the one-message-per-request arm).
