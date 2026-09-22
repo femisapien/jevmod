@@ -94,17 +94,17 @@ def test_a_database_carrying_the_old_trial_columns_still_opens_and_reads(tmp_pat
 # ---- quota while on trial: Pro's ceiling, not Free's, however `plan` got set to "trial"
 
 
-def test_a_trial_tenant_gets_pro_quota(monkeypatch, tmp_path):
-    monkeypatch.setenv("JEVMOD_PRO_MONTHLY_QUOTA", "50000")
-    import importlib
+def test_a_trial_tenant_gets_pro_quota(tmp_path):
+    """A trial is Pro's judgement, so it gets Pro's number and not the per-tenant cap beside it.
 
-    from jevmod.core import store as store_mod
+    Asserted against `PRO_MONTHLY` rather than against a literal: the point is that both come from the
+    same place, and a test carrying its own copy of the number would pass while they drifted apart."""
+    from jevmod.core.store import PRO_MONTHLY, Store
 
-    importlib.reload(store_mod)
-    store = store_mod.Store(tmp_path / "s.sqlite", monthly_quota=5)
+    store = Store(tmp_path / "s.sqlite", monthly_quota=5)
     store.set_plan("t", "trial")
 
-    assert store.quota_for("t") == 50000, "a trial must not be capped at Free's quota"
+    assert store.quota_for("t") == PRO_MONTHLY, "a trial must not be capped at the per-tenant quota"
 
 
 # ---- over_budget classifies a trial as free, so trials pause before paying servers
@@ -114,7 +114,7 @@ def test_a_trial_tenant_counts_as_free_for_the_budget_ceiling(monkeypatch, tmp_p
     from jevmod.core import store as store_mod
 
     monkeypatch.setattr(store_mod, "GLOBAL_BUDGET_USD", 60.0)
-    monkeypatch.setattr(store_mod, "FREE_BUDGET_USD", 15.0)
+    monkeypatch.setattr(store_mod, "TRIAL_BUDGET_USD", 15.0)
     store = store_mod.Store(tmp_path / "s.sqlite")
     store.set_plan("pro-tenant", "pro")
     store.set_plan("trial-tenant", "trial")
@@ -123,7 +123,7 @@ def test_a_trial_tenant_counts_as_free_for_the_budget_ceiling(monkeypatch, tmp_p
     store.add_usage("noise", judged=1, requests=1, tokens=tokens)
     store._spend_at = 0.0
 
-    assert store.over_budget("trial-tenant") == "free_budget", "a trial must pause before paying servers do"
+    assert store.over_budget("trial-tenant") == "trial_budget", "a trial must pause before paying servers do"
     assert store.over_budget("pro-tenant") is None, "a paying server must not be paused by trial traffic"
 
 

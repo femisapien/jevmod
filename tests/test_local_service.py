@@ -35,7 +35,7 @@ def test_local_rules_run_even_when_over_quota_and_over_budget(monkeypatch, tmp_p
     from jevmod.core import store as store_mod
 
     monkeypatch.setattr(store_mod, "GLOBAL_BUDGET_USD", 0.01)
-    monkeypatch.setattr(store_mod, "FREE_BUDGET_USD", 0.01)
+    monkeypatch.setattr(store_mod, "TRIAL_BUDGET_USD", 0.01)
     store = store_mod.Store(tmp_path / "s.sqlite", monthly_quota=1)
     store.add_usage("t", 10, 10, 10_000_000)  # comfortably over both the quota and the spend ceiling
     store._spend_at = 0.0

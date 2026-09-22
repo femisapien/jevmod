@@ -41,15 +41,20 @@ def _enforce_plans() -> bool:
 ENFORCE_PLANS = _enforce_plans()
 # Hosted plans: judged messages per tenant per month. 0 = unlimited. Plan names: "inactive", "trial",
 # "pro", "unlimited" (comped). "trial" has no entry of its own: `quota_for` gives it Pro's number directly,
-# because a trial *is* Pro's judgement and a second place that could drift out of sync with
-# JEVMOD_PRO_MONTHLY_QUOTA is a bug waiting to happen.
+# because a trial *is* Pro's judgement and a second place to keep in sync is a second place to get wrong.
+#
+# Pro's number is a constant rather than an environment variable. It was `JEVMOD_PRO_MONTHLY_QUOTA`, and
+# the hosted service set it to 50000, which is the default it already had: a variable whose only
+# deployment sets it to its own default is a knob that does nothing but can still be turned by accident.
+# There is one paid plan, so there is one number, and it lives with the code that uses it.
 #
 # `plan` itself is no longer a state machine this package owns: on the hosted service it is written only by
 # the Stripe webhook, which mirrors the subscription's own status (`jevmod_hosted/billing.py`). A self-hosted
 # copy never sees anything but the default plan, and ENFORCE_PLANS being off is what makes that harmless.
+PRO_MONTHLY = 50_000
 PLAN_QUOTAS: dict[str, int] = {
     INACTIVE: FREE_MONTHLY,
-    "pro": int(os.environ.get("JEVMOD_PRO_MONTHLY_QUOTA", "50000") or 0),
+    "pro": PRO_MONTHLY,
     "unlimited": 0,
 }
 
@@ -59,9 +64,13 @@ PLAN_QUOTAS: dict[str, int] = {
 # their own ceiling already cost more than a single operator budgeted for. That is the success case, not an
 # abuse case, and it is the one nothing was watching.
 #
-# Two ceilings rather than one, because who gets stopped matters. Free tenants pause at the lower figure, so
-# the people who pay are not moderated worse because the people who do not have been busy. The hard ceiling
-# stops everybody, and reaching it is an operator failure to be alerted on rather than a state to live in.
+# Two ceilings rather than one, because who gets stopped matters. Tenants on a trial pause at the lower
+# figure, so the people who pay are not moderated worse because the people who have not started paying yet
+# have been busy. The hard ceiling stops everybody, and reaching it is an operator failure to be alerted on
+# rather than a state to live in.
+#
+# The lower one was JEVMOD_FREE_BUDGET_USD and its reason was `free_budget`, from when a free plan existed.
+# It has gated trials since that plan was removed, so it is named for what it does now.
 # 0 disables a ceiling, which is what a self-hosted copy paying its own model bill wants.
 # The hard ceiling is a floor plus what the paying servers have already funded. A fixed figure pauses a
 # customer who paid this month because other customers who also paid were busy, which is the wrong failure:
@@ -69,7 +78,7 @@ PLAN_QUOTAS: dict[str, int] = {
 # JEVMOD_PAID_BUDGET_USD to the model cost of one subscription's full quota, under what that subscription
 # nets after card fees. At 0 it is off and the ceiling is the flat figure it has always been.
 GLOBAL_BUDGET_USD = float(os.environ.get("JEVMOD_GLOBAL_BUDGET_USD", "0") or 0)
-FREE_BUDGET_USD = float(os.environ.get("JEVMOD_FREE_BUDGET_USD", "0") or 0)
+TRIAL_BUDGET_USD = float(os.environ.get("JEVMOD_TRIAL_BUDGET_USD", "0") or 0)
 PAID_BUDGET_USD = float(os.environ.get("JEVMOD_PAID_BUDGET_USD", "0") or 0)
 USD_PER_M_INPUT = 0.042  # Jev list price per million input tokens
 # The fraction of a ceiling past which the spend figure stops being cached. See `over_budget`.
@@ -270,12 +279,12 @@ class Store:
         return GLOBAL_BUDGET_USD + PAID_BUDGET_USD * self.paying_tenants()
 
     def over_budget(self, tenant: str) -> str | None:
-        """Which ceiling this tenant has run into, if any: `global_budget` or `free_budget`.
+        """Which ceiling this tenant has run into, if any: `global_budget` or `trial_budget`.
 
         Checked before spending rather than after, and it is deliberately not exact. The point is a bounded
         bill, not an exact one, and an operator who needs the last cent of precision has set the ceiling too
         close to what they can pay."""
-        if not GLOBAL_BUDGET_USD and not FREE_BUDGET_USD:
+        if not GLOBAL_BUDGET_USD and not TRIAL_BUDGET_USD:
             return None
         spend = self.month_spend_usd()
         ceiling = self.budget_ceiling()
@@ -283,7 +292,7 @@ class Store:
         # nearly over: every batch that reads a stale figure is judged in full before the write that would
         # have stopped it. So the cache collapses as the ceiling approaches, and the last stretch is read
         # fresh, which bounds the overshoot to one batch rather than to half a minute of traffic.
-        near = max(ceiling or 0.0, FREE_BUDGET_USD) * NEAR_CEILING
+        near = max(ceiling or 0.0, TRIAL_BUDGET_USD) * NEAR_CEILING
         if near and spend >= near:
             spend = self.month_spend_usd(max_age_s=0.0)
             ceiling = self.budget_ceiling()
@@ -293,8 +302,8 @@ class Store:
         # that is actually paying does. An inactive tenant is listed too, although it cannot reach here:
         # it is gated long before any spending, and leaving it out would make this the one place that
         # treats an unpaid tenant as a paying one if that gate ever moved.
-        if FREE_BUDGET_USD and spend >= FREE_BUDGET_USD and self.plan(tenant) in (INACTIVE, "trial"):
-            return "free_budget"
+        if TRIAL_BUDGET_USD and spend >= TRIAL_BUDGET_USD and self.plan(tenant) in (INACTIVE, "trial"):
+            return "trial_budget"
         return None
 
     # ---- hosted billing
