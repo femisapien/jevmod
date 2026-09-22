@@ -290,25 +290,35 @@ def test_a_self_hosted_copy_ignores_plans_entirely(tmp_path):
     assert judge.seen_texts == ["hello there, a perfectly normal message"]
 
 
-def test_the_old_env_var_still_enforces_plans_until_the_vps_is_updated(monkeypatch):
-    """The deploy that renames a variable is the deploy that can silently stop charging.
+def test_only_the_new_variable_decides_whether_plans_are_enforced(monkeypatch):
+    """`JEVMOD_MODEL_ON_FREE` was read as a fallback for a day and is not read any more.
 
-    `JEVMOD_MODEL_ON_FREE=0` lives in a file on the VPS that is in no repository and is the only copy of
-    itself. Shipping the rename without touching that file would leave the new name unset, default it to
-    off, and judge every lapsed tenant for free with no quota. This asserts the old name still works, so
-    the code can ship before the server does.
+    It lived in a file on the VPS that is in no repository and is the only copy of itself, so the rename
+    shipped with the old name still working and the box was updated afterwards, on 2026-09-22, in its own
+    `.env` and in the compose file. Both were verified on the box before this fallback came out.
+
+    What this asserts is the shape that replaced it: off unless a deployment says otherwise, and the old
+    name doing nothing at all. A deployment that still carries only the old name judges every lapsed
+    tenant for free, so if that name ever comes back as a silent fallback, this is what notices.
     """
     import importlib
 
     from jevmod.core import store as store_mod
 
-    monkeypatch.setenv("JEVMOD_MODEL_ON_FREE", "0")
-    monkeypatch.delenv("JEVMOD_ENFORCE_PLANS", raising=False)
-    importlib.reload(store_mod)
     try:
-        assert store_mod.ENFORCE_PLANS is True, "the old variable must keep enforcing plans"
+        monkeypatch.delenv("JEVMOD_ENFORCE_PLANS", raising=False)
+        monkeypatch.delenv("JEVMOD_MODEL_ON_FREE", raising=False)
+        importlib.reload(store_mod)
+        assert store_mod.ENFORCE_PLANS is False, "unset must mean off: a self-hosted copy judges everything"
 
-        # And the new name wins when both are present.
+        monkeypatch.setenv("JEVMOD_MODEL_ON_FREE", "0")
+        importlib.reload(store_mod)
+        assert store_mod.ENFORCE_PLANS is False, "the old name is retired and must not enforce anything"
+
+        monkeypatch.setenv("JEVMOD_ENFORCE_PLANS", "1")
+        importlib.reload(store_mod)
+        assert store_mod.ENFORCE_PLANS is True
+
         monkeypatch.setenv("JEVMOD_ENFORCE_PLANS", "0")
         importlib.reload(store_mod)
         assert store_mod.ENFORCE_PLANS is False

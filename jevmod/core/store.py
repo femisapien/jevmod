@@ -28,28 +28,14 @@ INACTIVE = "inactive"
 # decide whether a message is looked at.
 #
 # It was previously spelled JEVMOD_MODEL_ON_FREE, inverted, and named after the plan it happened to gate
-# rather than after what it does.
+# rather than after what it does. That name was read as a fallback between 2026-09-21 and 2026-09-22,
+# because the hosted service carried it in a file on the VPS that exists in no repository and is the only
+# copy of itself: renaming the variable in code alone would have left the new one unset, defaulted it to
+# off, and quietly stopped enforcing plans, with the first sign being the bill. The VPS now sets the new
+# name, in its own `.env` and in the compose file, both verified on the box, so the fallback is gone.
 def _enforce_plans() -> bool:
-    """Whether plans mean anything in this deployment.
-
-    Reads the old variable when the new one is absent, and this fallback is not politeness. The hosted
-    service carries `JEVMOD_MODEL_ON_FREE=0` in a file on the VPS that exists in no repository and is the
-    only copy of itself. A deploy that renamed the variable without touching that file would leave the new
-    one unset, default it to off, and quietly stop enforcing plans: every lapsed tenant judged by the
-    model, with `PLAN_QUOTAS.get(plan, 0)` granting them unlimited. Nothing crashes, and the first sign is
-    the bill.
-
-    So an un-updated deployment keeps the behaviour it had. Remove this once the VPS sets the new name.
-    """
-    explicit = os.environ.get("JEVMOD_ENFORCE_PLANS")
-    if explicit is not None:
-        return explicit != "0"
-    legacy = os.environ.get("JEVMOD_MODEL_ON_FREE")
-    if legacy is not None:
-        # `JEVMOD_MODEL_ON_FREE=0` meant "the free plan never reaches the model", which is the same
-        # deployment that wants plans enforced now.
-        return legacy == "0"
-    return False
+    """Whether plans mean anything in this deployment. Off unless a deployment says otherwise."""
+    return os.environ.get("JEVMOD_ENFORCE_PLANS", "0") != "0"
 
 
 ENFORCE_PLANS = _enforce_plans()
