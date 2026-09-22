@@ -42,7 +42,8 @@ Shipping thresholds, from `DEFAULT_THRESHOLDS` in `jevmod/core/policy.py`: spam 
 
 ## Design
 
-Three conditions over the same messages, 25 per request, the production batching contract:
+**As designed, three conditions.** It shipped with six. This table is left as written so the two
+rounds of correction below have something to point at.
 
 | condition | what it is | what it controls for |
 |---|---|---|
@@ -51,8 +52,11 @@ Three conditions over the same messages, 25 per request, the production batching
 | `mixed` | the batch is about half the other side | the effect under test |
 
 Without `pure2` no drift is attributable: REPORT2 found 17 of 156 items flipping across the
-threshold with nothing changed at all, so a composition effect only exists if it is bigger than
-that.
+threshold with nothing changed at all, so an effect only exists if it is bigger than that. That
+sentence turned out to misread REPORT2, which is T6c.
+
+The three conditions above cannot separate composition from membership, and `mixed` as specified
+here is not even a membership perturbation of the right size. T3a and T5a are what fixed that.
 
 Both sides are measured. A clean message drifting up into `delete` and a spam message drifting down
 out of it are different failures and neither is visible in the other's number.
@@ -82,17 +86,58 @@ Pools, from `benchmark/data/items.jsonl` (2,531 labelled: 1,658 clean, 319 haras
 
 ## Tasks
 
-- [ ] T1. `benchmark/batch_effect.py`: pools, seeded batch construction for the three conditions,
-      resumable JSONL output with the id, condition, scores and per-batch token count.
-- [ ] T2. Pilot: one batch per condition. Confirm no cache hits, no pre-filtered items, and measure
-      the token cost before spending the rest.
-- [ ] T3. The full run, all three conditions.
-- [ ] T4. The analysis: per side and per category, mean drift, and the threshold-crossing counts
-      that actually answer the question. Rerun drift beside composition drift in every table.
-- [ ] T5. `benchmark/BATCH_EFFECT.md`: the report, with the recommendation the numbers support and
-      the reproduce commands.
-- [ ] T6. Whatever the numbers say, carry it back: JEV-56 closed or specified, and the claims about
-      threshold precision on the site checked against the result.
+- [x] T1. `benchmark/batch_effect.py`: pools, seeded batch construction, resumable JSONL output with
+      the id, condition, scores and per-batch token count. Commit `0a8682f`.
+- [x] T2. Pilot: one batch per condition. No cache hits, no pre-filtered items, $0.0013 per batch of
+      25, so the full design costs about $0.16 rather than the estimate.
+- [x] T3. The full run. Grew from three conditions to five, for the reason in T3a.
+- [x] T3a. **Two controls the original design did not have, added after the first result.** Between
+      `pure` and `mixed` two things change at once: what the batch is made of, and which messages are
+      in it. `reshuffled` (same side, regrouped) separates those. `reordered` (the same 25 messages,
+      different positions) separates a third: `Judge` keys its state by position, and the byte-
+      identical `pure2` request turned out to be nearly deterministic, so `pure2` alone would have
+      flattered the noise floor. Without these two the report would have credited composition with an
+      effect that is not composition's.
+- [x] T4. The analysis, including which way the flips go and how far from the threshold they start.
+- [x] T5. `benchmark/BATCH_EFFECT.md`: the report.
+- [x] T5a. **Red team, and what it cost me.** A separate agent attacked the measurement against HEAD.
+      It refuted two of the five claims I was about to publish and weakened two more. Every number it
+      returned was recomputed here before being accepted. What it found:
+      - `mixed` was not a composition test at all. Interleaving the pools in pool order leaves every
+        message holding 11.5 of its 24 original batch-mates against 3.8 for `reshuffled`, so it is a
+        *weaker* neighbour perturbation, and "mixed is no larger than reshuffled, therefore
+        composition does not matter" was a non sequitur. Fixed by adding `mixed_shuffled`, which is
+        the arm that actually isolates composition. The conclusion happens to survive, for a reason
+        the original design could not have shown.
+      - Nothing except spam/positive membership survives Holm correction. `reordered` at 10 flips
+        against 4 is p = 0.146, so "reordering produces nearly the whole effect" was a coin flip
+        published as a finding.
+      - The lost-against-gained direction is p = 0.607 and follows mechanically from 22 items sitting
+        in [0.85, 0.90) against 12 in [0.80, 0.85). Withdrawn.
+      - The `pure2` maximum is 0.110, not 0.060; the 0.060 held only by dropping harassment.
+      - A latent resume defect: re-asking a batch because one id was missing would have written a
+        second row for ids already scored, and `_rows()` keeps the last silently. It never fired
+        (3,600 rows, 3,600 unique pairs) and is fixed.
+- [x] T5b. `analyse()` rewritten so the tool cannot reprint the refuted framing: it computes the
+      McNemar tests and the Holm correction itself, labels only `reshuffled` against `mixed_shuffled`
+      as the composition test, and prints no lost-against-gained table.
+- [ ] T6. Carry it back: JEV-56, and the two documents this contradicts, in T6a and T6b.
+- [ ] T6a. `AGENTS.md` says "Jev's probabilities move about plus or minus 0.03 between runs". That
+      holds in the mean for a repeated identical request and not in the tail (max 0.110, and 12% of
+      harassment positives move further than 0.03), and not at all for anything else (p95 0.15 to
+      0.20, max 0.55). The rule that depends on it, how tests assert with margin, needs the
+      distinction written into it.
+- [ ] T6b. The site publishes thresholds to two decimals and a harassment recall figure. The recall
+      figure survives: aggregate recall moves 2.7 to 6.7 points across conditions. The per-message
+      verdict does not. Decide what, if anything, the site owes a reader about that.
+- [ ] T6c. `REPORT2.md` section 1 says 17 of 156 items flip "with nothing changed at all". Its rerun
+      control calls `rng.shuffle(sample)` before chunking (`deterministic.py:618`), so it regrouped
+      the membership: its 11% is this report's `reshuffled`, not its `pure2`. Correct that sentence.
+- [ ] T6d. The reaction nudge in `discord_bot.py:358` moves a threshold by 0.03 on one reaction,
+      which is inside the noise for 65% of spam messages. That mechanism needs its own look.
+- [ ] T6e. The one-message-per-request arm. Absolute movement correlates with each score's own
+      `p(1-p)` at r = +0.60 to +0.68, including inside `pure2` where nothing changed, so "mid-range
+      scores are intrinsically unstable" is not yet separated from "batching destabilises them".
 
 ## Acceptance
 
@@ -104,4 +149,24 @@ Pools, from `benchmark/data/items.jsonl` (2,531 labelled: 1,658 clean, 319 haras
 
 ## Progress
 
-Nothing run yet. Next: T1.
+3,000 judgements, 120 requests, $0.16, measured not estimated. Raw results in
+`benchmark/results/batch_effect.jsonl`, committed, so the tables can be recomputed for free.
+
+**The effect is real, it is batch membership, and it is not composition.** After the red team, the
+claims that stand:
+
+- Regrouping 150 all-spam messages into different all-spam batches moves 18 of them across 0.85,
+  against a floor of 4 for a repeated identical request. Holm p = 0.041 over sixteen tests. The two
+  arms that randomise membership are the only two cells that survive correction, and they are
+  indistinguishable from each other.
+- **Composition does nothing.** `reshuffled` against `mixed_shuffled`, both with neighbours at
+  chance: 18 against 18, p = 1.000, and p = 1.000 in all four cells. The hypothesis this issue was
+  written on does not hold.
+- Position alone is not distinguishable from noise, p = 0.146.
+- Aggregate metrics survive, per-message verdicts do not. Recall moves 2.7 to 6.7 points across all
+  six conditions; the same spam message gets a different verdict about one time in eight.
+- **Harassment cannot be settled with the data that exists.** 60% power using every one of the 319
+  harassment messages in the labelled set. It needs about 500, which reverses this issue's own
+  argument that it must come before JEV-11.
+
+Next: T6, carrying it back to the four documents it touches.

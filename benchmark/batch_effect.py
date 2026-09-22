@@ -6,13 +6,14 @@ the batching contract rather than to that one category, so it must apply to spam
 Those are the two categories whose action can be `delete`. This file turns that expectation into a
 number, in whichever direction the number goes. JEV-56.
 
-Five conditions over the same messages, 25 per request, the production batching contract:
+Six conditions over the same messages, 25 per request, the production batching contract:
 
     pure        every message in the batch comes from the same side
     pure2       the identical batches, asked a second time
     reordered   the identical batches, the same 25 messages, shuffled within the batch
     reshuffled  the same side, regrouped: different neighbours, same composition
-    mixed       the batch is about half the other side
+    mixed       the batch is about half the other side, interleaved
+    mixed_shuffled  half the other side, and the membership randomised as hard as `reshuffled`
 
 Each one holds everything constant but one thing, so a flip can be attributed:
 
@@ -23,10 +24,25 @@ Each one holds everything constant but one thing, so a flip can be attributed:
   control. It also guards against the noise floor being flattered by a byte-identical request: if
   `pure2` is low only because the prompt repeats exactly, `reordered` is the honest noise floor.
 - `reshuffled` changes which messages share the batch, holding the composition at all-one-side.
-- `mixed` changes the composition as well.
+- `mixed_shuffled` changes the composition, at the same neighbour randomisation as `reshuffled`.
 
-Read the columns left to right. A claim about composition only survives if its column is larger than
-every column to its left.
+**`mixed` is kept only because it is the arm the first version of this experiment had, and it is a
+trap.** It interleaves the two pools in pool order, so every message keeps about half of its original
+batch-mates: measured neighbour overlap with `pure` is 11.5 of 24, against 3.8 for `reshuffled`,
+where 3.9 is what chance gives. On the axis that matters it is a *weaker* perturbation than
+`reshuffled`, not a stronger one, so "mixed is no larger than reshuffled" says nothing whatever about
+composition. That non sequitur was written into this file's first version and a red team caught it.
+`mixed_shuffled` is the arm that actually isolates composition, because it differs from `reshuffled`
+in composition alone.
+
+The only sound composition comparison is `reshuffled` against `mixed_shuffled`. Everything else
+measures batch identity.
+
+One residual difference cannot be designed away, and is written here rather than left for a reader
+to find: a 50/50 batch is necessarily drawn from a pool twice the size, so its chance-level
+neighbour overlap is lower (1.93 of 24 against 3.87). Both arms sit on their own chance level,
+measured at 1.90 and 3.79, so both have neighbours fully randomised. The remaining gap is a
+consequence of changing the composition, not a confound left in by accident.
 
 `pure2` is not optional. REPORT2 found 17 of 156 items crossing the threshold with nothing changed
 at all, so any effect only exists if it is bigger than the noise floor measured beside it.
@@ -36,8 +52,8 @@ out of it are different failures, and neither shows up in the other's number.
 
     python -m benchmark.batch_effect pools              # free: what the pools are, what was dropped
     python -m benchmark.batch_effect pilot              # paid, one batch per condition, prints cost
-    python -m benchmark.batch_effect ask pure           # paid, and the same for pure2,
-    python -m benchmark.batch_effect ask reordered      # reordered, reshuffled and mixed
+    python -m benchmark.batch_effect ask pure           # paid; and the same for pure2, reordered,
+    python -m benchmark.batch_effect ask mixed_shuffled # reshuffled, mixed and mixed_shuffled
     python -m benchmark.batch_effect analyse            # free
 
 Every paid command is resumable: results are appended per message and an id already present for that
@@ -50,6 +66,7 @@ import json
 import random
 import sys
 import time
+from math import comb
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -71,8 +88,9 @@ THRESHOLD = {"spam": 0.85, "harassment": 0.75}
 SEED = 56
 RESHUFFLE_SEED = 560  # a different grouping of the same pools, not a different pool
 REORDER_SEED = 5600   # a different order inside each batch, not a different batch
+MIX_SEED = 5656       # randomises membership of the mixed arm to reshuffled's level
 PER_POOL = 150
-CONDITIONS = ("pure", "pure2", "reordered", "reshuffled", "mixed")
+CONDITIONS = ("pure", "pure2", "reordered", "reshuffled", "mixed", "mixed_shuffled")
 
 
 def _items() -> list[dict]:
@@ -120,8 +138,9 @@ def batches(condition: str) -> list[list[dict]]:
     """The batches for one condition, in the order they are asked.
 
     `pure` and `pure2` are the same batches; the point of the second is that nothing differs but the
-    asking. `mixed` interleaves a positive pool with its own clean pool so every batch is about half
-    each, which is the composition REPORT2 used.
+    asking. `mixed` interleaves a positive pool with its own clean pool in pool order, which is the
+    composition REPORT2 used and the trap described at the top of this file. `mixed_shuffled` is the
+    same 50/50 composition with the membership randomised, and is the arm to read.
     """
     p, _ = pools()
     out: list[list[dict]] = []
@@ -138,9 +157,12 @@ def batches(condition: str) -> list[list[dict]]:
                     order.shuffle(chunk)
             out += chunks
         return out
-    if condition == "mixed":
+    if condition in ("mixed", "mixed_shuffled"):
+        mix = random.Random(MIX_SEED)
         for pos, neg in (("spam", "clean_vs_spam"), ("harassment", "clean_vs_harassment")):
             merged = [x for pair in zip(p[pos], p[neg], strict=True) for x in pair]
+            if condition == "mixed_shuffled":
+                mix.shuffle(merged)
             out += [merged[i : i + BATCH] for i in range(0, len(merged), BATCH)]
         return out
     raise SystemExit(f"unknown condition {condition!r}; use one of {', '.join(CONDITIONS)}")
@@ -156,7 +178,12 @@ def ask(condition: str, limit: int | None = None) -> None:
     """Score one condition. `limit` caps the number of batches, which is what `pilot` uses."""
     OUT.parent.mkdir(exist_ok=True)
     done = _done()
-    todo = [b for b in batches(condition) if any((condition, it["id"]) not in done for it in b)]
+    # Drop ids already scored for this condition rather than re-asking a whole batch because one is
+    # missing. Re-asking wrote a second row for the ids that were already there, and `_rows()` keeps
+    # whichever came last without saying so, which would have silently mixed two batch compositions
+    # into one column. It never fired (3,000 rows, 3,000 unique pairs) and it is fixed before it can.
+    todo = [[it for it in b if (condition, it["id"]) not in done] for b in batches(condition)]
+    todo = [b for b in todo if b]
     if limit is not None:
         todo = todo[:limit]
     if not todo:
@@ -203,6 +230,19 @@ def _rows() -> dict[str, dict[str, dict[str, float]]]:
     return out
 
 
+def _flip(rows: dict, cond: str, cat: str, th: float, ids: list[str]) -> list[bool]:
+    return [(rows["pure"][i][cat] >= th) != (rows[cond][i][cat] >= th) for i in ids]
+
+
+def _binom(k: int, n: int) -> float:
+    """Two-sided exact binomial at p=0.5. Written out rather than imported: scipy is not a dependency
+    of this package and a benchmark must not add one."""
+    if n == 0:
+        return 1.0
+    probs = [comb(n, i) * 0.5 ** n for i in range(n + 1)]
+    return min(1.0, sum(x for x in probs if x <= probs[k] + 1e-12))
+
+
 def analyse() -> None:
     """The tables. Per side and per category, never pooled: REPORT2's ALL row drifted +0.001 because
     opposite signs cancelled while the false-positive rate for one stratum more than doubled."""
@@ -234,50 +274,71 @@ def analyse() -> None:
         print(f"| {cat} | {side} | {len(ids)} | " + " | ".join(f"{m[c]:.3f}" for c in have) + " |")
 
     print()
-    print("Messages crossing their shipping threshold, which is the number that decides the issue.")
-    print("Read left to right: nothing, position, neighbours, composition. Each column changes one")
-    print("more thing than the one before it.")
+    print("Messages crossing their shipping threshold, counted against `pure`. Counts alone decide")
+    print("nothing at n=150; the significance table below is the one to read.")
     print()
-    print("| category | side | n | threshold | pure->pure2 (nothing changed) | pure->reordered (position) "
-          "| pure->reshuffled (neighbours) | pure->mixed (composition) |")
-    print("|---|---|---|---|---|---|---|---|")
+    print("| category | side | n | threshold | " + " | ".join(c for c in have if c != "pure") + " |")
+    print("|---" * (4 + len(have) - 1) + "|")
     for (cat, side), pool in sides.items():
         th = THRESHOLD[cat]
         ids = [it["id"] for it in pool if all(it["id"] in rows.get(c, {}) for c in have)]
         if not ids:
             continue
-
-        def flips(a: str, b: str, cat: str = cat, th: float = th, ids: list[str] = ids) -> str:
-            if a not in have or b not in have:
-                return "-"
-            n = sum((rows[a][i][cat] >= th) != (rows[b][i][cat] >= th) for i in ids)
-            return f"{n}/{len(ids)} ({n / len(ids):.1%})"
-
-        print(f"| {cat} | {side} | {len(ids)} | {th} | {flips('pure', 'pure2')} | "
-              f"{flips('pure', 'reordered')} | {flips('pure', 'reshuffled')} | {flips('pure', 'mixed')} |")
+        cells = [f"{sum(_flip(rows, c, cat, th, ids)):d}" for c in have if c != "pure"]
+        print(f"| {cat} | {side} | {len(ids)} | {th} | " + " | ".join(cells) + " |")
 
     print()
-    print("Which way the flips go, pure -> mixed. `lost` is a message that was over the line and no")
-    print("longer is; `gained` is one that crosses it only in the mixed batch.")
+    print("McNemar, exact binomial on discordant pairs, each manipulation against the `pure2` floor,")
+    print(f"Holm-corrected over the {len([1 for _ in sides for c in have if c not in ('pure', 'pure2')])} "
+          "tests. A count that does not survive Holm is not a finding.")
     print()
-    print("| category | side | lost (falls under) | gained (rises over) | what it would mean in production |")
-    print("|---|---|---|---|---|")
-    meaning = {
-        ("spam", "positive"): "spam that stops being deleted",
-        ("spam", "clean"): "ordinary messages deleted as spam",
-        ("harassment", "positive"): "harassment that stops being acted on",
-        ("harassment", "clean"): "ordinary messages acted on as harassment",
-    }
+    tests = []
     for (cat, side), pool in sides.items():
-        if "mixed" not in have:
-            continue
         th = THRESHOLD[cat]
         ids = [it["id"] for it in pool if all(it["id"] in rows.get(c, {}) for c in have)]
-        lost = sum(rows["pure"][i][cat] >= th > rows["mixed"][i][cat] for i in ids)
-        gained = sum(rows["mixed"][i][cat] >= th > rows["pure"][i][cat] for i in ids)
-        print(f"| {cat} | {side} | {lost} | {gained} | {meaning[(cat, side)]} |")
-    print()
-    print("A composition column only means something where it is larger than both columns to its left.")
+        base = _flip(rows, "pure2", cat, th, ids) if "pure2" in have else None
+        if base is None:
+            continue
+        for c in have:
+            if c in ("pure", "pure2"):
+                continue
+            man = _flip(rows, c, cat, th, ids)
+            b = sum(1 for x, y in zip(man, base, strict=True) if x and not y)
+            d = sum(1 for x, y in zip(man, base, strict=True) if y and not x)
+            tests.append((f"{cat}/{side}/{c}", sum(man), sum(base), _binom(b, b + d)))
+    m = len(tests)
+    prev = 0.0
+    print("| comparison | flips vs floor | raw p | Holm p | |")
+    print("|---|---|---|---|---|")
+    for k, (name, flips, floor, raw) in enumerate(sorted(tests, key=lambda t: t[3])):
+        prev = min(1.0, max(prev, (m - k) * raw))
+        print(f"| {name} | {flips} vs {floor} | {raw:.4f} | {prev:.3f} | "
+              f"{'**survives**' if prev < 0.05 else 'does not'} |")
+
+    # The composition test, which is the only comparison in this file that is about composition. It
+    # is `reshuffled` against `mixed_shuffled` and nothing else: those two arms differ in composition
+    # and have their neighbours randomised to chance in both directions. A `mixed` column next to a
+    # `reshuffled` column is not a composition test, because `mixed` keeps half its neighbours.
+    if "reshuffled" in have and "mixed_shuffled" in have:
+        print()
+        print("Composition, isolated: `reshuffled` against `mixed_shuffled`, both with neighbours at")
+        print("chance. This is the only comparison here that is about what the neighbours are.")
+        print()
+        print("| category | side | reshuffled | mixed_shuffled | b/c | p |")
+        print("|---|---|---|---|---|---|")
+        for (cat, side), pool in sides.items():
+            th = THRESHOLD[cat]
+            ids = [it["id"] for it in pool if all(it["id"] in rows.get(c, {}) for c in have)]
+            a = _flip(rows, "reshuffled", cat, th, ids)
+            b = _flip(rows, "mixed_shuffled", cat, th, ids)
+            x = sum(1 for u, v in zip(b, a, strict=True) if u and not v)
+            y = sum(1 for u, v in zip(b, a, strict=True) if v and not u)
+            print(f"| {cat} | {side} | {sum(a)} | {sum(b)} | {x}/{y} | {_binom(x, x + y):.3f} |")
+
+    # Deliberately not printed: a lost-against-gained table. The first version of this file had one
+    # and it read as a finding. It is not: no asymmetry in any cell reaches significance, and the
+    # apparent direction follows from there being more mass just above each threshold than just
+    # below it. See BATCH_EFFECT.md section 5, where the claim is withdrawn.
 
 
 def main(argv: list[str]) -> int:

@@ -1,0 +1,228 @@
+# Does a message's score depend on its batch? Spam and harassment, measured.
+
+Run on 2026-09-22 against the live TypeSafe API from `benchmark/batch_effect.py`. 600 messages, six
+conditions, 3,600 judgements, 144 requests, 4.4M input tokens, **$0.19**. Raw results are committed
+at `benchmark/results/batch_effect.jsonl`, so every table below recomputes for free.
+
+JEV-56. `ai_detect/REPORT2.md` measured this for `ai_generated` and then asserted, without measuring
+it, that the effect belongs to the batching contract rather than to that category, so spam and
+harassment would have it too. Those are the two categories whose action can be `delete`.
+
+## The short answer
+
+**Yes, and it is batch identity rather than batch composition.** Regrouping 150 spam messages into
+different batches of 25, with every batch still entirely spam, moves 18 of them across the shipping
+threshold of 0.85 against a floor of 4 when the request is repeated unchanged. Both arms that
+randomise batch membership do this, by the same amount, and they are the only two results in this
+experiment that survive correction for multiple comparisons.
+
+What does **not** hold, and was the hypothesis this issue was written on: **what the neighbours are
+does not matter.** With batch membership randomised equally in both arms, an all-spam batch and a
+half-clean batch flip the same messages, 18 against 18, p = 1.000. Composition adds nothing to
+membership.
+
+Aggregate numbers survive and per-message verdicts do not. Recall at the shipped threshold moves 2.7
+to 6.7 points across all six conditions, so the benchmark figures the site publishes are
+reproducible. The verdict on one message is not: the same spam message gets a different answer about
+one time in eight, decided by nothing but which other messages happened to be in flight with it.
+
+That is the finding. jevmod's published averages are honest. What is not reproducible is the only
+thing a server owner ever asks, which is why *this* message was acted on.
+
+## 1. The conditions
+
+Six, each holding everything constant but one thing. Neighbour overlap is measured, not assumed: the
+mean number of the original 24 batch-mates a message keeps.
+
+| condition | what changes | neighbours kept, of 24 |
+|---|---|---|
+| `pure` | the baseline, every batch all one side | 24.0 |
+| `pure2` | nothing; the same request sent again | 24.0 |
+| `reordered` | position only; the same 25 messages, shuffled inside the batch | 24.0 |
+| `reshuffled` | membership; same side, regrouped | 3.79 (chance: 3.87) |
+| `mixed` | composition, interleaved in pool order | 11.52 |
+| `mixed_shuffled` | composition, membership randomised | 1.90 (chance: 1.93) |
+
+**`mixed` is a trap and is reported only so nobody rebuilds it.** Interleaving two pools in pool
+order leaves every message holding about half its original batch-mates. On the axis that matters it
+is a *weaker* perturbation than `reshuffled`, not a stronger one, so "mixed is no larger than
+reshuffled" proves nothing about composition. The first version of this report drew exactly that
+conclusion and a red team refuted it. `mixed_shuffled` is the arm that isolates composition, because
+it differs from `reshuffled` in composition alone.
+
+One residual difference cannot be designed away: a 50/50 batch is drawn from a pool twice the size,
+so its chance-level overlap is lower. Both arms sit on their own chance level, so both have
+neighbours fully randomised, and the gap is a consequence of changing the composition rather than a
+confound.
+
+## 2. Messages crossing their shipping threshold
+
+Counted against `pure`, n = 150 per cell. Thresholds from `DEFAULT_THRESHOLDS`: spam 0.85,
+harassment 0.75.
+
+| category | side | `pure2` | `reordered` | `reshuffled` | `mixed` | `mixed_shuffled` |
+|---|---|---|---|---|---|---|
+| spam | positive | 4 | 10 | **18** | 15 | **18** |
+| spam | clean | 1 | 0 | 1 | 2 | 2 |
+| harassment | positive | 2 | 4 | 6 | 8 | 7 |
+| harassment | clean | 1 | 3 | 4 | 5 | 5 |
+
+Significance matters more than the counts here, and most of the counts do not survive it. McNemar,
+exact binomial on discordant pairs, each manipulation against the `pure2` floor, Holm-corrected over
+the sixteen primary tests:
+
+| comparison | flips vs floor | raw p | Holm p | |
+|---|---|---|---|---|
+| spam positive, `reshuffled` | 18 vs 4 | 0.0026 | **0.041** | survives |
+| spam positive, `mixed_shuffled` | 18 vs 4 | 0.0026 | **0.041** | survives |
+| spam positive, `mixed` | 15 vs 4 | 0.0074 | 0.103 | does not |
+| harassment positive, `mixed` | 8 vs 2 | 0.031 | 0.406 | does not |
+| spam positive, `reordered` | 10 vs 4 | 0.146 | 1.000 | does not |
+| harassment positive, `reshuffled` | 6 vs 2 | 0.219 | 1.000 | does not |
+| the other ten cells | — | ≥ 0.125 | 1.000 | do not |
+
+The two survivors are exactly the two arms that randomise batch membership, and section 2.1 shows
+they cannot be told apart from each other. Whatever this is, it is membership.
+
+Two things follow, and the second one corrects the first draft of this report.
+
+- **Regrouping beats reordering**, directly tested: `reshuffled` against `reordered` on spam
+  positives is b/c = 10/2, p = 0.039.
+- **Position alone is not distinguishable from noise.** 10 flips against 4 is a coin flip at n = 150.
+  The first draft said reordering produced "nearly the whole effect". It does not: on excess over the
+  noise floor it is 6 of 14, and it is not significant at all.
+
+### 2.1 The composition test
+
+Both arms with neighbours randomised to chance, so composition is the only difference:
+
+| category | side | `reshuffled` | `mixed_shuffled` | b/c | p |
+|---|---|---|---|---|---|
+| spam | positive | 18 | 18 | 10/10 | 1.000 |
+| spam | clean | 1 | 2 | 1/0 | 1.000 |
+| harassment | positive | 6 | 7 | 6/5 | 1.000 |
+| harassment | clean | 4 | 5 | 3/2 | 1.000 |
+
+Four cells, p = 1.000 in each. Whatever moves these scores, it is not what the neighbours contain.
+
+## 3. How far the scores move
+
+Absolute movement against `pure`. The last column is the share of messages moving more than the
+±0.03 that `AGENTS.md` tells every test author to allow for.
+
+| category | side | condition | mean | p95 | max | share > 0.03 |
+|---|---|---|---|---|---|---|
+| spam | positive | `pure2` | 0.011 | 0.040 | 0.060 | 9.3% |
+| spam | positive | `reshuffled` | 0.073 | 0.200 | 0.420 | 65.3% |
+| spam | positive | `mixed_shuffled` | 0.086 | 0.300 | 0.550 | 63.3% |
+| spam | clean | `pure2` | 0.004 | 0.020 | 0.060 | 2.7% |
+| spam | clean | `reshuffled` | 0.018 | 0.090 | 0.360 | 15.3% |
+| harassment | positive | `pure2` | 0.011 | 0.050 | **0.110** | 12.0% |
+| harassment | positive | `reshuffled` | 0.044 | 0.160 | 0.400 | 45.3% |
+| harassment | clean | `pure2` | 0.006 | 0.020 | 0.040 | 1.3% |
+| harassment | clean | `reshuffled` | 0.030 | 0.150 | 0.260 | 26.0% |
+
+A repeated identical request is nearly deterministic **in the mean** and not in the tail: one
+harassment message, `oai170`, moved 0.71 to 0.60 with the request unchanged, and 12% of harassment
+positives moved further than 0.03.
+
+Changing the request multiplies that by **3.3 to 6.7 times**, per side, not by an order of magnitude.
+The band quoted for the positive strata does not apply to the clean ones, which move about half as
+much because their scores sit pinned near zero.
+
+**This is not threshold jitter.** Restricting to messages far from their line, |score − threshold| >
+0.10 in `pure`, makes the movement larger rather than smaller: spam positives move 0.085 far from the
+line against 0.055 near it. Items near the line are 61 of 150 and account for under a third of the
+total movement.
+
+## 4. What this contradicts
+
+### `AGENTS.md`
+
+> Assert against thresholds with margin, never exact values: Jev's probabilities move about plus or
+> minus 0.03 between runs.
+
+True for a byte-identical repeated request, and only there. A rerun in a different batch, which is
+what "between runs" means to anyone reading that sentence, moves the p95 to 0.15 to 0.20 and the max
+to 0.55. The rule needs the distinction written into it.
+
+### The precision the site implies
+
+Every score observed in this run, all 28,800 of them, sits exactly on a 0.01 grid: 101 distinct
+values, none off-grid. The number has **two-decimal resolution and one-decimal reproducibility**. A
+threshold set to 0.85 rather than 0.84 is a distinction the score cannot carry for an individual
+message, although it carries fine in aggregate.
+
+### `ai_detect/REPORT2.md`, section 1
+
+REPORT2 reports 17 of 156 items, 11%, flipping across the threshold "with nothing changed at all",
+against the 2.7% measured here. Both are right, and REPORT2's sentence is wrong.
+`cmd_ask_retest` in `deterministic.py:618` calls `rng.shuffle(sample)` before it chunks: its rerun
+held the *composition* constant and regrouped the *membership*. Its 11% is this report's
+`reshuffled` (12%), not its `pure2`. Nobody had measured a truly repeated request until now.
+
+That correction strengthens REPORT2's conclusion rather than weakening it, and it removes the only
+number in it that suggested the model was unstable for no reason at all.
+
+## 5. What this does not measure, and one claim withdrawn
+
+**The direction of failure is not established.** The first draft of this report said the dominant
+production failure is missed action rather than wrongful action, on 9 spam messages falling under the
+line against 6 rising over it. That is p = 0.607, and no lost-against-gained asymmetry in any of the
+sixteen cells reaches significance. It is also mechanically explained without any directional effect:
+in `pure`, 22 spam positives sit in [0.85, 0.90) against 12 in [0.80, 0.85), so symmetric jitter on
+that distribution produces more falls than rises. **The claim is withdrawn.**
+
+**This design cannot compare the two failure directions at all.** The positive pools have 61 and 32
+messages within 0.10 of their threshold; the clean pools have 6 and 7. The clean side has almost no
+mass where a flip is possible, so "false positives barely move" is a floor effect and not evidence.
+
+**The pools are not chat.** The spam pool is 150 of 150 YouTube comments, median 65 characters. The
+clean pools are about three quarters OpenAI-moderation prose, median 330 and 358 characters. A
+false-positive rate measured on long prose does not transfer to a Discord channel, and `mixed`
+confounds composition with a genre and length contrast on top of it.
+
+**Harassment is unresolved and cannot be resolved with the data that exists.** At the observed effect
+size, 5 discordant pairs against 1 in 150, the power to reach p < 0.05 is:
+
+| n | power |
+|---|---|
+| 150 (this run) | 19% |
+| 319 (every harassment message in `items.jsonl`) | 60% |
+| 500 | 84% |
+
+The labelled set holds 319 harassment messages. Even using all of them, this experiment would fail to
+reach significance four times in ten. **JEV-56 cannot be closed for harassment until the labelled set
+grows**, which reverses the ordering the issue itself argues for: it says measuring the batch effect
+must come before labelling 5,000 messages, and for harassment the dependency runs the other way. For
+spam it does not, and spam is answered.
+
+**One rival explanation survives.** Absolute movement correlates with each score's own uncertainty,
+`p(1−p)` in `pure`, at r = +0.60 to +0.68 — including within `pure2`, where nothing changed.
+Mid-range scores move and confident ones do not. Whether batching destabilises mid-range scores or
+mid-range scores are simply unstable cannot be separated here: it needs an arm that asks one message
+per request, which this design never had. That arm is the obvious next experiment and it is cheap.
+
+## What to do
+
+1. **Fix the `AGENTS.md` rule** so it distinguishes a repeated request from a rerun.
+2. **Do not tune a threshold on a single message's score**, in the dashboard or in a bot command.
+   The reaction nudge in `discord_bot.py` moves a threshold by 0.03 on one reaction, which is inside
+   the noise for 65% of spam messages. That mechanism deserves its own look.
+3. **Run the one-message-per-request arm** before believing this is about batching at all.
+4. **Do not close JEV-56 for harassment.** Re-run it when the labelled set passes 500 harassment
+   messages, and link it to JEV-11 and JEV-7 as a dependency in that direction.
+
+## Reproduce
+
+```
+python -m benchmark.batch_effect pools                   # free: pools, drops, batch counts
+python -m benchmark.batch_effect pilot                   # paid, one batch per condition
+python -m benchmark.batch_effect ask pure                # paid, and likewise pure2, reordered,
+python -m benchmark.batch_effect ask mixed_shuffled      # reshuffled, mixed, mixed_shuffled
+python -m benchmark.batch_effect analyse                 # free, from the committed jsonl
+```
+
+`cache_ttl_s=0` is load-bearing. With the default 24 hours every condition after the first comes back
+`reason="cache"` with a drift of exactly zero, which looks like a clean result and is not one. The
+harness refuses a cached or unjudged verdict rather than recording it.
