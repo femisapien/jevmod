@@ -195,3 +195,21 @@ def test_the_helpers():
     s = "untouched"
     assert replace_lone_surrogates(s) is s
     assert scrub({"k\ud83d": ["v\udc80", 1, {"x": "y"}]}) == {"k\ufffd": ["v\ufffd", 1, {"x": "y"}]}
+
+
+@pytest.mark.parametrize("body", ['{"timeout_minutes":NaN}', '{"timeout_minutes":Infinity}'])
+def test_a_422_echoing_nan_or_infinity_is_still_a_422(api, body):
+    """Red-team round 1: `json.loads` accepts NaN, the 422 echoes it, and strict JSON cannot write it."""
+    client, auth, jev, _ = api
+    r = client.put("/v1/policy", content=body, headers=auth)
+    assert r.status_code == 422, r.text
+    r = client.post("/v1/moderate", content='{"messages":[{"text":NaN}]}', headers=auth)
+    assert r.status_code == 422 and jev.calls == 0
+
+
+def test_the_service_refuses_a_surrogate_request_id_before_calling_the_model(tmp_path):
+    jev = _Jev()
+    svc = ModerationService(Store(tmp_path / "s.sqlite"), judge=Judge(client=jev, cache_ttl_s=0))
+    with pytest.raises(ValueError, match="surrogate"):
+        svc.moderate("t", [Message("1", SPAM)], request_id="r\ud800")
+    assert jev.calls == 0

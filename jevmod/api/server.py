@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import os
 import secrets
 import time
@@ -46,7 +47,19 @@ class AsciiJSONResponse(JSONResponse):
     """JSON with every non-ASCII character escaped, which is still valid JSON and cannot fail to encode."""
 
     def render(self, content: Any) -> bytes:
-        return json.dumps(content, ensure_ascii=True, allow_nan=False, separators=(",", ":")).encode("ascii")
+        return json.dumps(_finite(content), ensure_ascii=True, allow_nan=False, separators=(",", ":")).encode("ascii")
+
+
+def _finite(value: Any) -> Any:
+    """NaN and the infinities as strings. `json.loads` accepts them in a request, the 422 echoes them back, and
+    strict JSON has no way to write them: `allow_nan=False` raised and the 422 became a 500 (red-team, JEV-83)."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _finite(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_finite(v) for v in value]
+    return value
 
 
 async def validation_error(request: Request, exc: Exception) -> Response:

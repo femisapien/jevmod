@@ -157,6 +157,9 @@ class ModerationService:
         # sent. Text that is only read is repaired, because an adapter has nobody to tell, and one
         # surrogate kept in the conversation window would break every later message in its channel: the
         # window is part of each of their cache keys.
+        if contains_lone_surrogate(rid):
+            # Written beside every logged decision, so it would fail after Jev was paid just as an id would.
+            raise ValueError(f"request id {rid!r} contains a lone UTF-16 surrogate")
         for m in messages:
             if contains_lone_surrogate(m.id):
                 raise ValueError(f"message id {m.id!r} contains a lone UTF-16 surrogate")
