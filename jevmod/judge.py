@@ -123,15 +123,31 @@ def split_for_request(
     """
     if not items:
         return []
-    costs = [estimate_tokens(t, m.context, len(cats), rules, m.channel_topic or "general chat") for m, t in items]
+    costs = [_position_cost(m, t, cats, rules) for m, t in items]
     lead = estimate_tokens(LEAD_FILLER, (), len(cats), rules, items[0][0].channel_topic or "general chat")
-    k = max(1, -(-len(items) // max_messages))
+    n = len(items)
+    k = max(1, -(-n // max_messages))
     while True:
-        size = -(-len(items) // k)
-        chunks = [list(range(i, min(i + size, len(items)))) for i in range(0, len(items), size)]
-        if size == 1 or all(lead + sum(costs[j] for j in c) <= budget for c in chunks):
-            return [[items[j] for j in c] for c in chunks]
+        # k parts whose sizes differ by at most one: 13 in four is 4, 3, 3, 3, never 4, 4, 4, 1.
+        chunks = [list(range(i * n // k, (i + 1) * n // k)) for i in range(k)]
+        if k >= n or all(lead + sum(costs[j] for j in c) <= budget for c in chunks):
+            return [[items[j] for j in c] for c in chunks if c]
         k += 1
+
+
+def _position_cost(m: Message, text: str, cats: list[str], rules: dict[str, str]) -> int:
+    # The context as it is sent, normalised: NFKC turns one character such as U+FDFA into eighteen,
+    # and an estimate of the raw text was a tenth of what was billed.
+    return estimate_tokens(text, tuple(normalize(c) for c in m.context), len(cats), rules,
+                           m.channel_topic or "general chat")
+
+
+def request_cost(items: list[tuple[Message, str]], cats: list[str], rules: dict[str, str]) -> int:
+    """The estimate for one request holding `items`, the m0 position included."""
+    if not items:
+        return 0
+    lead = estimate_tokens(LEAD_FILLER, (), len(cats), rules, items[0][0].channel_topic or "general chat")
+    return lead + sum(_position_cost(m, t, cats, rules) for m, t in items)
 
 
 LINK_RE = re.compile(
@@ -274,31 +290,38 @@ class Judge:
         """
         custom_rules = custom_rules or {}
         cats = [c for c in categories if c in CATEGORIES]
-        out: dict[str, Verdict] = {}
+        # By position, not by id: nothing makes ids unique, and a map by id gave one message the
+        # verdict of another that shared its id.
+        out: dict[int, Verdict] = {}
         to_judge: list[tuple[Message, str]] = []
+        where: list[int] = []
         now = time.time()
-        for m in messages:
+        for idx, m in enumerate(messages):
             why = prefilter(m)
             if why:
-                out[m.id] = Verdict(m.id, {}, False, why)
+                out[idx] = Verdict(m.id, {}, False, why)
                 continue
             text = normalize(m.text)
             key = _key(text, m.channel_topic, cats, custom_rules, m.context)
             hit = self.cache.get(key)
             if hit and now - hit[0] < self.cache_ttl:
-                out[m.id] = Verdict(m.id, dict(hit[1]), True, "cache", dict(hit[2]))
+                out[idx] = Verdict(m.id, dict(hit[1]), True, "cache", dict(hit[2]))
                 continue
             to_judge.append((m, text))
+            where.append(idx)
 
         if to_judge and (cats or custom_rules):
             # Identical text in identical context is one question, asked once. A raid is forty copies
             # of the same line inside one window, and every message in a batch reads the same window,
             # so the copies share a key: they cost one position instead of forty, and they cannot get
             # forty different answers either. Measured need in `benchmark/throughput_stream/REPORT.md`.
-            groups: dict[str, list[tuple[Message, str]]] = {}
-            for m, text in to_judge:
-                groups.setdefault(_key(text, m.channel_topic, cats, custom_rules, m.context), []).append((m, text))
-            unique = [members[0] for members in groups.values()]
+            groups: dict[str, list[int]] = {}
+            first: dict[str, tuple[Message, str]] = {}
+            for idx, (m, text) in zip(where, to_judge, strict=True):
+                key = _key(text, m.channel_topic, cats, custom_rules, m.context)
+                groups.setdefault(key, []).append(idx)
+                first.setdefault(key, (m, text))
+            unique = list(first.values())
             topic = unique[0][0].channel_topic or "general chat"
             # Padding, deduplicated, normalised so it cannot smuggle in text the pre-filter would
             # have cleaned, and with anything already being judged removed: the buffer holds the
@@ -312,6 +335,17 @@ class Judge:
             pad = [p for p in dict.fromkeys(normalize(p) for p in padding) if p and p not in judged_texts]
             pad = list(assemble(tuple(pad), MAX_CONTEXT_TOKENS * PAD_TO))
             chunks = split_for_request(unique, cats, custom_rules, self.request_token_budget)
+            if len(chunks) == 1:
+                # The padding rides in the one request, so it has to fit beside the batch: kept while
+                # it does, by the same estimate, and dropped from the first line that would not.
+                room = self.request_token_budget - request_cost(chunks[0], cats, custom_rules)
+                fitting: list[str] = []
+                for text in pad[:PAD_TO]:
+                    room -= estimate_tokens(text, (), len(cats), custom_rules, topic)
+                    if room < 0:
+                        break
+                    fitting.append(text)
+                pad = fitting
             parts: list[tuple[list[tuple[Message, str]], Any]]
             if len(chunks) == 1:
                 parts = self._ask(chunks[0], cats, custom_rules, pad, topic)
@@ -329,6 +363,14 @@ class Judge:
                         parts.append((c, exc))
             failure: BaseException | None = None
             for chunk, result in parts:
+                if isinstance(result, TypeSafeAPIError) and len(chunk) == 1 and _too_big(result):
+                    # One message the API refuses however it is asked: more tokens after
+                    # normalisation than a request may hold. It gets its own unjudged verdict; failing
+                    # the batch for it let one such line per window switch moderation off.
+                    m, text = chunk[0]
+                    for idx in groups[_key(text, m.channel_topic, cats, custom_rules, m.context)]:
+                        out[idx] = Verdict(messages[idx].id, {}, False, "too long")
+                    continue
                 if isinstance(result, BaseException):
                     failure = failure or result
                     continue
@@ -346,17 +388,17 @@ class Judge:
                     custom = {name: _p(answers[f"custom__{name}_{i}"]) for name in custom_rules}
                     key = _key(text, m.channel_topic, cats, custom_rules, m.context)
                     self.cache[key] = (now, scores, custom)
-                    for member, _ in groups[key]:
-                        out[member.id] = Verdict(member.id, dict(scores), True, "jev", dict(custom))
+                    for idx in groups[key]:
+                        out[idx] = Verdict(messages[idx].id, dict(scores), True, "jev", dict(custom))
             if failure is not None:
                 # The contract is unchanged: a request that failed raises, and the caller decides
                 # fail-open or fail-closed for the batch. The chunks that did succeed were billed,
                 # so they are counted and cached above before this is raised, not lost with it.
                 raise failure
         elif to_judge:
-            for m, _ in to_judge:
-                out[m.id] = Verdict(m.id, {}, False, "no categories enabled")
-        return [out[m.id] for m in messages]
+            for idx, (m, _) in zip(where, to_judge, strict=True):
+                out[idx] = Verdict(m.id, {}, False, "no categories enabled")
+        return [out[i] for i in range(len(messages))]
 
     def _ask(
         self,

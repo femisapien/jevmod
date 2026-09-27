@@ -18,7 +18,7 @@ from typing import Any
 
 from typesafe_sdk import TypeSafeError
 
-from ..judge import PAD_TO, Judge, Message
+from ..judge import PAD_TO, Judge, Message, normalize
 from . import local
 from .context import ConversationBuffer, assemble
 from .local import RepeatWindow
@@ -68,9 +68,11 @@ def within_cap(
 
     The cap counts distinct texts, not messages. `Judge` asks identical text in the same context once
     (`jevmod/judge.py`), and every copy in a batch reads the same context, so a copy costs nothing
-    once its text is in: a raid of three hundred copies of one line is one position. Distinct per
-    channel, because a Discord batch can span channels and each channel reads its own context. Counting messages
-    shed two hundred of those copies unjudged, in exactly the batch a raid is.
+    once its text is in: a raid of three hundred copies of one line is one position. Counting messages
+    shed two hundred of those copies unjudged, in exactly the batch a raid is. Distinct per channel,
+    because a Discord batch can span channels and each channel reads its own context, and after
+    normalisation, as `Judge` deduplicates, so copies dressed differently (zero-width characters,
+    fullwidth letters) are one text here as they are one position there.
 
     When the distinct texts still exceed the cap, the ones kept are spread evenly across the batch
     rather than taken from its start. Taking the first `cap` shed the end of every overloaded window,
@@ -82,13 +84,14 @@ def within_cap(
     message ids unique.
     """
     paid = [costs(m) for m in messages]
-    distinct = list(dict.fromkeys((m.text, m.channel) for m, p in zip(messages, paid, strict=True) if p))
+    keys = [(normalize(m.text), m.channel) for m in messages]
+    distinct = list(dict.fromkeys(k for k, p in zip(keys, paid, strict=True) if p))
     if len(distinct) <= cap:
         return list(range(len(messages))), []
     step = len(distinct) / cap
     kept = {distinct[int(i * step)] for i in range(cap)}
-    keep = [i for i, m in enumerate(messages) if not paid[i] or (m.text, m.channel) in kept]
-    shed = [i for i, m in enumerate(messages) if paid[i] and (m.text, m.channel) not in kept]
+    keep = [i for i in range(len(messages)) if not paid[i] or keys[i] in kept]
+    shed = [i for i in range(len(messages)) if paid[i] and keys[i] not in kept]
     return keep, shed
 
 
@@ -331,10 +334,10 @@ class Batcher:
     async def _flush(self, tenant: str) -> None:
         loop = asyncio.get_running_loop()
         waited = loop.time() - self.since.get(tenant, loop.time())
-        await asyncio.sleep(max(0.0, self.window - waited))
-        batch = self.pending.pop(tenant, [])
-        self.since.pop(tenant, None)
         try:
+            await asyncio.sleep(max(0.0, self.window - waited))
+            batch = self.pending.pop(tenant, [])
+            self.since.pop(tenant, None)
             if batch:
                 await self.handler(tenant, batch)
         except Exception as exc:  # an adapter bug must not stop future batches
