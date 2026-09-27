@@ -240,3 +240,18 @@ per-batch tokens were read from the judge's shared totals and so counted the oth
 (fixed in `run.py`; its real cost is counted in the total above). Two runs labelled as raid runs
 did not apply the raid mix because of a bug in `run.py`; they are plain runs at 150 msg/s, marked
 `repeat`, and counted as such.
+
+## Left open after review
+
+Three rounds of zero-context red-team review; every finding they reproduced is fixed above. What they
+reasoned but did not reproduce, and is not fixed:
+
+- With the conversation window, four full requests in flight can ask for more than the key's
+  sustained rate, and the SDK's retries then run inside the in-flight slot (section 2). A limiter on
+  tokens a second rather than requests in flight would keep the 429s out; it is not built.
+- A retry holds its slot through its backoff, so when the API degrades every tenant waits behind four
+  slow requests. Head-of-line blocking, not a deadlock.
+- A failure that is not a `TypeSafeError` (a malformed answer) after some requests were paid for is
+  not billed to the tenant and reaches the adapter.
+- In the hosted repository, the demo reads the judge's shared totals before and after a call, so
+  concurrent demo requests overcount its spend; `Judge.thread_usage` is the reading to use there.
