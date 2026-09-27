@@ -87,10 +87,10 @@ exports; it is developed in parallel with this file.
 
 | path | what |
 |---|---|
-| `jevmod/judge.py` | the judgment core: normalisation, pre-filters, cache, one Jev request per batch; docstring lists the red-team findings that shaped it |
+| `jevmod/judge.py` | the judgment core: normalisation, pre-filters, cache, one Jev request per batch of up to fifty (bigger batches are split under the API's input limit, at most four requests in flight per process, identical lines asked once); docstring lists the red-team findings that shaped it |
 | `jevmod/categories.json` | the questions and criteria every implementation asks Jev; the only place they are defined |
 | `jevmod/core/policy.py` | `Policy`, `Decision`, `decide`, defaults |
-| `jevmod/core/service.py` | `ModerationService` (tenant policy, quota, audit log, fail-open) and `Batcher` (2 s window) |
+| `jevmod/core/service.py` | `ModerationService` (tenant policy, quota, audit log, fail-open, `MAX_BATCH` counted in distinct texts) and `Batcher` (per-adapter window, counted from the oldest waiting message). Throughput limits: `benchmark/throughput_stream/REPORT.md` |
 | `jevmod/core/context.py` | the conversation window: a bounded rolling buffer per channel and the assembler that trims it to a token budget |
 | `jevmod/core/store.py` | SQLite store: tenants, hashed API keys, usage, decisions (30-day retention) |
 | `jevmod/keys.py` | key lookup: `TYPESAFE_API_KEY`, then the OS keyring (extra `keyring`, in `[all]`), then `.env`; `jevmod init`, `jevmod init --forget` |

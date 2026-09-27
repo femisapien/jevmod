@@ -23,9 +23,12 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import os
 import re
+import threading
 import time
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -51,6 +54,63 @@ PAD_TO = 10
 # ordinary: a sentence no moderator would ever act on, in the register a chat channel is in, and
 # short enough that paying for it is not the point. It is never judged and never returned.
 LEAD_FILLER = "hey everyone, how is it going today"
+
+# How big one request may be. The API refuses a request over its input limit with
+# `400 max_tokens_exceeded`: 69 chat messages (64,275 input tokens) were accepted and 71 refused, on
+# 2026-09-27 (`benchmark/throughput_stream/REPORT.md`). Nothing split a batch before that was
+# measured, so a Twitch window holding sixty messages was refused whole and every one of them came
+# back `error_open`: unjudged, exactly when the chat was busiest. A batch is now split so that each
+# request stays under `REQUEST_TOKEN_BUDGET` by the estimate below, which errs high.
+REQUEST_TOKEN_BUDGET = 56_000
+# And never more than this many messages: the batch size the throughput runs measured, and the cap
+# the HTTP API already puts on a request.
+MAX_REQUEST_MESSAGES = 50
+# Requests one `Judge` has in flight at once, across every thread sharing it. The key is rate limited
+# on input tokens, about 330,000 a second sustained with a burst allowance above that. Four requests
+# of fifty ran clean for fifteen seconds and eight were refused 62% of the time, so four is the
+# measured safe number; `JEVMOD_MAX_INFLIGHT` moves it for a key with a different limit.
+MAX_INFLIGHT = max(1, int(os.environ.get("JEVMOD_MAX_INFLIGHT", "4") or 4))
+# The estimate: what one position costs in questions, measured at about 126 input tokens per
+# question on chat-sized text and rounded up, and text at three characters a token where English
+# runs nearer four. Both err towards splitting early, which costs a few percent and never a refusal.
+_TOKENS_PER_QUESTION = 135
+_CHARS_PER_TOKEN = 3
+
+
+def estimate_tokens(text: str, context: tuple[str, ...], n_cats: int, rules: dict[str, str]) -> int:
+    """Input tokens one position adds to a request: its questions, its text and its context."""
+    questions = n_cats * _TOKENS_PER_QUESTION + sum(
+        _TOKENS_PER_QUESTION + len(r) // _CHARS_PER_TOKEN for r in rules.values()
+    )
+    return questions + (len(text) + sum(len(c) for c in context)) // _CHARS_PER_TOKEN + 10
+
+
+def split_for_request(
+    items: list[tuple[Message, str]],
+    cats: list[str],
+    rules: dict[str, str],
+    budget: int = REQUEST_TOKEN_BUDGET,
+    max_messages: int = MAX_REQUEST_MESSAGES,
+) -> list[list[tuple[Message, str]]]:
+    """Split a batch into requests that each fit the budget, as evenly as possible.
+
+    Even rather than greedy, because the size of a request changes its answers
+    (`benchmark/BATCH_EFFECT.md`): a greedy split of 55 would send 50 and then 5, and the 5 would be
+    judged in the kind of small request that section measured losing half its spam recall. The m0
+    position every request carries is counted too.
+    """
+    if not items:
+        return []
+    costs = [estimate_tokens(t, m.context, len(cats), rules) for m, t in items]
+    lead = estimate_tokens(LEAD_FILLER, (), len(cats), rules)
+    k = max(1, -(-len(items) // max_messages))
+    while True:
+        size = -(-len(items) // k)
+        chunks = [list(range(i, min(i + size, len(items)))) for i in range(0, len(items), size)]
+        if size == 1 or all(lead + sum(costs[j] for j in c) <= budget for c in chunks):
+            return [[items[j] for j in c] for c in chunks]
+        k += 1
+
 
 LINK_RE = re.compile(
     r"(https?://|hxxps?://|www\.|\S+\[\.\]\S+|\b[\w-]+\.(?:gg|com|net|org|ru|io|xyz|fr|de|jp|br)\b/?)", re.I
@@ -135,6 +195,23 @@ class Judge:
         self.requests = 0
         self.input_tokens = 0
         self.judged_messages = 0
+        self.request_token_budget = REQUEST_TOKEN_BUDGET
+        self.max_inflight = MAX_INFLIGHT
+        # Bounds the requests in flight across every thread sharing this judge, which is every
+        # tenant of a `ModerationService`: one busy stream split into several requests must not be
+        # what pushes the key over its rate limit for everybody else.
+        self._inflight = threading.BoundedSemaphore(self.max_inflight)
+        self._lock = threading.Lock()
+        # What the calling thread's own calls spent. The totals above are shared, so a caller that
+        # reads them before and after its call also counts whatever another tenant's thread spent
+        # in between; `thread_usage` is the reading that does not.
+        self._local = threading.local()
+
+    def thread_usage(self) -> tuple[int, int, int]:
+        """(requests, input tokens, judged messages) spent by calls made from this thread so far.
+        The difference between two readings is one call's usage and nobody else's."""
+        loc = self._local
+        return getattr(loc, "requests", 0), getattr(loc, "input_tokens", 0), getattr(loc, "judged_messages", 0)
 
     def judge(
         self,
@@ -143,7 +220,12 @@ class Judge:
         custom_rules: dict[str, str] | None = None,
         padding: tuple[str, ...] = (),
     ) -> list[Verdict]:
-        """One Jev request for every message that passes the pre-filter and is not cached.
+        """Jev's verdict for every message that passes the pre-filter and is not cached.
+
+        One request when the batch fits a request, which a chat-sized batch of up to fifty does.
+        A bigger one is split into even requests under `REQUEST_TOKEN_BUDGET`, sent at most
+        `max_inflight` at a time across every thread sharing this judge. Identical texts in the
+        same context are asked once and share the answer.
 
         `padding` is text that rides along in the request, is asked the same questions, and whose
         answers are thrown away. It exists because the size of the batch changes the answers: the
@@ -178,35 +260,15 @@ class Judge:
             to_judge.append((m, text))
 
         if to_judge and (cats or custom_rules):
-            # Only message text and the channel topic reach Jev: no author names, no ids beyond the
-            # position. Context is other people's message text, which is the same kind of data and
-            # not a new one, so the promise in AGENTS.md and the privacy notice still holds exactly
-            # as written. Sending anything about the author is a different decision, gated on
-            # JEV-20 to JEV-22, and is not this.
-            state: dict[str, Any] = {
-                "messages": {
-                    f"m{i}": {
-                        "text": text,
-                        "channel_topic": m.channel_topic or "general chat",
-                        # Keyed by position like the messages themselves, and for consistency rather
-                        # than for the original reason: the list-versus-dict finding above is about
-                        # positions that carry questions, and no question points at a context entry.
-                        # A dict costs a handful of tokens and keeps one rule in this file instead
-                        # of two. Omitted entirely when empty, so a message with no history reaches
-                        # Jev in exactly the shape it did before this existed.
-                        # Normalised like every other piece of text on the request. It was the one
-                        # that was not: the padding beside it is explicitly cleaned "so it cannot
-                        # smuggle in text the pre-filter would have cleaned", and zalgo, fullwidth
-                        # and enclosed alphanumerics were reaching Jev raw through this field.
-                        **({"context": {f"c{k}": normalize(c) for k, c in enumerate(m.context)}}
-                           if m.context else {}),
-                    }
-                    # Real messages start at m1. m0 is filled below and is never one of them.
-                    for i, (m, text) in enumerate(to_judge, start=1)
-                },
-                "custom_rules": custom_rules,
-            }
-            topic = to_judge[0][0].channel_topic or "general chat"
+            # Identical text in identical context is one question, asked once. A raid is forty copies
+            # of the same line inside one window, and every message in a batch reads the same window,
+            # so the copies share a key: they cost one position instead of forty, and they cannot get
+            # forty different answers either. Measured need in `benchmark/throughput_stream/REPORT.md`.
+            groups: dict[str, list[tuple[Message, str]]] = {}
+            for m, text in to_judge:
+                groups.setdefault(_key(text, m.channel_topic, cats, custom_rules, m.context), []).append((m, text))
+            unique = [members[0] for members in groups.values()]
+            topic = unique[0][0].channel_topic or "general chat"
             # Padding, deduplicated, normalised so it cannot smuggle in text the pre-filter would
             # have cleaned, and with anything already being judged removed: the buffer holds the
             # batch by the time the batch is judged.
@@ -218,49 +280,124 @@ class Judge:
             # chat-sized messages and nothing enforced it.
             pad = [p for p in dict.fromkeys(normalize(p) for p in padding) if p and p not in judged_texts]
             pad = list(assemble(tuple(pad), MAX_CONTEXT_TOKENS * PAD_TO))
-            # m0 is never a real message, and that is the whole of this. Measured on 300 messages in
-            # `benchmark/position_zero.py`: a message at m0 gains nothing from its neighbours
-            # (+0.014 in a request of ten) while every other position gains about 0.22, and the cost
-            # is asymmetric, spam positives losing 0.15 there while clean text moves 0.01. Index zero
-            # costs recall and buys no precision. A message judged by itself is always at m0, which
-            # turned out to be the entire "batch size" effect JEV-57 was opened on.
-            #
-            # Recent history is preferred over the constant because it is real text from this
-            # channel and costs nothing extra to have; the constant is the fallback for a channel
-            # with no history yet.
-            state["messages"]["m0"] = {"text": pad.pop(0) if pad else LEAD_FILLER, "channel_topic": topic}
-            for k, text in enumerate(pad[: max(0, PAD_TO - len(to_judge) - 1)]):
-                state["messages"][f"m{len(to_judge) + 1 + k}"] = {"text": text, "channel_topic": topic}
-            questions: dict[str, Noul] = {}
-            for i in range(len(state["messages"])):
-                path = f"messages.m{i}"
-                for c in cats:
-                    questions[f"{c}_{i}"] = Noul(
-                        instructions=CATEGORIES[c]["instructions"].format(m=path), criteria=CATEGORIES[c]["criteria"]
-                    )
-                for name, rule in custom_rules.items():
-                    questions[f"custom__{name}_{i}"] = Noul(
-                        instructions=f"Does `{path}.text` break this community rule: `custom_rules.{name}` ({rule!r})?",
-                        criteria={
-                            "true": "the message does what the rule forbids, as a moderator who wrote it would read it",
-                            "false": "the message is ordinary conversation, or the rule does not clearly cover it; "
-                            "when the rule lists exceptions, those are allowed",
-                        },
-                    )
-            resp = self.client.system_one(state=state, questions=questions)
-            self.requests += 1
-            self.input_tokens += getattr(getattr(resp, "usage", None), "input_tokens", 0) or 0
-            self.judged_messages += len(to_judge)
-            # Offset by one: the real messages start at m1 because m0 holds the lead filler.
-            for i, (m, text) in enumerate(to_judge, start=1):
-                scores = {c: _p(resp.answers[f"{c}_{i}"]) for c in cats}
-                custom = {name: _p(resp.answers[f"custom__{name}_{i}"]) for name in custom_rules}
-                self.cache[_key(text, m.channel_topic, cats, custom_rules, m.context)] = (now, scores, custom)
-                out[m.id] = Verdict(m.id, scores, True, "jev", custom)
+            chunks = split_for_request(unique, cats, custom_rules, self.request_token_budget)
+            results: list[Any]
+            if len(chunks) == 1:
+                results = [self._request(chunks[0], cats, custom_rules, pad, topic)]
+            else:
+                # Padding goes to an unsplit request only. The service pads a batch smaller than
+                # PAD_TO, and a batch that small is split only when its messages are thousands of
+                # characters long, where the padding would itself be what overflows the request.
+                with ThreadPoolExecutor(max_workers=min(len(chunks), self.max_inflight)) as pool:
+                    futures = [pool.submit(self._request, c, cats, custom_rules, [], topic) for c in chunks]
+                results = []
+                for f in futures:
+                    try:
+                        results.append(f.result())
+                    except Exception as exc:  # recorded below, after the chunks that were paid for
+                        results.append(exc)
+            failure: BaseException | None = None
+            for chunk, result in zip(chunks, results, strict=True):
+                if isinstance(result, BaseException):
+                    failure = failure or result
+                    continue
+                answers, tokens = result
+                with self._lock:
+                    self.requests += 1
+                    self.input_tokens += tokens
+                    self.judged_messages += len(chunk)
+                    self._local.requests = getattr(self._local, "requests", 0) + 1
+                    self._local.input_tokens = getattr(self._local, "input_tokens", 0) + tokens
+                    self._local.judged_messages = getattr(self._local, "judged_messages", 0) + len(chunk)
+                # Offset by one: the real messages start at m1 because m0 holds the lead filler.
+                for i, (m, text) in enumerate(chunk, start=1):
+                    scores = {c: _p(answers[f"{c}_{i}"]) for c in cats}
+                    custom = {name: _p(answers[f"custom__{name}_{i}"]) for name in custom_rules}
+                    key = _key(text, m.channel_topic, cats, custom_rules, m.context)
+                    self.cache[key] = (now, scores, custom)
+                    for member, _ in groups[key]:
+                        out[member.id] = Verdict(member.id, dict(scores), True, "jev", dict(custom))
+            if failure is not None:
+                # The contract is unchanged: a request that failed raises, and the caller decides
+                # fail-open or fail-closed for the batch. The chunks that did succeed were billed,
+                # so they are counted and cached above before this is raised, not lost with it.
+                raise failure
         elif to_judge:
             for m, _ in to_judge:
                 out[m.id] = Verdict(m.id, {}, False, "no categories enabled")
         return [out[m.id] for m in messages]
+
+    def _request(
+        self,
+        chunk: list[tuple[Message, str]],
+        cats: list[str],
+        custom_rules: dict[str, str],
+        pad: list[str],
+        topic: str,
+    ) -> tuple[dict[str, Any], int]:
+        """One Jev request for one chunk: the answers, and the input tokens it was billed."""
+        # Only message text and the channel topic reach Jev: no author names, no ids beyond the
+        # position. Context is other people's message text, which is the same kind of data and
+        # not a new one, so the promise in AGENTS.md and the privacy notice still holds exactly
+        # as written. Sending anything about the author is a different decision, gated on
+        # JEV-20 to JEV-22, and is not this.
+        state: dict[str, Any] = {
+            "messages": {
+                f"m{i}": {
+                    "text": text,
+                    "channel_topic": m.channel_topic or "general chat",
+                    # Keyed by position like the messages themselves, and for consistency rather
+                    # than for the original reason: the list-versus-dict finding above is about
+                    # positions that carry questions, and no question points at a context entry.
+                    # A dict costs a handful of tokens and keeps one rule in this file instead
+                    # of two. Omitted entirely when empty, so a message with no history reaches
+                    # Jev in exactly the shape it did before this existed.
+                    # Normalised like every other piece of text on the request. It was the one
+                    # that was not: the padding beside it is explicitly cleaned "so it cannot
+                    # smuggle in text the pre-filter would have cleaned", and zalgo, fullwidth
+                    # and enclosed alphanumerics were reaching Jev raw through this field.
+                    **({"context": {f"c{k}": normalize(c) for k, c in enumerate(m.context)}}
+                       if m.context else {}),
+                }
+                # Real messages start at m1. m0 is filled below and is never one of them.
+                for i, (m, text) in enumerate(chunk, start=1)
+            },
+            "custom_rules": custom_rules,
+        }
+        pad = list(pad)
+        # m0 is never a real message, and that is the whole of this. Measured on 300 messages in
+        # `benchmark/position_zero.py`: a message at m0 gains nothing from its neighbours
+        # (+0.014 in a request of ten) while every other position gains about 0.22, and the cost
+        # is asymmetric, spam positives losing 0.15 there while clean text moves 0.01. Index zero
+        # costs recall and buys no precision. A message judged by itself is always at m0, which
+        # turned out to be the entire "batch size" effect JEV-57 was opened on.
+        #
+        # Recent history is preferred over the constant because it is real text from this
+        # channel and costs nothing extra to have; the constant is the fallback for a channel
+        # with no history yet.
+        state["messages"]["m0"] = {"text": pad.pop(0) if pad else LEAD_FILLER, "channel_topic": topic}
+        for k, text in enumerate(pad[: max(0, PAD_TO - len(chunk) - 1)]):
+            state["messages"][f"m{len(chunk) + 1 + k}"] = {"text": text, "channel_topic": topic}
+        questions: dict[str, Noul] = {}
+        for i in range(len(state["messages"])):
+            path = f"messages.m{i}"
+            for c in cats:
+                questions[f"{c}_{i}"] = Noul(
+                    instructions=CATEGORIES[c]["instructions"].format(m=path), criteria=CATEGORIES[c]["criteria"]
+                )
+            for name, rule in custom_rules.items():
+                questions[f"custom__{name}_{i}"] = Noul(
+                    instructions=f"Does `{path}.text` break this community rule: `custom_rules.{name}` ({rule!r})?",
+                    criteria={
+                        "true": "the message does what the rule forbids, as a moderator who wrote it would read it",
+                        "false": "the message is ordinary conversation, or the rule does not clearly cover it; "
+                        "when the rule lists exceptions, those are allowed",
+                    },
+                )
+        with self._inflight:
+            resp = self.client.system_one(state=state, questions=questions)
+        tokens = getattr(getattr(resp, "usage", None), "input_tokens", 0) or 0
+        return resp.answers, tokens
 
 
 def _p(answer: Any) -> float:
