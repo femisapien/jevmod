@@ -31,6 +31,7 @@ from jevmod.judge import (
     Message,
     Verdict,
     estimate_tokens,
+    normalize,
     prefilter,
     request_cost,
     split_for_request,
@@ -47,8 +48,9 @@ def _chat(n: int, offset: int = 0) -> list[str]:
     for f in sorted(YT.glob("*.csv")):
         with f.open(encoding="utf-8") as fh:
             out += [r["CONTENT"][:200] for r in csv.DictReader(fh) if len(r["CONTENT"].strip()) > 20]
-    out = list(dict.fromkeys(out))
-    return out[offset : offset + n]
+    out = list(dict.fromkeys(out))[offset : offset + n]
+    assert len(out) == n, f"the corpus has {offset + len(out)} distinct lines, not {offset + n}"
+    return out
 
 
 def _items(texts: list[str], context: tuple[str, ...] = ()) -> list[tuple[Message, str]]:
@@ -256,27 +258,6 @@ def test_a_quiet_stream_still_waits_one_window_per_batch():
     assert flushed[0] - t0 >= 0.18 and flushed[1] - t1 >= 0.18
 
 
-def test_a_cancelled_batch_does_not_strand_what_arrived_during_it():
-    flushed: list[list[int]] = []
-    holder: list[Batcher] = []
-
-    async def handler(tenant, batch):
-        flushed.append(list(batch))
-        if len(flushed) == 1:
-            holder[0].add("t", 2)
-            await asyncio.sleep(10)
-
-    async def main():
-        holder.append(Batcher(0.05, handler))
-        holder[0].add("t", 1)
-        await asyncio.sleep(0.15)
-        holder[0].tasks["t"].cancel()
-        await asyncio.sleep(0.2)
-
-    asyncio.run(main())
-    assert flushed == [[1], [2]]
-
-
 def test_copies_dressed_with_zero_width_characters_are_one_text_under_the_cap():
     raid = [Message(f"r{i}", "FOLLOW twitch.tv/freesubs4u" + "​" * i) for i in range(300)]
     keep, shed = within_cap(raid, 100)
@@ -296,22 +277,69 @@ def test_the_estimate_reads_the_context_as_it_is_sent():
     assert request_cost(_items(["hello there everyone"], context=ctx), CATS, {}) > 9_000
 
 
-def test_a_batch_cancelled_while_it_waits_does_not_strand_its_messages():
+def test_a_cancelled_batcher_stays_cancelled_and_the_next_message_flushes_what_waited():
+    """Cancellation is shutdown: the task must not recreate itself. What was pending is not lost; it
+    goes with the next message's batch."""
     flushed: list[list[int]] = []
     holder: list[Batcher] = []
 
     async def handler(tenant, batch):
         flushed.append(list(batch))
+        if len(flushed) == 1:
+            holder[0].add("t", 2)
+            await asyncio.sleep(10)
 
     async def main():
-        holder.append(Batcher(0.2, handler))
-        holder[0].add("t", 1)
-        await asyncio.sleep(0.05)
-        holder[0].tasks["t"].cancel()
-        await asyncio.sleep(0.4)
+        b = Batcher(0.05, handler)
+        holder.append(b)
+        b.add("t", 1)
+        await asyncio.sleep(0.15)
+        b.tasks["t"].cancel()
+        await asyncio.sleep(0.2)
+        stayed_down = b.tasks["t"].done()
+        b.add("t", 3)
+        await asyncio.sleep(0.2)
+        return stayed_down
 
-    asyncio.run(main())
-    assert flushed == [[1]]
+    assert asyncio.run(main())
+    assert flushed == [[1], [2, 3]]
+
+
+def test_copies_in_different_case_are_one_text_under_the_cap():
+    raid = [Message(f"r{i}", "".join(c.upper() if (i >> k) & 1 else c for k, c in enumerate("follow me now")))
+            for i in range(30)]
+    keep, shed = within_cap(raid, 1)
+    assert shed == []
+
+
+def test_one_oversized_line_goes_alone_and_the_rest_stay_together():
+    items = _items([normalize("ﷺ" * 4000)] + [f"ordinary chat line {i}" for i in range(49)])
+    sizes = sorted(len(c) for c in split_for_request(items, CATS, {}))
+    assert sizes == [1, 49]
+
+
+def test_nothing_to_ask_means_nothing_counts_under_the_cap():
+    judge = Judge.__new__(Judge)
+    judge.cache = {}
+    assert not Judge.needs_request(judge, Message("a", "a perfectly ordinary sentence"), [], {})
+
+
+def test_what_was_answered_before_a_failure_is_acted_on(tmp_path):
+    """A batch whose second request fails: the first request's verdicts were paid for and one of them
+    is a scam. It is acted on; only the unanswered messages fail open."""
+    from typesafe_sdk import TypeSafeError
+
+    class _HalfJudge(_CountingJudge):
+        def judge(self, messages, categories, custom_rules=None, padding=()):
+            exc = TypeSafeError("503 on the second request")
+            exc.partial_verdicts = [Verdict(messages[0].id, {"scam": 0.99}, True, "jev"), None]  # type: ignore[attr-defined]
+            raise exc
+
+    svc = ModerationService(Store(tmp_path / "s.sqlite"), judge=_HalfJudge())  # type: ignore[arg-type]
+    msgs = [Message("a", "claim your free nitro at the link now"), Message("b", "hello everyone in chat")]
+    d = svc.moderate("t", msgs)
+    assert d[0].category == "scam" and d[0].judged
+    assert d[1].reason == "error_open"
 
 
 # ---------------------------------------------------------------- real Jev
@@ -440,7 +468,7 @@ def test_one_message_no_request_can_hold_gets_its_own_verdict_and_the_rest_are_j
     """U+FDFA x 8000 is within the HTTP API's length limit and about 80,000 tokens after NFKC. It is
     refused however it is asked; before, that failed the whole batch open."""
     judge = Judge(cache_ttl_s=0)
-    msgs = [Message("big", "ﷺ" * 8000)] + [Message(f"n{i}", t) for i, t in enumerate(_chat(5, offset=1500))]
+    msgs = [Message("big", "ﷺ" * 8000)] + [Message(f"n{i}", t) for i, t in enumerate(_chat(5, offset=1100))]
     verdicts = judge.judge(msgs, CATS)
     assert verdicts[0].reason == "too long" and not verdicts[0].judged
     assert all(v.judged for v in verdicts[1:])
@@ -453,3 +481,33 @@ def test_verdicts_follow_positions_when_ids_repeat():
     clean = "gg everyone, same time tomorrow? that last round was close"
     verdicts = judge.judge([Message("7", clean), Message("7", scam)], ["scam", "spam"])
     assert max(verdicts[1].scores.values()) - max(verdicts[0].scores.values()) >= 0.2
+
+
+@needs_key
+def test_a_lone_message_is_judged_even_when_the_channel_history_is_too_big_to_pad_with():
+    """Nine Discord-length lines of CJK Extension B in the window, then one scam. Before, the padded
+    request was refused and the scam came back `too long`, unjudged."""
+    judge = Judge(cache_ttl_s=0)
+    padding = tuple("".join(chr(0x20000 + (i * 2000 + k) % 40000) for k in range(2000)) for i in range(9))
+    msg = Message("s", "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro")
+    v = judge.judge([msg], CATS, padding=padding)[0]
+    assert v.judged and v.scores["scam"] >= 0.5
+
+
+@needs_key
+def test_jev84_a_window_of_100_chat_messages_is_judged_through_the_service(tmp_path):
+    """JEV-84: at the default `MAX_BATCH` of 100 a batch of 100 chat messages, with no window, was one
+    request over the API's limit and every message came back `error_open`."""
+    svc = ModerationService(Store(tmp_path / "s.sqlite"), judge=Judge(cache_ttl_s=0))
+    decisions = svc.moderate("fresh", [Message(f"c{i}", t) for i, t in enumerate(_chat(100, offset=1200))])
+    assert not [d for d in decisions if d.reason in ("error_open", "over_batch")]
+
+
+@needs_key
+def test_jev84_fifty_messages_with_a_window_of_twenty_are_judged():
+    """JEV-84: the JEV-67 measurement had three of six batches of 50 with a window of 20 refused."""
+    judge = Judge(cache_ttl_s=0)
+    ctx = tuple(_chat(20, offset=1000))
+    msgs = [Message(f"w{i}", t, context=ctx) for i, t in enumerate(_chat(50, offset=1330))]
+    verdicts = judge.judge(msgs, CATS)
+    assert all(v.judged for v in verdicts if v.reason != "too short")

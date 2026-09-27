@@ -7,7 +7,10 @@ from it. The text is the YouTube comment set in `benchmark/data/youtube_spam/` (
 `benchmark/prepare.py`), cut at 200 characters, median 48: closer to a chat line than the moderation
 corpus JEV-6 used.
 
-Total spent on these measurements: **about $3.18** (75.8 million input tokens at $0.042 per million).
+Total spent on these measurements: **about $3.18** (75.8 million input tokens at $0.042 per million):
+68.7 million in the rows the tables use, plus about 7.0 million for the four-stream run set aside at
+the end (6,226 judged messages at the 1,129 tokens a message its rerun measured; its own rows
+overcount, see "Runs set aside").
 $1.21 of it is the two runs with production retries on. The live-API tests added with the change cost
 about a cent a run.
 
@@ -65,7 +68,9 @@ rather than hidden):
 | 4 | 125 | 485 | 600 | 715 | 0 | 404 |
 | 8 | 367 | 493 | 616 | 814 | **226 (62%)** | 454 |
 
-The latency does not move with load; the key refuses instead. The 429 carries `retry-after: 1`.
+Latencies are over the answered requests; at eight, 226 of the 367 came back 429 in a few
+milliseconds and are counted in the 429 column instead. The latency does not move with load; the key
+refuses instead. The 429 carries `retry-after: 1`.
 
 The same eight in flight with production's retries on (3 retries, backoff 0.5 to 8 s), `retries` rows:
 
@@ -119,7 +124,8 @@ request limit), and at 60 msg/s it lost 95%. After, a stream is fully judged to 
 "Longest wait" is from a message arriving to its decision, the slowest message in the run. A decision
 waits for the window (1 s) plus the judge (0.5 to 0.8 s).
 
-`model.py` (free) is the same pipeline as arithmetic, from the measured latencies: before, every
+`model.py` (free) is the same pipeline as arithmetic, from the measured latencies and tokens, which
+are copied into it by hand from these rows with the arm each came from named beside it: before, every
 message stops being decided at 44 msg/s; after, the first `over_batch` is at 100 msg/s. The replay
 shows 5% shed at 100 msg/s where the model shows none, because real batches vary around the mean and
 the cap cuts the big ones. The model caps messages before the pre-filter where the code caps only what
@@ -152,12 +158,17 @@ In order, from a single message to the whole bot:
 - **The request split** (`jevmod/judge.py`, `split_for_request`, `REQUEST_TOKEN_BUDGET`). Section 1.
   Chunks of one batch go out in parallel under the in-flight cap; chunks that were answered are
   counted, billed and cached even when another chunk of the same batch fails, and the batch then
-  fails open as before. The estimate counts text by script: ASCII at a third of a token a character,
-  anything else at 1.5 and emoji at 2.5, because Chinese measured 1.08 tokens a character and emoji
-  2.06 each; the channel topic every position carries is counted too. A request the API refuses as
-  too big anyway is halved and asked again (`Judge._ask`), so an estimate that is wrong costs one
-  unbilled refusal and not a batch failing open. Both are tested against the live API
-  (`tests/test_throughput.py`).
+  fails open as before, except that the verdicts already paid for ride on the exception and the
+  service acts on them: only the unanswered messages come back `error_open`. The estimate counts
+  ASCII at a third of a token a character and every other character at its UTF-8 length, the ceiling
+  measured across Chinese (1.08 tokens a character), Hangul (2.22), Yi (2.98), CJK Extension B (3.95)
+  and emoji (2.06); the channel topic every position carries is counted, and the context as it is
+  sent, normalised. A message too big to share a request goes alone and the rest stay together.
+  Padding is kept only while it fits beside the batch. A request the API refuses as too big anyway is
+  asked again without padding, then halved (`Judge._ask`), so an estimate that is wrong costs one
+  unbilled refusal and not a batch failing open. These are tested against the live API
+  (`tests/test_throughput.py`), including the two JEV-84 cases that fail open on `main`: 100 chat
+  messages with no window through the service, and 50 with a window of twenty.
 - **Four requests in flight per process** (`MAX_INFLIGHT`). Section 2.
 - **Identical lines asked once.** Copies of one text in one batch read the same context, so they are
   one position in the request and share its answer. The raid replay above: half the messages copies of
@@ -166,8 +177,10 @@ In order, from a single message to the whole bot:
 - **`MAX_BATCH` counts distinct texts that will reach the model** (`within_cap` in
   `jevmod/core/service.py`), per channel. A raid of 300 copies is one position; counting messages shed
   200 of them unjudged in exactly the batch a raid is. Before, 150 msg/s with half of it raid copies:
-  0% judged. After: 98%. Lines the pre-filter drops and lines the cache answers cost nothing and do
-  not count, so emote chat does not push real sentences out.
+  0% judged. After: 98%. Texts are compared as the judge compares them (normalised, lower case), so
+  copies dressed with zero-width characters or random capitals are one text. Lines the pre-filter
+  drops and lines the cache answers cost nothing and do not count, so emote chat does not push real
+  sentences out.
 - **Over the cap, what is kept is spread across the batch**, not its first 100. Taking the start shed
   the end of every overloaded window, the same part every time.
 - **`Batcher` counts the window from the oldest waiting message.** Before, what arrived while a batch
@@ -186,7 +199,8 @@ In order, from a single message to the whole bot:
   normalised, as it is sent; the split is balanced to within one message; padding is kept only while
   it fits beside the batch. `MAX_BATCH` counts texts after normalisation, so copies dressed with
   zero-width characters are one text.
-- **A cancelled batch does not strand what arrived during it**: the re-flush runs in `finally`.
+- **A cancelled `Batcher` stays cancelled** (cancellation is shutdown); what was pending goes with the
+  next message's batch.
 - **A tenant is billed its own usage.** With several streams judging at once through one judge, the
   shared before/after totals billed each tenant for what the others spent in the meantime
   (`Judge.thread_usage`).

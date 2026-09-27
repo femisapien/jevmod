@@ -18,7 +18,7 @@ from typing import Any
 
 from typesafe_sdk import TypeSafeError
 
-from ..judge import PAD_TO, Judge, Message, normalize
+from ..judge import PAD_TO, Judge, Message, dedupe_text
 from . import local
 from .context import ConversationBuffer, assemble
 from .local import RepeatWindow
@@ -71,8 +71,11 @@ def within_cap(
     once its text is in: a raid of three hundred copies of one line is one position. Counting messages
     shed two hundred of those copies unjudged, in exactly the batch a raid is. Distinct per channel,
     because a Discord batch can span channels and each channel reads its own context, and after
-    normalisation, as `Judge` deduplicates, so copies dressed differently (zero-width characters,
-    fullwidth letters) are one text here as they are one position there.
+    normalisation and case, as `Judge` deduplicates, so copies dressed differently (zero-width characters,
+    fullwidth letters) are one text here as they are one position there. Not always exactly: variants
+    whose raw text is already in the channel's window read a context with that text left out, and
+    `Judge` asks them apart, so the request can hold a few more positions than the cap, at most one per
+    line of the window.
 
     When the distinct texts still exceed the cap, the ones kept are spread evenly across the batch
     rather than taken from its start. Taking the first `cap` shed the end of every overloaded window,
@@ -84,7 +87,7 @@ def within_cap(
     message ids unique.
     """
     paid = [costs(m) for m in messages]
-    keys = [(normalize(m.text), m.channel) for m in messages]
+    keys = [(dedupe_text(m.text), m.channel) for m in messages]
     distinct = list(dict.fromkeys(k for k, p in zip(keys, paid, strict=True) if p))
     if len(distinct) <= cap:
         return list(range(len(messages))), []
@@ -275,7 +278,22 @@ class ModerationService:
                 self.store.add_usage(tenant, spent[2], spent[0], spent[1])
             if not self.fail_open:
                 raise
-            return [Decision(m.id, "none", None, 0.0, {}, False, "error_open") for m in messages]
+            # What was answered before the failure was paid for and is acted on; only the messages
+            # whose request failed are left open. A scam the model caught in the half that came back
+            # used to be dropped with the half that did not.
+            partial = getattr(exc, "partial_verdicts", None) or [None] * len(messages)
+            if len(partial) != len(messages):
+                partial = [None] * len(messages)
+            out = []
+            for m, v in zip(messages, partial, strict=True):
+                if v is None:
+                    out.append(Decision(m.id, "none", None, 0.0, {}, False, "error_open"))
+                    continue
+                d = decide(policy, v)
+                if d.action != "none":
+                    self.store.log_decision(tenant, m, d, rid)
+                out.append(d)
+            return out
         ms = int((time.perf_counter() - t0) * 1000)
         after = usage() if usage else (j.requests, j.input_tokens, j.judged_messages)
         reqs, toks, judged = (a - b for a, b in zip(after, before, strict=True))
@@ -334,19 +352,22 @@ class Batcher:
     async def _flush(self, tenant: str) -> None:
         loop = asyncio.get_running_loop()
         waited = loop.time() - self.since.get(tenant, loop.time())
+        await asyncio.sleep(max(0.0, self.window - waited))
+        batch = self.pending.pop(tenant, [])
+        self.since.pop(tenant, None)
         try:
-            await asyncio.sleep(max(0.0, self.window - waited))
-            batch = self.pending.pop(tenant, [])
-            self.since.pop(tenant, None)
             if batch:
                 await self.handler(tenant, batch)
         except Exception as exc:  # an adapter bug must not stop future batches
             log.exception({"event": "batch_handler_error", "tenant": tenant, "error": str(exc)[:200]})
-        finally:
-            # What arrived while the handler ran. `add` saw this task still running and did not
-            # start another, so without this those messages waited for the next message to arrive:
-            # the end of a raid sat unjudged until somebody else spoke, which in a chat that just
-            # went quiet could be minutes. In `finally` so that a cancelled batch does not strand
-            # them either.
-            if self.pending.get(tenant):
-                self.tasks[tenant] = asyncio.create_task(self._flush(tenant))
+        # What arrived while the handler ran. `add` saw this task still running and did not start
+        # another, so without this those messages waited for the next message to arrive: the end
+        # of a raid sat unjudged until somebody else spoke, which in a chat that just went quiet
+        # could be minutes.
+        #
+        # Not on cancellation, which is the bot shutting down: a task that recreated itself there
+        # could not be cancelled, and outlived its loop. What is pending then stays in `pending`,
+        # and the next `add` starts a task that flushes it with the new message. A batch already
+        # handed to the handler when the cancellation lands is the handler's to finish or lose.
+        if self.pending.get(tenant):
+            self.tasks[tenant] = asyncio.create_task(self._flush(tenant))
