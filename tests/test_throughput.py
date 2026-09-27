@@ -31,7 +31,9 @@ from jevmod.judge import (
     Message,
     Verdict,
     estimate_tokens,
+    prefilter,
     split_for_request,
+    text_tokens,
 )
 
 CATS = ["spam", "scam", "harassment", "nsfw", "selfharm", "doxxing", "minors"]
@@ -123,7 +125,7 @@ def test_the_cap_counts_distinct_texts_so_a_raid_of_copies_is_judged_whole():
     raid = [Message(f"r{i}", "FOLLOW twitch.tv/freesubs4u") for i in range(300)]
     other = [Message(f"o{i}", f"line {i}") for i in range(50)]
     keep, shed = within_cap(raid[:150] + other + raid[150:], 100)
-    assert shed == [] and len(keep) == 350
+    assert shed == [] and keep == list(range(350))
 
 
 def test_copies_in_different_channels_are_different_positions():
@@ -136,10 +138,30 @@ def test_over_the_cap_the_kept_texts_are_spread_across_the_batch_not_its_start()
     msgs = [Message(f"m{i}", f"text {i}") for i in range(300)]
     keep, shed = within_cap(msgs, 100)
     assert len(keep) == 100 and len(shed) == 200
-    kept = [int(m.id[1:]) for m in keep]
-    assert kept == sorted(kept), "the batch order is kept"
-    assert max(kept) >= 297, "the end of the window is looked at too"
-    assert {m.id for m in keep} | {m.id for m in shed} == {m.id for m in msgs}
+    assert keep == sorted(keep), "the batch order is kept"
+    assert max(keep) >= 297, "the end of the window is looked at too"
+    assert sorted(keep + shed) == list(range(300))
+
+
+def test_lines_that_never_reach_the_model_do_not_use_the_cap():
+    """Emote chat: 150 lines the pre-filter drops and 50 real sentences. Only the 50 cost anything, so
+    none of them is shed. Counting every line shed half of the real ones."""
+    lines = [Message(f"e{i}", f"lol{i}") for i in range(150)]
+    real = [Message(f"r{i}", f"this is a real sentence number {i} in chat") for i in range(50)]
+    msgs = lines[:75] + real + lines[75:]
+    keep, shed = within_cap(msgs, 100, lambda m: prefilter(m) is None)
+    assert shed == [] and len(keep) == 200
+
+
+def test_the_estimate_errs_high_for_chinese_and_emoji():
+    """Measured on the live API 2026-09-27: Chinese 1.08 tokens a character, emoji 2.06 each. The
+    first estimate counted a third of a token for each, and fifty Twitch-length Chinese lines went out
+    as one request the API refused."""
+    assert text_tokens("直" * 500) >= 540
+    assert text_tokens("😂" * 469) >= 966
+    assert text_tokens("a" * 300) == 100
+    items = _items([f"{i:03d}" + "今天的直播真的很精彩" * 50 for i in range(49)])
+    assert len(split_for_request(items, CATS, {})) >= 2
 
 
 class _CountingJudge:
@@ -149,9 +171,11 @@ class _CountingJudge:
     def __init__(self):
         self.requests = self.input_tokens = self.judged_messages = 0
         self.asked: list[str] = []
+        self.asked_texts: list[str] = []
 
     def judge(self, messages, categories, custom_rules=None, padding=()):
         self.asked += [m.id for m in messages]
+        self.asked_texts += [m.text for m in messages]
         self.requests += 1
         self.judged_messages += len({m.text for m in messages})
         return [Verdict(m.id, {}, True, "jev") for m in messages]
@@ -169,6 +193,17 @@ def test_the_service_returns_every_decision_in_order_when_it_sheds(tmp_path, mon
     assert len(judge.asked) == 100 and set(judge.asked).isdisjoint(d.message_id for d in shed)
 
 
+def test_a_judged_decision_is_not_overwritten_by_a_shed_message_with_the_same_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(service_mod, "MAX_BATCH", 2)
+    judge = _CountingJudge()
+    svc = ModerationService(Store(tmp_path / "s.sqlite"), judge=judge)  # type: ignore[arg-type]
+    msgs = [Message("dup", "first distinct line here"), Message("a", "second distinct line here"),
+            Message("b", "third distinct line here"), Message("dup", "fourth distinct line here")]
+    reasons = [d.reason for d in svc.moderate("t", msgs)]
+    assert reasons.count("over_batch") == 2
+    assert [r == "over_batch" for r in reasons] == [m.text not in judge.asked_texts for m in msgs]
+
+
 def test_the_window_is_counted_from_the_oldest_message_not_from_the_last_batch():
     """A message that arrived while a batch was judged is flushed as soon as that batch is done,
     because it has already waited longer than the window. Before, it waited a full window more, so
@@ -181,20 +216,21 @@ def test_the_window_is_counted_from_the_oldest_message_not_from_the_last_batch()
         flushed.append((loop.time(), list(batch)))
         if len(flushed) == 1:
             holder[0].add("t", 2)
-            await asyncio.sleep(0.4)  # the judge, longer than the window
+            await asyncio.sleep(0.8)  # the judge, longer than the window
 
     async def main():
-        holder.append(Batcher(0.2, handler))
+        holder.append(Batcher(0.3, handler))
         t0 = asyncio.get_running_loop().time()
         holder[0].add("t", 1)
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(1.6)
         return t0
 
     t0 = asyncio.run(main())
     assert [b for _, b in flushed] == [[1], [2]]
     first, second = flushed[0][0] - t0, flushed[1][0] - t0
-    assert 0.18 <= first < 0.35, "the first message still waits one window"
-    assert second - first < 0.55, "the second went as soon as the first batch was done, not a window later"
+    assert 0.28 <= first < 0.6, "the first message still waits one window"
+    # Before, the second batch went a full window after the first finished: 0.8 + 0.3 = 1.1 s.
+    assert 0.78 <= second - first < 0.95, "the second went as soon as the first batch was done"
 
 
 def test_a_quiet_stream_still_waits_one_window_per_batch():
@@ -217,6 +253,27 @@ def test_a_quiet_stream_still_waits_one_window_per_batch():
     t0, t1 = asyncio.run(main())
     assert len(flushed) == 2
     assert flushed[0] - t0 >= 0.18 and flushed[1] - t1 >= 0.18
+
+
+def test_a_cancelled_batch_does_not_strand_what_arrived_during_it():
+    flushed: list[list[int]] = []
+    holder: list[Batcher] = []
+
+    async def handler(tenant, batch):
+        flushed.append(list(batch))
+        if len(flushed) == 1:
+            holder[0].add("t", 2)
+            await asyncio.sleep(10)
+
+    async def main():
+        holder.append(Batcher(0.05, handler))
+        holder[0].add("t", 1)
+        await asyncio.sleep(0.15)
+        holder[0].tasks["t"].cancel()
+        await asyncio.sleep(0.2)
+
+    asyncio.run(main())
+    assert flushed == [[1], [2]]
 
 
 # ---------------------------------------------------------------- real Jev
@@ -309,3 +366,32 @@ def test_two_streams_at_once_are_each_billed_their_own_usage(tmp_path):
 
 def test_categories_used_here_are_the_shipped_ones():
     assert all(c in CATEGORIES for c in CATS)
+
+
+@needs_key
+def test_fifty_twitch_length_chinese_lines_are_judged_not_refused():
+    """The red-team's reproduction: 49 distinct 500-character Chinese lines. Estimated at a third of a
+    token a character they were one request, and the API refused it."""
+    judge = Judge(cache_ttl_s=0)
+    msgs = [Message(f"z{i}", f"{i:03d}" + "今天的直播真的很精彩大家好" * 38) for i in range(49)]
+    verdicts = judge.judge(msgs, CATS)
+    assert all(v.judged for v in verdicts)
+    assert judge.requests >= 2
+
+
+@needs_key
+def test_a_request_the_api_refuses_as_too_big_is_halved_and_judged():
+    """The estimate switched off: fifty long chat lines with a ten-line window go out as one request,
+    over the limit. The refusal is not billed; the two halves are judged."""
+    judge = Judge(cache_ttl_s=0)
+    spy = _Spy(judge.client)
+    judge.client = spy  # type: ignore[assignment]
+    judge.request_token_budget = 10**9
+    long = [t for t in _chat(1200) if len(t) >= 150]
+    ctx = tuple(long[:10])
+    msgs = [Message(f"h{i}", t, context=ctx) for i, t in enumerate(long[10:60])]
+    assert len(msgs) == 50
+    verdicts = judge.judge(msgs, CATS)
+    assert all(v.judged for v in verdicts)
+    assert judge.requests == 2, "two halves answered"
+    assert spy.calls == 3, "one refused request, then the two halves"
