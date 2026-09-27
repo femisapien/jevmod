@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..judge import CATEGORIES, Verdict
+from .surrogates import contains_lone_surrogate, scrub
 
 ACTIONS = ("off", "flag", "delete", "timeout")  # ordered by severity
 LINK_MODES = ("off", "invites", "allowlist", "all")
@@ -145,6 +146,10 @@ class Policy:
             self.rule_actions.pop(name, None)
             self.rule_thresholds.pop(name, None)
             return
+        if contains_lone_surrogate(name) or contains_lone_surrogate(text):
+            # A rule is stored, sent to Jev and part of every cache key; one that cannot be encoded
+            # would fail every message this server sends from then on (JEV-83).
+            raise ValueError("a rule's name and text cannot contain a lone UTF-16 surrogate")
         if len(self.rules) >= 5 and name not in self.rules:
             raise ValueError("up to 5 custom rules")
         if action not in ACTIONS:
@@ -252,6 +257,10 @@ class Policy:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Policy:
+        # `save_policy` writes with `json.dumps`, which escapes a lone surrogate as `\udXXX` and so stores
+        # one without complaint; it comes back out of `json.loads` intact. Repaired on the way in, so a
+        # policy saved before JEV-83 cannot fail every message of its server until someone edits it.
+        d = scrub(d)
         p = cls()
         for k in ("thresholds", "actions", "rules", "rule_actions", "rule_thresholds", "patterns", "pattern_actions"):
             if isinstance(d.get(k), dict):

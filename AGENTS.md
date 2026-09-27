@@ -59,7 +59,10 @@ HTTP (`jevmod api`, FastAPI, port 8080): `POST /v1/moderate` (`{"messages":[{"id
 "author","channel_topic","author_trusted"}]}`, max 50, bearer tenant key) returns `{"request_id",
 "decisions":[Decision without policy_version],"usage"}`; `GET/PUT /v1/policy`; `GET
 /v1/decisions?limit=50`; `DELETE /v1/tenant`; `POST /v1/keys` (admin token
-`JEVMOD_ADMIN_TOKEN`); `GET /v1/health`; `GET /metrics`. OpenAPI at `/docs`. Jev down:
+`JEVMOD_ADMIN_TOKEN`); `GET /v1/health`; `GET /metrics`. OpenAPI at `/docs`. A string field holding a
+lone UTF-16 surrogate (a `\ud83d` escape with no pair) is refused with 422 naming the field, before anything
+is judged or billed (JEV-83, `jevmod/core/surrogates.py`); `ModerationService` itself replaces them with
+U+FFFD in text and refuses them in an id, for callers that are not the API. Jev down:
 `action="none", judged=false, reason="error_open"`. Quota exceeded: `reason="quota"`. A server that is not paying is `inactive` and comes back
 `reason="inactive"`: it is not judged and its local rules do not run either. The Free plan was removed on
 2026-09-21; `JEVMOD_ENFORCE_PLANS` (default off) is what makes plans mean anything, and a self-hosted copy

@@ -12,17 +12,21 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import time
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from ..core import ModerationService, Store
+from ..core.surrogates import contains_lone_surrogate
 from ..judge import CATEGORIES, Message
 
 app = FastAPI(
@@ -37,12 +41,54 @@ STARTED = time.time()
 _metrics = {"requests": 0, "messages": 0, "errors": 0}
 
 
+# ------------------------------------------------------------------ validation errors
+class AsciiJSONResponse(JSONResponse):
+    """JSON with every non-ASCII character escaped, which is still valid JSON and cannot fail to encode."""
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(content, ensure_ascii=True, allow_nan=False, separators=(",", ":")).encode("ascii")
+
+
+async def validation_error(request: Request, exc: Exception) -> Response:
+    """FastAPI's own 422, rendered so that it can always be sent (JEV-83).
+
+    The default handler echoes each failing field's `input` back and encodes the body as UTF-8. When the
+    input is the lone surrogate that made it fail, that encode raises, and the caller gets a bare 500 in
+    place of the error that names its field. Same status, same `{"detail": [...]}` shape, ASCII-escaped.
+    Public so that an app mounting these routes on another FastAPI app installs it there too: exception
+    handlers belong to the app, not to the route."""
+    assert isinstance(exc, RequestValidationError)
+    return AsciiJSONResponse({"detail": jsonable_encoder(exc.errors())}, status_code=422)
+
+
+app.add_exception_handler(RequestValidationError, validation_error)
+
+
+def _utf8(s: str) -> str:
+    # 422 before anything is judged, rather than a UnicodeEncodeError after: `id` and `author` are first
+    # written to SQLite once Jev has answered, so a request carrying one used to be paid for and then
+    # answered 502 (JEV-83). Rejected rather than replaced because the caller can be told, and an `id`
+    # quietly rewritten would come back as a decision for a message the caller never sent.
+    if contains_lone_surrogate(s):
+        raise ValueError(
+            "contains a lone UTF-16 surrogate (U+D800 to U+DFFF), which is not text and cannot be stored; "
+            "send the whole surrogate pair or drop the character"
+        )
+    return s
+
+
+# Every string a request can carry. `text` also has a length limit, and pydantic refuses a surrogate there
+# on its own (`string_unicode`); the validator is what covers the fields with no constraint, where pydantic
+# passes the string through untouched.
+Utf8 = Annotated[str, AfterValidator(_utf8)]
+
+
 # ------------------------------------------------------------------ models
 class InMessage(BaseModel):
-    id: str = Field(default="", description="your id for the message; echoed back")
-    text: str = Field(..., max_length=8000)
-    author: str = ""
-    channel_topic: str = Field(default="", description="what the channel/thread is about; used by offtopic")
+    id: Utf8 = Field(default="", description="your id for the message; echoed back")
+    text: Utf8 = Field(..., max_length=8000)
+    author: Utf8 = ""
+    channel_topic: Utf8 = Field(default="", description="what the channel/thread is about; used by offtopic")
     author_trusted: bool = Field(default=False, description="true skips judgment (moderators, verified staff)")
 
 
@@ -71,17 +117,20 @@ class PolicyIn(BaseModel):
     # 200 with a policy object that quietly did not contain it. On a write path, silence is the worst answer.
     model_config = ConfigDict(extra="forbid")
 
-    thresholds: dict[str, float] | None = None
-    actions: dict[str, str] | None = None
-    rules: dict[str, str] | None = None
-    rule_actions: dict[str, str] | None = None
-    rule_thresholds: dict[str, float] | None = None
+    # Keys as well as values: a rule name is stored, echoed back and put in every request to Jev. A policy
+    # saved with a surrogate in it used to answer 500 to the PUT that saved it and 502 to every
+    # `/v1/moderate` after, because the rules are part of every cache key (JEV-83).
+    thresholds: dict[Utf8, float] | None = None
+    actions: dict[Utf8, Utf8] | None = None
+    rules: dict[Utf8, Utf8] | None = None
+    rule_actions: dict[Utf8, Utf8] | None = None
+    rule_thresholds: dict[Utf8, float] | None = None
     timeout_minutes: int | None = None
 
 
 class KeyRequest(BaseModel):
-    tenant: str = Field(..., min_length=1, max_length=80)
-    label: str = ""
+    tenant: Utf8 = Field(..., min_length=1, max_length=80)
+    label: Utf8 = ""
 
 
 # ------------------------------------------------------------------ auth

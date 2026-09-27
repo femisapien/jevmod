@@ -24,6 +24,7 @@ from .context import ConversationBuffer, assemble
 from .local import RepeatWindow
 from .policy import Decision, Policy, decide
 from .store import ENFORCE_PLANS, INACTIVE, Store
+from .surrogates import contains_lone_surrogate, replace_lone_surrogates
 
 log = logging.getLogger("jevmod")
 
@@ -149,6 +150,20 @@ class ModerationService:
 
     def moderate(self, tenant: str, messages: list[Message], request_id: str | None = None) -> list[Decision]:
         rid = request_id or uuid.uuid4().hex[:12]
+        # Before anything is judged, stored or remembered (JEV-83). A lone surrogate cannot be encoded as
+        # UTF-8, and `id` and `author` are first encoded when the decision is logged, after Jev has been
+        # paid. The HTTP API refuses such a request with 422 before it gets here; this is for every other
+        # caller. An id is refused, because replacing it would hand back a decision under an id nobody
+        # sent. Text that is only read is repaired, because an adapter has nobody to tell, and one
+        # surrogate kept in the conversation window would break every later message in its channel: the
+        # window is part of each of their cache keys.
+        for m in messages:
+            if contains_lone_surrogate(m.id):
+                raise ValueError(f"message id {m.id!r} contains a lone UTF-16 surrogate")
+            m.text = replace_lone_surrogates(m.text)
+            m.author = replace_lone_surrogates(m.author)
+            m.channel_topic = replace_lone_surrogates(m.channel_topic)
+            m.channel = replace_lone_surrogates(m.channel)
         policy = self.policy(tenant)
         if not policy.active():
             return [Decision(m.id, "none", None, 0.0, {}, False, "policy inactive") for m in messages]
