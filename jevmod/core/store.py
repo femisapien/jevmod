@@ -52,6 +52,9 @@ ENFORCE_PLANS = _enforce_plans()
 # the Stripe webhook, which mirrors the subscription's own status (`jevmod_hosted/billing.py`). A self-hosted
 # copy never sees anything but the default plan, and ENFORCE_PLANS being off is what makes that harmless.
 PRO_MONTHLY = 50_000
+# How long a decision record is kept before it is purged. The privacy notice, the security page and the DPA
+# state this number in six languages; the hosted site's `sync_prose.py --check` fails when they disagree with it.
+RETENTION_DAYS = 30
 PLAN_QUOTAS: dict[str, int] = {
     INACTIVE: FREE_MONTHLY,
     "pro": PRO_MONTHLY,
@@ -90,7 +93,7 @@ class Store:
         self,
         path: str | Path = "jevmod.sqlite",
         keep_text_chars: int | None = None,
-        retention_days: int = 30,
+        retention_days: int = RETENTION_DAYS,
         monthly_quota: int | None = None,
     ) -> None:
         """keep_text_chars=0 stores no message text at all. Decisions older than retention_days are purged on

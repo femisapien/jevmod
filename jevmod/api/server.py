@@ -29,6 +29,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from ..core import ModerationService, Store
 from ..core.surrogates import contains_lone_surrogate
 from ..judge import CATEGORIES, Message
+from .limits import DECISIONS_DEFAULT, DECISIONS_MAX, MAX_MESSAGES, MAX_TEXT_CHARS
 
 app = FastAPI(
     title="jevmod",
@@ -108,14 +109,14 @@ Utf8 = Annotated[str, AfterValidator(_utf8)]
 # ------------------------------------------------------------------ models
 class InMessage(BaseModel):
     id: Utf8 = Field(default="", description="your id for the message; echoed back")
-    text: Utf8 = Field(..., max_length=8000)
+    text: Utf8 = Field(..., max_length=MAX_TEXT_CHARS)
     author: Utf8 = ""
     channel_topic: Utf8 = Field(default="", description="what the channel/thread is about; used by offtopic")
     author_trusted: bool = Field(default=False, description="true skips judgment (moderators, verified staff)")
 
 
 class ModerateRequest(BaseModel):
-    messages: list[InMessage] = Field(..., min_length=1, max_length=50)
+    messages: list[InMessage] = Field(..., min_length=1, max_length=MAX_MESSAGES)
 
 
 class DecisionOut(BaseModel):
@@ -256,8 +257,8 @@ def put_policy(body: PolicyIn, tenant: str = Depends(tenant_from_auth)) -> dict[
 
 
 @app.get("/v1/decisions")
-def decisions(limit: int = 50, tenant: str = Depends(tenant_from_auth)) -> list[dict[str, Any]]:
-    return store.recent_decisions(tenant, max(1, min(limit, 500)))
+def decisions(limit: int = DECISIONS_DEFAULT, tenant: str = Depends(tenant_from_auth)) -> list[dict[str, Any]]:
+    return store.recent_decisions(tenant, max(1, min(limit, DECISIONS_MAX)))
 
 
 @app.delete("/v1/tenant")

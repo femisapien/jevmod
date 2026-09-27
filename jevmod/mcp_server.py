@@ -15,6 +15,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 
 from . import Moderator, Policy
+from .api.limits import MAX_MESSAGES
 from .core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS
 from .judge import CATEGORIES, Judge
 
@@ -41,13 +42,14 @@ def _moderator(channel_topic: str, rules: dict[str, str] | None) -> Moderator:
 
 @server.tool()
 def moderate(texts: list[str], channel_topic: str = "", rules: dict[str, str] | None = None) -> list[dict[str, Any]]:
-    """Judge up to 50 texts in one Jev request. Returns one decision per text, in order: action ("none" | "flag"),
-    category (the winning one, or "rule:<name>"), probability, scores for every category, judged (false when a
-    pre-filter skipped it: too short, empty) and reason. `rules` maps a name to a rule in plain language, up to 5."""
+    """Judge up to 50 texts in one call (`api.limits.MAX_MESSAGES`). Returns one decision per text, in order:
+    action ("none" | "flag"), category (the winning one, or "rule:<name>"), probability, scores for every
+    category, judged (false when a pre-filter skipped it: too short, empty) and reason. `rules` maps a name to
+    a rule in plain language, up to 5."""
     if not texts:
         return []
-    if len(texts) > 50:
-        raise ValueError("up to 50 texts per call")
+    if len(texts) > MAX_MESSAGES:
+        raise ValueError(f"up to {MAX_MESSAGES} texts per call")
     mod = _moderator(channel_topic, rules)
     return [d.to_dict() for d in mod.check_many(texts, channel_topic=channel_topic)]
 
