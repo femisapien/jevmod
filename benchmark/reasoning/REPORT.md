@@ -15,11 +15,12 @@ list price. Runner: `run.py` in this directory. Raw outputs: `results/dataset.js
    criteria each, for example "a fake giveaway: free Nitro, skins, gift cards or crypto") and a Choice over
    the parts of the message ("which part should a moderator read first"). The moderator reads a sentence we
    wrote, picked by Jev, plus a quote from the message.
-3. **It is truthful and useful on 25 of 30 read by hand** (23 of 30 on a stricter reading), 27 of 30
-   truthful.
-4. **As a separate request it costs 724 input tokens per explained message**, 238 ms p50. Spread over every
-   judged message at a 5% flag rate that is 36 tokens, +3.3% on the cheapest judgment (a full batch of nine)
-   and +0.4% on a message padded alone. Asked inline in the judgment request it costs 1,060 tokens on every
+3. **It is truthful and useful on 25 of 30 read by hand** (23 of 30 on a stricter reading; 95% interval
+   roughly 66% to 93%), 27 of 30 truthful. Those 30 are almost all correct flags; see Limits.
+4. **As a separate request explaining every flagged category it costs 880 input tokens per explained
+   message**, 266 ms p50 (724 tokens and 238 ms for the top category alone), growing about half a token per
+   character of message. Spread over every judged message at a 5% flag rate that is 44 tokens, +4.1% on the
+   cheapest judgment (a full batch of nine) and +0.5% on a message padded alone. Asked inline in the judgment request it costs 1,060 tokens on every
    judged message, flagged or not: +97.6% on a full batch, +10.8% padded.
 5. **It does not move the scores.** The inline arm shifts the category scores by 0.0036 on average, the
    same as sending the identical request twice (0.0037). A separate request cannot touch them at all.
@@ -45,8 +46,11 @@ not exercised** (one doxxing flag appears as a second category); their reason co
 | control | C single on 33 clean, unflagged messages, as if flagged under their highest-scoring category | can it say `not_it` |
 
 A, B and A2 go through `jevmod.judge.Judge` itself; B only appends questions to the request Judge built,
-so the judgment questions and state are byte for byte what an unpadded production request sends. The three
-were sent back to back for every batch, so drift hits all three alike.
+so the judgment questions and state are byte for byte what production sends for an unpadded batch whose
+messages carry no conversation context. Production attaches the channel's recent messages as `context` to
+every message once a channel has history (`jevmod/core/service.py`); neither the judgment arms nor the
+companion here carry it. The three judge arms were sent back to back for every batch, so drift hits all
+three alike.
 
 ## Does asking for it change the scores
 
@@ -132,7 +136,11 @@ true of `rt_l16` and `rt_e2` and close for `rt_e8`. It costs 880 tokens per mess
 of the 28 spam and scam pairs, most of them real Nitro, skin or Robux giveaways where it is right. On the two
 that also ask for a login or bank details it wins narrowly over `credentials`, which already exists (`rt_e8`
 0.53 against 0.42, `rt_l4` 0.54 against 0.38). Both are true of those messages; a moderator is better served
-by the one that names the danger. That is a wording question for the two codes, not a missing code.
+by the one that names the danger. A third, `rt_e5` ("steamcommunity-login[.]com/verify your account or lose
+it in 24h"), gets `lookalike_domain` over `credentials` by 0.77 to 0.23, although it is word for word the
+"urgent account verification" in `credentials`. `lookalike_domain` is true of it too; the point is the same.
+The fix is wording that makes `credentials` win whenever a message asks for a login, a code or bank
+details, prize or lookalike link or not, and a re-read to check it.
 
 **Cut spans can hide the evidence.** A part longer than 160 characters is cut before it is offered, so the
 quote can miss the words that matter. 15 of 94 flagged messages had a cut part, and on 5 the chosen part was
@@ -183,6 +191,11 @@ is the risk to design for.**
    - it would add 266 to 382 ms (p50 to p95 of the every-category request) to opening an item.
 
    If the request fails the item's `reasoning` stays null, which the JEV-13 queue item already allows.
+
+   **Send the companion the same `context` the judgment had.** A flag the conversation caused, explained
+   from the message alone, gets an invented reason, because the companion does not say `not_it` to a real
+   flag. The cost with context is not measured here; it grows with the context the same way the judgment's
+   does.
 3. **Store codes, not text**: per category the reason code, and the chosen part as character offsets into
    the stored text (no offsets when text is not kept). The parts are cut from the normalized text, which
    differs from the raw text on a third of these messages, so either cut the parts from the raw text and
@@ -214,3 +227,16 @@ is the risk to design for.**
 - Latency is 15 requests per judge arm and 94 per companion mode.
 - The reason codes were written here from `categories.json`; a different table would read differently.
   The quality number is for this table, not for the idea.
+- **Quality was read almost only on correct flags.** 88 of the 94 flags carry a category label in their
+  source, and only 2 of the 30 read by hand are labelled clean (`oai7` failed, `oai585` passed). A real
+  community's flags hold a larger share of false positives, which is where a confident rationale does harm,
+  and that share was not read. Of the 15 (message, category) flags outside their source's labels, the
+  companion gave a positive reason on 14.
+- No conversation context, in the judgment or the companion (see "What was measured").
+- Companion cost grows with the message: about 614 + 0.50 tokens per character for the top category and
+  774 + 0.48 per character for every category, fitted on messages of 220 characters on average and up to
+  2,255. A set of longer messages would cost more than the 724 and 880 above.
+- Two runner details the data was collected with, left as they are so the runner reproduces it, and not to
+  be copied into JEV-16: the sentence splitter cuts dotted, obfuscated links (`discord . gg` in `rt_e3`),
+  and the span options quote parts with Python's `repr`, so a part with a backslash or a quote reaches Jev
+  escaped (6 parts).
