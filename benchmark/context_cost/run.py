@@ -114,12 +114,27 @@ class Recorder:
             timeout=30.0,
         )
         self.calls: list[dict[str, Any]] = []
+        # Calls that raised. `ModerationService` swallows the exception and fails the batch open,
+        # so without this a rejected request and a timeout look the same in the results.
+        self.errors: list[dict[str, Any]] = []
 
     def system_one(self, *, state: dict[str, Any], questions: dict[str, Any]) -> Any:
         t = time.perf_counter()
-        resp = self.inner.system_one(state=state, questions=questions)
-        usage = getattr(resp, "usage", None)
         msgs = state["messages"]
+        try:
+            resp = self.inner.system_one(state=state, questions=questions)
+        except Exception as e:
+            body = getattr(e, "body", None)
+            self.errors.append({
+                "ms": (time.perf_counter() - t) * 1000,
+                "error": type(e).__name__,
+                "status": getattr(e, "status", None),
+                "body": json.dumps(body, default=str)[:300] if body is not None else str(e)[:300],
+                "positions": len(msgs),
+                "state_chars": len(json.dumps(state, ensure_ascii=False)),
+            })
+            raise
+        usage = getattr(resp, "usage", None)
         self.calls.append({
             "ms": (time.perf_counter() - t) * 1000,
             "input_tokens": getattr(usage, "input_tokens", None),
@@ -146,7 +161,7 @@ def one(rec: Recorder, data: dict[str, list[dict[str, str]]], batch: int, video:
         svc.context.add((TENANT, ""), r["text"])
     msgs = [Message(r["id"], r["text"], channel_topic=TOPIC if topic else "")
             for r in stream[start : start + batch]]
-    before = len(rec.calls)
+    before, before_err = len(rec.calls), len(rec.errors)
     service_mod.PAD_BATCH = pad
     try:
         t = time.perf_counter()
@@ -164,6 +179,7 @@ def one(rec: Recorder, data: dict[str, list[dict[str, str]]], batch: int, video:
         "input_tokens": sum(c["input_tokens"] or 0 for c in calls),
         "output_tokens": sum(c["output_tokens"] or 0 for c in calls),
         "calls": calls,
+        "errors": rec.errors[before_err:],
         "moderate_ms": total_ms,
     }
 
@@ -201,23 +217,33 @@ def ask() -> None:
 
 def limit() -> None:
     """Where a request stops fitting. TypeSafe documents 64k tokens per request, state and every
-    question together (docs.typesafe.ai, Models page), and a request over it comes back 400
-    `max_tokens_exceeded`, which `ModerationService` turns into `error_open`: nothing in the batch
-    is moderated. `MAX_BATCH` lets one request hold 100 messages. This sends batches above 50 with
-    no window at all, through the same service path, to see which of them fit."""
+    question together (docs.typesafe.ai, Models page). A call that raises is caught by
+    `ModerationService`, which fails the batch open (`error_open`): nothing in it is moderated.
+    `MAX_BATCH` lets one request hold 100 messages.
+
+    Two probes, both through the same service path, with every exception's class, HTTP status and
+    body written down so the cause of a rejection is observed rather than inferred: batches of 60,
+    70 and 100 at windows 0 and 10, and a replay of every batch-of-50 arm that failed in `ask`."""
     data = streams()
     rng = random.Random(SEED + 2)
     rec = Recorder()
     out = HERE / "results" / "limit.jsonl"
-    with out.open("a", encoding="utf-8") as f:
-        for batch in LIMIT_BATCHES:
-            for window in (0, 10):
-                v = rng.choice(sorted(data))
-                start = rng.randrange(max(WINDOWS), len(data[v]) - batch)
-                row = one(rec, data, batch, v, start, window, True, True)
-                f.write(json.dumps(row) + "\n")
-                print(f"batch {batch} window {window}: {len(row['calls'])} accepted, judged {row['judged']}, "
-                      f"{row['input_tokens']:,} input tokens, skipped {row['skipped']}")
+    todo: list[tuple[int, str, int, int]] = []
+    for batch in LIMIT_BATCHES:
+        for window in (0, 10):
+            v = rng.choice(sorted(data))
+            todo.append((batch, v, rng.randrange(max(WINDOWS), len(data[v]) - batch), window))
+    failed = {(r["batch"], r["video"], r["start"], r["window"])
+              for r in _rows() if "error_open" in r["skipped"]}
+    todo += sorted(failed)
+    with out.open("w", encoding="utf-8") as f:
+        for batch, v, start, window in todo:
+            row = one(rec, data, batch, v, start, window, True, True)
+            f.write(json.dumps(row) + "\n")
+            err = row["errors"][-1] if row["errors"] else None
+            print(f"batch {batch} window {window}: {len(row['calls'])} accepted, judged {row['judged']}, "
+                  f"{row['input_tokens']:,} input tokens, skipped {row['skipped']}"
+                  + (f", {err['error']} {err['status']} {err['body'][:120]}" if err else ""))
 
 
 LIMIT_BATCHES = (60, 70, 100)
@@ -228,8 +254,29 @@ def _pct(xs: list[float], q: float) -> float:
     return xs[min(len(xs) - 1, int(len(xs) * q))]
 
 
+def _rows() -> list[dict[str, Any]]:
+    """The rows of `raw.jsonl`, one per (position, arm). The seeded draw in `positions` samples with
+    replacement and drew one batch-of-10 position twice, so `ask` ran it twice; only the first run
+    of each (position, arm) is kept, which leaves nine distinct batch-of-10 positions, each counted
+    once. The draw itself is left as it was so the committed results stay reproducible."""
+    seen: set[tuple[Any, ...]] = set()
+    out = []
+    for line in OUT.open(encoding="utf-8"):
+        r = json.loads(line)
+        key = (r["batch"], r["video"], r["start"], r["window"], r["topic"], r["pad"])
+        if key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
+
+
+def _failed(r: dict[str, Any]) -> bool:
+    return "error_open" in r["skipped"]
+
+
 def report() -> None:
-    rows = [json.loads(line) for line in OUT.open(encoding="utf-8")]
+    raw = sum(1 for _ in OUT.open(encoding="utf-8"))
+    rows = _rows()
     cells: dict[tuple[int, int, bool, bool], list[dict[str, Any]]] = {}
     for r in rows:
         cells.setdefault((r["batch"], r["window"], r["topic"], r["pad"]), []).append(r)
@@ -237,31 +284,61 @@ def report() -> None:
     def per_msg(rs: list[dict[str, Any]]) -> float:
         return sum(r["input_tokens"] for r in rs) / max(1, sum(r["judged"] for r in rs))
 
-    def paired(rs: list[dict[str, Any]], base: list[dict[str, Any]]) -> list[float]:
-        b = {(r["video"], r["start"]): r for r in base}
-        return [r["input_tokens"] / b[(r["video"], r["start"])]["input_tokens"] for r in rs
-                if b.get((r["video"], r["start"]), {}).get("input_tokens")]
+    def pos_key(r: dict[str, Any]) -> tuple[str, int]:
+        return (r["video"], r["start"])
+
+    def paired(rs: list[dict[str, Any]], base: list[dict[str, Any]]) -> tuple[float, list[float]]:
+        """Multiplier over the positions where both arms were accepted: summed tokens of the arm
+        over summed tokens of the baseline on the same positions, and the per-request ratios."""
+        b = {pos_key(r): r for r in base if not _failed(r)}
+        # A position whose messages were all skipped by the pre-filter sends no request in any arm.
+        pairs = [(r, b[pos_key(r)]) for r in rs
+                 if not _failed(r) and pos_key(r) in b and b[pos_key(r)]["input_tokens"]]
+        num = sum(r["input_tokens"] for r, _ in pairs)
+        den = sum(x["input_tokens"] for _, x in pairs)
+        return num / den, [r["input_tokens"] / x["input_tokens"] for r, x in pairs]
 
     total_in = sum(r["input_tokens"] for r in rows)
     total_out = sum(r["output_tokens"] for r in rows)
     n_calls = sum(len(r["calls"]) for r in rows)
-    judged = sum(r["judged"] for r in rows)
-    sent = sum(len(r["ids"]) for r in rows)
-    print(f"{len(rows)} arm runs, {n_calls} requests, {sent} messages sent, {judged} judged "
-          f"({sent - judged} skipped by the pre-filter).")
+    n_err = sum(len(r.get("errors", [])) for r in rows)
+    failed = [r for r in rows if _failed(r)]
+    ok = [r for r in rows if not _failed(r)]
+    judged = sum(r["judged"] for r in ok)
+    sent_ok = sum(len(r["ids"]) for r in ok)
+    sent_failed = sum(len(r["ids"]) for r in failed)
+    print(f"{len(rows)} arm runs ({raw - len(rows)} duplicate rows of a position drawn twice dropped), "
+          f"{n_calls} accepted requests, {len(failed)} failed open ({sent_failed} messages, none judged).")
+    print(f"Of {sent_ok} messages in accepted requests, {judged} were judged and {sent_ok - judged} "
+          f"({(sent_ok - judged) / sent_ok:.1%}) skipped by the pre-filter.")
     print(f"Input tokens {total_in:,} (${total_in * USD_PER_M / 1e6:.4f} at ${USD_PER_M}/M); "
-          f"output tokens {total_out:,}.\n")
+          f"output tokens {total_out:,}.")
+    if failed and not n_err:
+        print("The failed requests predate error capture in `Recorder`; their cause is in `limit.jsonl`.")
+    print()
 
-    # Pairing check: every arm of a batch size judged the same ids.
+    # Pairing check: every arm of a batch size sent the same ids, and judged the same number of
+    # messages at every position it was accepted at.
     for b in REQUESTS:
-        sets = {k: sorted(tuple(r["ids"]) for r in v) for k, v in cells.items() if k[0] == b}
-        same = len({tuple(s) for s in sets.values()}) == 1
-        print(f"batch {b}: {len(sets)} arms, identical judged messages in every arm: {same}")
+        arms_b = {k: v for k, v in cells.items() if k[0] == b}
+        sent_same = len({tuple(sorted(tuple(r["ids"]) for r in v)) for v in arms_b.values()}) == 1
+        judged_at: dict[tuple[str, int], set[int]] = {}
+        for v in arms_b.values():
+            for r in v:
+                if not _failed(r):
+                    judged_at.setdefault(pos_key(r), set()).add(r["judged"])
+        judged_same = all(len(s) == 1 for s in judged_at.values())
+        cell_judged = sorted({sum(r["judged"] for r in v) for v in arms_b.values()})
+        cell_reqs = sorted({sum(len(r["calls"]) for r in v) for v in arms_b.values()})
+        print(f"batch {b}: {len(arms_b)} arms, {len(judged_at)} positions; same messages sent in every arm: "
+              f"{sent_same}; same number judged at every accepted position: {judged_same}; judged per arm "
+              f"{cell_judged}; accepted requests per arm {cell_reqs}")
     print()
 
     print("### Input tokens per judged message, and the multiplier against no window\n")
-    print("Multiplier is the ratio of summed tokens against the window-0 arm of the same batch size and topic; "
-          "the range is the smallest and largest per-request ratio on the same messages.\n")
+    print("Multiplier: summed tokens of the arm over summed tokens of the window-0 arm of the same batch size "
+          "and topic, on the positions where both were accepted. The range is the smallest and largest "
+          "per-request ratio.\n")
     print("| batch | topic | window | context kept (mean) | positions per request | tokens per judged msg "
           "| x vs window 0 | per-request range | $ per 1K judged |")
     print("|---|---|---|---|---|---|---|---|---|")
@@ -272,12 +349,14 @@ def report() -> None:
                 rs = cells.get((b, w, t, True), [])
                 if not rs:
                     continue
-                kept = statistics.mean(k for r in rs for k in r["context_kept"])
-                pos = statistics.mean(c["positions"] for r in rs for c in r["calls"])
-                pm = per_msg(rs)
-                ratios = paired(rs, base)
+                acc = [r for r in rs if not _failed(r)]
+                kept = statistics.mean(k for r in acc for k in r["context_kept"])
+                pos = statistics.mean(c["positions"] for r in acc for c in r["calls"])
+                pm = per_msg(acc)
+                x, ratios = paired(rs, base)
+                note = f" ({len(rs) - len(acc)} of {len(rs)} failed)" if len(acc) < len(rs) else ""
                 print(f"| {b} | {'yes' if t else 'no'} | {w} | {kept:.1f} | {pos:.1f} | {pm:,.0f} "
-                      f"| {pm / per_msg(base):.2f}x | {min(ratios):.2f} to {max(ratios):.2f} "
+                      f"| {x:.2f}x | {min(ratios):.2f} to {max(ratios):.2f}{note} "
                       f"| ${pm * 1000 * USD_PER_M / 1e6:.3f} |")
     print()
 
@@ -288,6 +367,7 @@ def report() -> None:
         for w in WINDOWS:
             off, on = cells.get((b, w, False, True)), cells.get((b, w, True, True))
             if off and on:
+                off, on = [r for r in off if not _failed(r)], [r for r in on if not _failed(r)]
                 print(f"| {b} | {w} | {per_msg(off):,.0f} | {per_msg(on):,.0f} | {per_msg(on) / per_msg(off):.2f}x |")
     print()
 
@@ -304,7 +384,23 @@ def report() -> None:
             print(f"| {w} | {per_msg(on):,.0f} | {per_msg(off):,.0f} | {pos:.1f} | {share:.0%} |")
     print()
 
-    print("### Latency per request (client wall time, retries included)\n")
+    print("### Tokens per request against positions, window 0 (least squares)\n")
+    print("| topic | requests | fixed per request | per position |")
+    print("|---|---|---|---|")
+    for t in TOPICS:
+        pts = [(c["positions"], c["input_tokens"]) for b in REQUESTS
+               for r in cells.get((b, 0, t, True), []) for c in r["calls"]]
+        mx = statistics.mean(p for p, _ in pts)
+        my = statistics.mean(y for _, y in pts)
+        slope = sum((p - mx) * (y - my) for p, y in pts) / sum((p - mx) ** 2 for p, _ in pts)
+        print(f"| {'yes' if t else 'no'} | {len(pts)} | {my - slope * mx:,.0f} | {slope:,.0f} |")
+    print()
+
+    print("### Latency per request (client wall time of one `system_one` call; SDK retries happen inside it "
+          "and are not counted)\n")
+    first = rows[0]["calls"][0]["ms"] if rows and rows[0]["calls"] else None
+    if first is not None:
+        print(f"The run's first request took {first:.0f} ms, a cold connection; it is left in its cell.\n")
     print("| batch | window | topic | requests | p50 ms | p95 ms | max ms |")
     print("|---|---|---|---|---|---|---|")
     for b in REQUESTS:
@@ -323,14 +419,26 @@ def report() -> None:
         for b in REQUESTS:
             rs = cells.get((b, w, True, True))
             if rs:
-                usd = per_msg(rs) * USD_PER_M / 1e6
+                usd = per_msg([r for r in rs if not _failed(r)]) * USD_PER_M / 1e6
                 print(f"| {w} | {b} | ${usd * 1000:.3f} | ${usd * 1e5:,.2f} | ${usd * 3e5:,.2f} | ${usd * 2e6:,.2f} |")
     print()
 
     outs = [c["output_tokens"] for r in rows for c in r["calls"] if c["output_tokens"] is not None]
     if outs:
         print(f"Output tokens reported on {len(outs)} of {n_calls} requests, {sum(outs):,} in total, "
-              f"{sum(outs) / max(1, total_in):.1%} of input.")
+              f"{sum(outs) / max(1, total_in):.1%} of input.\n")
+
+    lim = HERE / "results" / "limit.jsonl"
+    if lim.exists():
+        print("### The request limit (`limit.jsonl`), topic on\n")
+        print("| batch | window | position | accepted | input tokens | error |")
+        print("|---|---|---|---|---|---|")
+        for line in lim.open(encoding="utf-8"):
+            r = json.loads(line)
+            err = r.get("errors") or []
+            e = f"{err[-1]['error']} {err[-1]['status']}: {err[-1]['body'][:90]}" if err else ""
+            print(f"| {r['batch']} | {r['window']} | {r['video']}:{r['start']} | {len(r['calls'])} "
+                  f"| {r['input_tokens']:,} | {e} |")
 
 
 if __name__ == "__main__":

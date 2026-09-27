@@ -52,4 +52,19 @@ TDD: off (a measurement, no behaviour changes in `jevmod/`).
 
 ## Evidence
 
-(filled after the run)
+- Run 2026-09-27, $0.28 in all (6,735,193 input tokens: main run 6,380,011, limit probe 177,591 twice).
+  Tables in `benchmark/context_cost/REPORT.md`, reproduced by `run.py report` from `results/*.jsonl`.
+- Multiplier at the shipped window of ten, topic on: 4.53x batch 1 (1.15x with padding off), 1.35x
+  batch 10, 1.29x batch 25, 1.22x batch 50. Padding is 92% to 96% of the batch-of-1 cost.
+- Acceptance: token counts from the API, arms paired (checked by `report`), cost stated. Missed: batch-1
+  arms have 29 judged messages, not 30; batch-50 window-20 arms have 3 accepted requests, not 4, because
+  the other three were rejected with `400 max_tokens_exceeded` (observed in `limit.jsonl`).
+- Red-team review, round 1 (fresh reviewer, no context): no arithmetic errors; CONFIRMED and fixed: the
+  recommendation cited `BATCH_EFFECT.md` section 7 recall figures that section 9 corrected (padding buys
+  2.6 points, not 21); 300 rejected messages had been counted as pre-filter skips (7.0%, not 12.7%);
+  acceptance misses not stated; rejection cause inferred, not recorded (now captured and observed);
+  one batch-10 position drawn twice (deduplicated in `report`); undated Eminem tail not disclosed;
+  "context kept" misattributed to `exclude`; batch-50 window-20 multiplier not paired; small text
+  errors; "retries included" unsupported; per-position figure mixed a fixed per-request cost (fitted:
+  256 + 928 to 955 per position).
+- `ruff check benchmark/context_cost`: clean.
