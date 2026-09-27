@@ -68,6 +68,9 @@ TDD: off (a measurement, no behaviour changes in `jevmod/`).
   errors; "retries included" unsupported; per-position figure mixed a fixed per-request cost (fitted:
   256 + 928 to 955 per position).
 - `ruff check benchmark/context_cost`: clean.
+- The plan above is as written before the run; two details in it did not hold: the store is
+  in-memory SQLite, not a scratch file, and there are 35 arms, the 32 configurations plus three
+  padding-off arms at batch 1.
 - Red-team round 2 (fresh reviewer): accounting held. CONFIRMED and fixed: the padding recall figure
   compared filler-only against filler plus same-pool spam, not production's real-history padding, so
   what padding buys is now stated as unmeasured and no padding change is recommended; 4.53x is a
@@ -75,3 +78,11 @@ TDD: off (a measurement, no behaviour changes in `jevmod/`).
   channel with an empty window; no-topic batch-50 window-20 failures not replayed (said so); latency
   deltas now paired. PLAUSIBLE, addressed in text: overlapping positions, topic length unsourced,
   acceptance order not provable from git, per-entry cost measured on 95-character mean entries.
+- Red-team round 3 (fresh reviewer, also on the JEV-19 decision update): accounting held again.
+  CONFIRMED and fixed: per-entry cost was described on the stream's 95-character mean; the kept
+  entries are 68 on average (billed about 1.08 x estimate + 9.4 per entry); 4.53x bounded to this
+  stream; the engine's `JEVMOD_PAD_BATCH` comment still said eight times, $0.51 and twenty-one points
+  (updated to the JEV-67 and section 9 figures); overlap count defined; task-plan details that did
+  not hold noted. The decision-doc findings (budget conversion, production trigger, padding price
+  with the full budget, the 1.75x rationale, the padding measurement's criterion) are fixed there.
+  No PLAUSIBLE findings left open in this repository.

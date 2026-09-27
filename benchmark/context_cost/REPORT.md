@@ -129,7 +129,9 @@ makes both the judged position and every context entry cost more.
 
 Batch of one, no topic, tokens per judged message; with no window it is 2,114, two positions, the
 filler at `m0` and the message. With padding off the request keeps that filler. **With padding off,
-the window of ten costs 15% more (2,431 against 2,114). With padding on, 352% more.** The window has
+the window of ten costs 15% more (2,431 against 2,114). With padding on, 352% more**, on this
+stream. Padding positions carry text, so on longer chat the padded request grows faster than the
+baseline and the multiplier rises above 4.53x. The window has
 two costs and they are not the same size:
 
 - **The `context` field** on the judged message: about 29 tokens per entry, so ten entries are about
@@ -253,7 +255,7 @@ topic's 3%.
 
 **Which row a server pays is set by its traffic, not by its volume.** `Batcher` collects one tenant's
 messages for two seconds, and padding comes from a buffer of the last fifteen minutes. The 4.53x row
-is a ceiling: one message in the batch and a full window behind it. A channel quiet enough to have
+is a ceiling on this stream: one message in the batch and a full window behind it. A channel quiet enough to have
 nothing in the last fifteen minutes has nothing to pad with and pays close to 1.0x; this run put the
 history in a moment before each request, so it never measured that case.
 
@@ -287,8 +289,10 @@ is 1.3, 3.6 or 4.5.
 ## What this does not say
 
 - **It is not Discord.** Comments under a video are short and unthreaded. Chat of the same length
-  costs about the same. The 29 tokens per context entry were measured on entries of 95 characters
-  on average (median 48); longer chat costs more per entry, roughly in proportion, and moves the
+  costs about the same. The 29 tokens per context entry were measured on the entries `assemble`
+  kept at batch 25, window 10: 68 characters on average, median 44. Across all arms, billed tokens
+  per entry fit about 1.08 times `assemble`'s estimate (characters / 4) plus 9.4 for each entry's
+  JSON, so longer chat costs more per entry, roughly in proportion to its length, and moves the
   per-position cost little.
 - **It does not measure value.** Nothing here says whether a window of ten moderates better than
   five. That is JEV-18.
@@ -296,8 +300,8 @@ is 1.3, 3.6 or 4.5.
   engine does not send them yet.
 - **It does not credit the cache.** A spam wave in near-identical windows shares a cache key and
   costs nothing after the first request; how often that happens in real traffic is not known.
-- **Positions are not independent.** Thirty pairs of positions overlap in their batch or their
-  history, so the effective sample behind each range is smaller than its request count. The ratios
+- **Positions are not independent.** 30 pairs of positions overlap in their batch or the history
+  they read at a window of ten, 42 counting the window of twenty, so the effective sample behind each range is smaller than its request count. The ratios
   are paired and are not affected.
 - **One key, one region, one afternoon.** Token counts do not depend on any of those; latency does.
 
