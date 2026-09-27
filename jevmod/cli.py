@@ -1,7 +1,7 @@
 """Command line for developers and scripts: judge text from the terminal, no server, no database.
 
     jevmod check "FREE NITRO claim at discord-gifts.ru"          # one message
-    jevmod check -  < messages.txt                                # one message per line, one Jev request per 50
+    jevmod check -  < messages.txt                                # one message per line, judged in batches of 50
     jevmod check --topic "support" --rule "No politics" -- "..."  # context and a plain-language rule
     jevmod check --json ...                                       # machine-readable, one object per line
     jevmod init                                                   # store the TypeSafe key (keyring, or .env)

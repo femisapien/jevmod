@@ -113,7 +113,7 @@ jevmod check "some text"                                   # exit 0 clean, 1 som
 cat comments.txt | jevmod check --json --rule "No politics. Game news is fine." -
 ```
 
-One message per line on stdin, one Jev request per 50. `--topic` turns on the off-topic check, `--threshold` sets
+One message per line on stdin, judged in batches of 50. `--topic` turns on the off-topic check, `--threshold` sets
 one for every category, `--json` prints one object per line with every probability. `examples/cli/` has a file
 screener and a pre-commit hook.
 
