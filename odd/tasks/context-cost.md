@@ -68,3 +68,10 @@ TDD: off (a measurement, no behaviour changes in `jevmod/`).
   errors; "retries included" unsupported; per-position figure mixed a fixed per-request cost (fitted:
   256 + 928 to 955 per position).
 - `ruff check benchmark/context_cost`: clean.
+- Red-team round 2 (fresh reviewer): accounting held. CONFIRMED and fixed: the padding recall figure
+  compared filler-only against filler plus same-pool spam, not production's real-history padding, so
+  what padding buys is now stated as unmeasured and no padding change is recommended; 4.53x is a
+  ceiling (full window, one message), with a worked 3.6x on the assumed traffic and about 1.0x for a
+  channel with an empty window; no-topic batch-50 window-20 failures not replayed (said so); latency
+  deltas now paired. PLAUSIBLE, addressed in text: overlapping positions, topic length unsourced,
+  acceptance order not provable from git, per-entry cost measured on 95-character mean entries.

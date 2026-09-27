@@ -3,8 +3,9 @@
 JEV-67. Run on 2026-09-27 with `benchmark/context_cost/run.py` against the live API, one machine, one
 key. Raw rows in `results/raw.jsonl` (one line per position and arm, with every request's reported
 tokens and wall time) and `results/limit.jsonl` (the request-limit probe, with every rejected call's
-error). The acceptance criteria were written before the run, in `odd/tasks/context-cost.md`; two of
-them were missed, and section 1 says which.
+error). The acceptance criteria are in `odd/tasks/context-cost.md`, written before the run but
+committed with its results, so git cannot show the order; two of them were missed, and section 1
+says which.
 
 **The run cost $0.28**: 6,735,193 input tokens billed at TypeSafe's list price of $42 per billion
 input tokens (typesafe.ai, read 2026-09-27). That is 6,380,011 for the main run, of which 119,856
@@ -65,13 +66,14 @@ pre-filter as too short and cost nothing; every figure divides by the 4,047 that
 `LOAD.md` did. A further 300 messages were in the six batch-of-50 window-20 requests that were
 rejected (section 6); they are left out of both sides.
 
-**Acceptance, against what was written before the run.** Every configuration was to have at least
+**Acceptance.** Every configuration was to have at least
 30 judged messages and 4 requests. Two did not: every batch-of-1 arm has 29 (one of the 30 drawn
 comments is too short to judge, in every arm), and the two batch-of-50 window-20 arms have 3
 accepted requests, because the other three were rejected. The token counts are the API's; the
 arms are paired; the cost is stated.
 
-**The topic** is 138 characters, the length of a typical Discord channel topic. With no topic,
+**The topic** is 138 characters, one plausible channel rule; no distribution of real topic lengths
+was measured. With no topic,
 `Judge` sends "general chat" at every position, so the topic arm measures the difference a real
 topic makes, not the difference between something and nothing.
 
@@ -136,13 +138,17 @@ two costs and they are not the same size:
   `Judge` puts it in positions up to `m9` and asks every category about each. That is eight more
   positions.
 
-**What padding buys is small.** `BATCH_EFFECT.md` section 9 corrected its own section 7: the recall a
-message alone lost was the cost of sitting at `m0`, not of a small batch. On the same 150 spam
-messages, a filler at `m0` and the message behind it, which is this run's window-0 and padding-off
-request, gave **26.7%** recall; the same with eight real neighbours as padding gave **29.3%**; the
-message alone at `m0` gave 17.3%. The filler, which costs one position, is most of the gain. Padding
-to ten costs 4.5 times judging the message behind the filler, for 2.6 points of recall on 150
-messages, a difference that sample cannot tell from nothing.
+**What padding buys is not measured.** `BATCH_EFFECT.md` section 9 corrected its own section 7: the
+recall a message alone lost was mostly the cost of sitting at `m0`, not of a small batch. It measured
+17.3% spam recall for a message alone at `m0`, 26.7% with a filler at `m0` and the message behind it
+(this run's window-0 and padding-off request), 29.3% with the filler and eight messages from the same
+spam pool behind it, and 38.7% in a real batch of ten varied messages. None of those is production's
+padding: `Judge` puts the channel's own oldest window message at `m0` and eight real messages of the
+channel's history behind it, which is closer to the 38.7% condition than to the 29.3% one, and the
+26.7% arm has no runner or results in the repository. So padding costs 4.5 times the filler-only
+request, and what it buys over the filler lies somewhere between 2.6 and 12 points of spam recall
+on evidence that does not isolate it. That is the measurement JEV-19 needs before it can decide
+padding on cost.
 
 Padding is capped at ten positions, which is why twenty messages of window cost a message alone
 barely more than ten: 4.79x against 4.53x.
@@ -182,7 +188,9 @@ was a cold connection and is left in its cell (batch 1, window 20, no topic).
 | 50 | 10 | 6 | 562 | 689 |
 
 Every cell is in `report`. Padding a message alone to ten positions adds about 40 ms to the median;
-the window adds 70 to 80 ms to a batch of 25 or 50. Against the two-second `Batcher` window neither
+paired on the same positions, the window of ten adds a median 54 to 61 ms to a batch of 25 and 71 to
+75 ms to a batch of 50. Batch sizes ran one after another, so comparing latency across batch sizes is
+confounded with time of day; comparing windows is not, because the arms were shuffled per position. Against the two-second `Batcher` window neither
 decides anything. `LOAD.md` measured 515 ms for 25 on longer text; the difference is the text, and
 two runs days apart are not a trend.
 
@@ -196,7 +204,7 @@ each exception. Topic on:
 | batch | window | accepted | input tokens | what came back |
 |---|---|---|---|---|
 | 50 | 10 | 6 of 6 (main run) | largest 63,587 | |
-| 50 | 20 | 3 of 6 (main run) | largest accepted 62,705 | the three others, replayed: `400 max_tokens_exceeded` |
+| 50 | 20 | 3 of 6 (main run) | largest accepted 62,705 | the three others, replayed with the topic: `400 max_tokens_exceeded`; the no-topic failures were not replayed and are the same requests with about 1,350 fewer tokens, inferred |
 | 60 | 0 | 1 of 1 | 60,348 | |
 | 60 | 10 | 1 of 1 | 55,544 (11 skipped by the pre-filter) | |
 | 70 | 0 | 1 of 1 | 61,699 (6 skipped) | |
@@ -244,11 +252,18 @@ The padding-off row is the no-topic arm (2,431 tokens, the only padding-off arm 
 topic's 3%.
 
 **Which row a server pays is set by its traffic, not by its volume.** `Batcher` collects one tenant's
-messages for two seconds. A server at 300k messages a month spread over eight busy hours a day
-receives about 0.35 a second, so a batch holds the first message and 0.7 more on average, and most
-batches are padded. That is arithmetic on an assumed traffic shape, not a measurement. Nobody has
-measured the batch-size distribution on a real server, and it decides whether the multiplier to
-price with is 1.3 or 4.5.
+messages for two seconds, and padding comes from a buffer of the last fifteen minutes. The 4.53x row
+is a ceiling: one message in the batch and a full window behind it. A channel quiet enough to have
+nothing in the last fifteen minutes has nothing to pad with and pays close to 1.0x; this run put the
+history in a moment before each request, so it never measured that case.
+
+Between the two, a worked example on an assumed traffic shape, not a measurement: a server at 300k
+messages a month over eight busy hours a day receives about 0.35 a second, so a two-second batch
+holds 1 + Poisson(0.7) messages, 1.7 on average, almost always under ten and so padded to about ten
+positions. With a full window, section 4's formula gives about 5,900 tokens per judged message
+against 1,630 without the window, **about 3.6x**. Nobody has measured the batch-size distribution or
+how full the window is on a real server, and those two decide whether the multiplier to price with
+is 1.3, 3.6 or 4.5.
 
 ## 9. Recommendation for JEV-19
 
@@ -259,20 +274,21 @@ price with is 1.3 or 4.5.
   and does not fit in a batch of 50.
 - **The number to decide is padding, not the window.** Padding a message alone to ten positions
   costs 4.5 times the filler-only request and 92% to 96% of what the window costs a quiet channel,
-  for 2.6 points of spam recall on 150 messages (`BATCH_EFFECT.md` section 9). Keeping the filler at
-  `m0` and dropping the rest of the padding puts a quiet channel at 1.15x for most of the recall.
-  That is a change to `JEVMOD_PAD_BATCH`'s default, and it is JEV-19's and JEV-57's to take, not a
-  measurement's.
+  for a recall gain over the filler alone that no run has isolated (section 3). Dropping the padding
+  and keeping the filler puts a quiet channel at 1.15x. Whether that trade is worth it needs one
+  run: the same spam messages judged behind the filler alone and behind production's real-history
+  padding. Until then `JEVMOD_PAD_BATCH` stays as shipped.
 - **Price on the batch-size distribution, which is unmeasured.** Until it is measured, with padding
-  as shipped, the defensible multiplier for a small server is the batch-of-one row, 4.5x, and for a
-  busy one the batch-of-25 row, 1.3x.
+  as shipped, price a small server between the worked example and the ceiling, 3.6x to 4.5x, and a
+  busy one on the batch-of-25 row, 1.3x.
 - **Split batches by tokens, not by count**, whatever JEV-19 decides. Section 6 is a fail-open path
   that a raid reaches today.
 
 ## What this does not say
 
 - **It is not Discord.** Comments under a video are short and unthreaded. Chat of the same length
-  costs the same; chat twice as long roughly doubles the 29 tokens per context entry and moves the
+  costs about the same. The 29 tokens per context entry were measured on entries of 95 characters
+  on average (median 48); longer chat costs more per entry, roughly in proportion, and moves the
   per-position cost little.
 - **It does not measure value.** Nothing here says whether a window of ten moderates better than
   five. That is JEV-18.
@@ -280,6 +296,9 @@ price with is 1.3 or 4.5.
   engine does not send them yet.
 - **It does not credit the cache.** A spam wave in near-identical windows shares a cache key and
   costs nothing after the first request; how often that happens in real traffic is not known.
+- **Positions are not independent.** Thirty pairs of positions overlap in their batch or their
+  history, so the effective sample behind each range is smaller than its request count. The ratios
+  are paired and are not affected.
 - **One key, one region, one afternoon.** Token counts do not depend on any of those; latency does.
 
 ## Reproduce
