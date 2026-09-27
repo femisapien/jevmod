@@ -486,12 +486,13 @@ def report() -> None:
     inl = per_msg["judge B"] - per_msg["judge A"]
     s_in, x_in = per_msg["companion single"], per_msg["companion single, every flagged category"]
     # Arm A is the cheapest judgment there is: nine real messages sharing one request. Production pads a quiet
-    # channel's small batch to ten positions, which jevmod/core/service.py puts at about eight times the spend
-    # per judged message. Both are shown, so the share is a range and not one number.
-    pad = 8 * a_msg
-    print(f"Tokens per judged message: judging costs {a_msg:,.0f} in a full batch of nine (arm A) and about {pad:,.0f} "
-          "for a message padded alone (eight times, jevmod/core/service.py). The companion is priced at assumed "
-          "flag rates; the inline Choice is paid on every judged message.\n")
+    # channel's small batch to ten positions (jevmod/core/service.py), so a message judged alone pays for a whole
+    # ten-position request, which arm A's full requests measure. Both are shown, so the share is a range.
+    full = {b for b in {r["batch"] for r in J} if all(r["judged"] for r in J if r["arm"] == "A" and r["batch"] == b)}
+    pad = statistics.mean(r["req_in"] for r in reqs["judge A"] if r["batch"] in full)
+    print(f"Tokens per judged message: judging costs {a_msg:,.0f} in a full batch of nine (arm A) and {pad:,.0f} "
+          f"for a message padded alone (the mean of arm A's {len(full)} ten-position requests). The companion is "
+          "priced at assumed flag rates; the inline Choice is paid on every judged message.\n")
     print("| flag rate | companion, top category | companion, every flagged category | inline Choice |")
     print("|---|---|---|---|")
     for rate in (0.01, 0.02, 0.05, 0.10):
@@ -539,6 +540,16 @@ def report() -> None:
     same_code = sum(arm["B"][i]["why"]["choice"] == f"{single[i]['category']}__{single[i]['reason']['choice']}"
                     for i in inl if i in single)
     print(f"- inline code equals the single companion code on {same_code} of {len(inl)}")
+    in_flag = [i for i in inl if arm["B"][i]["why"]["choice"].split("__")[0] in arm["A"][i]["flagged"]]
+    to_scam = [i for i in inl if i in single and single[i]["category"] == "spam"
+               and arm["B"][i]["why"]["choice"].startswith("scam__") and "scam" in arm["A"][i]["flagged"]]
+    print(f"- inline names a category that crossed its line on {len(in_flag)} of {len(inl)}; of the differences from "
+          f"the companion's top category, {len(to_scam)} pick scam where the top score was spam: {', '.join(to_scam)}")
+    hs = RESULTS / "handread.jsonl"
+    if hs.exists():
+        H0 = {json.loads(line)["id"] for line in hs.open(encoding="utf-8")}
+        cut_read = [i for i in H0 if any(p.endswith("…") for p in single[i]["spans"])]
+        print(f"- hand-read items with a cut part: {len(cut_read)} of {len(H0)} ({', '.join(sorted(cut_read))})")
     for mode, rows in (("single", single),):
         lab = [i for i in rows if items[i]["labels"]]
         unl = [i for i in rows if not items[i]["labels"]]

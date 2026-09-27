@@ -20,7 +20,7 @@ list price. Runner: `run.py` in this directory. Raw outputs: `results/dataset.js
 4. **As a separate request it costs 724 input tokens per explained message**, 238 ms p50. Spread over every
    judged message at a 5% flag rate that is 36 tokens, +3.3% on the cheapest judgment (a full batch of nine)
    and +0.4% on a message padded alone. Asked inline in the judgment request it costs 1,060 tokens on every
-   judged message, flagged or not: +97.6% on a full batch, +12.2% padded.
+   judged message, flagged or not: +97.6% on a full batch, +10.8% padded.
 5. **It does not move the scores.** The inline arm shifts the category scores by 0.0036 on average, the
    same as sending the identical request twice (0.0037). A separate request cannot touch them at all.
 6. **As asked here, it is not a second opinion.** Given a real flag it never disagreed (0 of 94). It
@@ -78,20 +78,22 @@ With 15 requests per judge arm the p95 is the slowest request, and A and A2, the
 25 ms at the median; B's +52 ms over A is therefore "small", not a measured cost.
 
 Arm A is the cheapest a judgment gets: nine real messages sharing one request. Production pads a quiet
-channel's small batch to ten positions, which `jevmod/core/service.py` puts at about eight times the spend
-per judged message. So the share each option adds is a range, from a full batch to a message padded alone
-(about 8,689 tokens):
+channel's small batch to ten positions (`jevmod/core/service.py`), so a message judged alone pays for a whole
+ten-position request: 9,775 tokens, the mean of arm A's 14 complete requests. The share each option adds is
+therefore a range, from a full batch to a message padded alone:
 
 | flag rate | companion, top category | companion, every flagged category | inline Choice |
 |---|---|---|---|
-| 1% | 7 tok / judged msg, +0.7% full, +0.1% padded | 9 tok, +0.8% full, +0.1% padded | 1,060 tok, +97.6% full, +12.2% padded |
-| 2% | 14 tok, +1.3% full, +0.2% padded | 18 tok, +1.6% full, +0.2% padded | 1,060 tok, +97.6% full, +12.2% padded |
-| 5% | 36 tok, +3.3% full, +0.4% padded | 44 tok, +4.1% full, +0.5% padded | 1,060 tok, +97.6% full, +12.2% padded |
-| 10% | 72 tok, +6.7% full, +0.8% padded | 88 tok, +8.1% full, +1.0% padded | 1,060 tok, +97.6% full, +12.2% padded |
+| 1% | 7 tok / judged msg, +0.7% full, +0.1% padded | 9 tok, +0.8% full, +0.1% padded | 1,060 tok, +97.6% full, +10.8% padded |
+| 2% | 14 tok, +1.3% full, +0.1% padded | 18 tok, +1.6% full, +0.2% padded | 1,060 tok, +97.6% full, +10.8% padded |
+| 5% | 36 tok, +3.3% full, +0.4% padded | 44 tok, +4.1% full, +0.5% padded | 1,060 tok, +97.6% full, +10.8% padded |
+| 10% | 72 tok, +6.7% full, +0.7% padded | 88 tok, +8.1% full, +0.9% padded | 1,060 tok, +97.6% full, +10.8% padded |
 
 In money, at a 5% flag rate: $0.00185 per 1,000 judged messages for the companion on every flagged
 category, $0.0445 for the inline Choice. The inline Choice costs so much because its 32 options (31 reason
-codes and `nothing`) are sent once per message in the batch.
+codes and `nothing`) are sent once per message in the batch. That is the one inline design measured; a
+smaller inline question (the category alone, say) would be cheaper and would add nothing the scores do not
+already say.
 
 ## Quality: the 30 read by hand
 
@@ -116,24 +118,31 @@ The five misses, one line each (full notes in `handread.jsonl`):
 - `oai1549`, true that it demeans a group, but the quoted part is the lesser sentence; the call to kill
   "these animals" is in the third.
 
-The strict reading also fails `rt_l4` (a request for bank details explained as `fake_giveaway`, where
-`credentials` fits better, though the quoted part is the right one) and `oai331` (`insult` "aimed at a
-person" on a jab at a group of readers).
+The strict reading also fails `rt_l4` (a R$500 prize that asks for bank details, explained as
+`fake_giveaway` where `credentials` names the danger better, though the quoted part is the right one) and
+`oai331` (`insult` "aimed at a person" on a jab at a group of readers). Both are arguable, which is why the
+headline is 25.
 
 Three of the five are the same failure: a message flagged both spam and scam, explained only under spam.
 38 of 94 flags carry more than one category, 28 of them spam and scam together. Explaining **every** flagged
 category (the last companion row) gives those three a scam line too: `fake_giveaway` on all three, which is
 true of `rt_l16` and `rt_e2` and close for `rt_e8`. It costs 880 tokens per message instead of 724.
 
-**`fake_giveaway` is over-picked.** It wins 21 of the 28 spam and scam pairs, including the two that ask for
-a login or bank details, where `credentials` already exists and came second (`rt_e8` 0.53 against 0.42,
-`rt_l4` 0.54 against 0.38). The fix is sharper wording for those two codes, not a new code.
+**`fake_giveaway` and `credentials` are close on phishing that dangles a prize.** `fake_giveaway` wins 21
+of the 28 spam and scam pairs, most of them real Nitro, skin or Robux giveaways where it is right. On the two
+that also ask for a login or bank details it wins narrowly over `credentials`, which already exists (`rt_e8`
+0.53 against 0.42, `rt_l4` 0.54 against 0.38). Both are true of those messages; a moderator is better served
+by the one that names the danger. That is a wording question for the two codes, not a missing code.
 
 **Cut spans can hide the evidence.** A part longer than 160 characters is cut before it is offered, so the
 quote can miss the words that matter. 15 of 94 flagged messages had a cut part, and on 5 the chosen part was
 a cut one (`rt_g2`, `oai7`, `oai1196`, `oai185`, `oai1603`). On `rt_g2` the "free nitro" link falls past the
 cut, so no offered part contains it, and Jev still chose that part with p=0.90: the moderator would be shown
-a quote about seller prices. None of the five fell in the hand-read sample.
+a quote about seller prices. Four of the 30 read by hand had a cut part (`oai1545`, `oai1598`, `oai1678`,
+`oai7`), and on one, `oai7`, the chosen part was cut; that item failed on its reason code, not on the cut.
+
+The quote is also of the normalized text (`jevmod.judge.normalize`: NFKC, combining and format characters
+removed, spaces collapsed), which differs from what the user wrote on 31 of the 94 flagged messages.
 
 ## Agreement and the control
 
@@ -141,8 +150,9 @@ a quote about seller prices. None of the five fell in the hand-read sample.
   cheaper but gives a different code about one time in twelve, because every flagged message of the batch
   shares the state; single is what the hand reading judged.
 - Inline code vs companion code: the same code on 69 of 94, the same category on 82 of 94. The inline arm
-  picks from all seven categories at once, so it sometimes explains a different category from the one that
-  crossed its line.
+  names a category that crossed its line on 92 of 94. Ten of the twelve differences are spam and scam
+  messages where the inline arm explained scam and the companion explained spam, the higher score; three of
+  them (`rt_e2`, `rt_e8`, `rt_l16`) are hand-read misses. Another reason to explain every flagged category.
 - `not_it` (the companion disagreeing with the flag): **0 of 94** real flags, in single and in batched, with
   a median p(not_it) of 0.00 and a maximum of 0.04. Across every flagged category, 1 of 133 pairs.
 - Control, 33 clean unflagged messages sent as if flagged: `not_it` on 28, median p(not_it) 0.94. The
@@ -161,7 +171,7 @@ is the risk to design for.**
 
 ## Recommendation for JEV-16
 
-1. **A companion request, never inline.** Inline costs 1,060 tokens on every judged message to explain the
+1. **A companion request, never inline.** The inline design measured costs 1,060 tokens on every judged message to explain the
    few that are flagged.
 2. **Only for flagged messages, every flagged category, one message per request**, sent after the verdict
    and off its critical path, when the queue item is created. Not on demand when a moderator opens the item:
@@ -170,21 +180,27 @@ is the risk to design for.**
    - the Discord log embed is posted at flag time and nobody "opens" it;
    - on demand needs the message text at open time, which the server does not have when
      `JEVMOD_QUEUE_TEXT` is off (`odd/decisions/jev-13-review-queue.md` in the private repository);
-   - it would add 240 to 300 ms to opening an item.
+   - it would add 266 to 382 ms (p50 to p95 of the every-category request) to opening an item.
 
    If the request fails the item's `reasoning` stays null, which the JEV-13 queue item already allows.
 3. **Store codes, not text**: per category the reason code, and the chosen part as character offsets into
-   the stored text (no offsets when text is not kept). The UI renders the sentence from the code table,
-   which makes it translatable into the six locales, and a code carries no message content.
-4. **Never cut a part that can be quoted.** Offer whole parts (split long sentences at clauses first, and
-   send the full part), so the quote always contains what it was chosen for.
+   the stored text (no offsets when text is not kept). The parts are cut from the normalized text, which
+   differs from the raw text on a third of these messages, so either cut the parts from the raw text and
+   send each one normalized, or keep a map from normalized to raw offsets; do not store normalized offsets
+   against raw text. The UI renders the sentence from the code table, which makes it translatable into the
+   six locales, and a code carries no message content.
+4. **Do not cut a part that can be quoted.** Offer whole parts (split long sentences at clauses first), so
+   the quote contains what it was chosen for. The cost of that is not measured here: cutting removed about
+   25 characters per flagged message in this set, whose benchmark texts were already capped at 600
+   characters, but on long messages every flagged category's span Choice resends the whole text. Bound it
+   with a cap on the whole message rather than on each part, and measure it on long messages first.
 5. **Word it as an explanation of the flag, not a verdict**: "Flagged as scam: a fake giveaway. See:
    (quote)". Never use `not_it` to dismiss anything and never present the rationale as agreement; it agreed
    with every flag in this run, false positives included. This fits the queue decision's rule that the
    suggestion is a label, not a filled button.
 6. **Fix the table before shipping it**: `hopeless` must not assert "the author's own life" (fiction and
-   quoted speech trip it); reword `fake_giveaway` and `credentials` so a request for a login or bank details
-   is not a giveaway; list scam before spam when both are flagged. Doxxing and minors codes need their own
+   quoted speech trip it); word `credentials` so it wins when a message asks for a login or bank details,
+   prize or not; list scam before spam when both are flagged. Doxxing and minors codes need their own
    read before they are shown. Re-read 30 after the rewrite.
 7. **Where it lives**: the reason codes are new V1 capability, so under the backlog rules they are built in
    the private hosted repository next to the queue, not in this engine. This directory is the measurement.
@@ -193,7 +209,8 @@ is the risk to design for.**
 
 - 135 messages, 94 flags, one run, one model version (`jev-1.13.0`).
 - One reader, who also wrote the reason codes, and who read knowing what was flagged; not blind.
-- The set is enriched and mostly English. Judging was measured unpadded; the padded cost is the eight
-  times documented in `jevmod/core/service.py`, not measured here.
+- The set is enriched and mostly English. The padded cost is arm A's ten-position request, not a padded
+  request with real channel history in it.
+- Latency is 15 requests per judge arm and 94 per companion mode.
 - The reason codes were written here from `categories.json`; a different table would read differently.
   The quality number is for this table, not for the idea.
