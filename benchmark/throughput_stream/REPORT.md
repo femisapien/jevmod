@@ -20,10 +20,10 @@ about a cent a run.
 | What happens above it now | the batch is capped at 100 distinct texts; the rest is shed as `over_batch`, spread across the window |
 | Messages per second one key serves | **about 320 judged with the conversation window** (four streams at 100 msg/s: 323 judged a second), about 400 bare |
 | Where the 429s and retries start | at the key's sustained limit, about 355,000 input tokens a second: past four requests of fifty in flight bare, and at four with the window |
-| What retries do to latency past that point | p95 goes from 0.6 s to 2.9 s; 1.2% of requests still fail |
+| What retries do to latency past that point | p95 goes from 0.6 s to 3.2 s; 1.2% of requests still fail |
 | Longest wait from a message arriving to its decision | 1.7 to 2.8 s for one stream up to 150 msg/s; 3.0 s with four streams at 100 msg/s |
 | Cost | **1,112 input tokens per judged message**, $0.047 per thousand, **$4.44 per 100,000-message stream** |
-| Cost per stream-hour | $1.11 at 7 msg/s (100k over 4 h), $4.44 at 28 msg/s (100k in 1 h), $16 at a held 100 msg/s |
+| Cost per stream-hour | $1.11 at 7 msg/s (100k over 4 h), $4.44 at 28 msg/s (100k in 1 h), $15 at a held 100 msg/s (90% judged) |
 
 "Judged" throughout means the message went to the model and came back with a verdict. About 5% of
 chat never goes: the pre-filter drops lines that are too short to judge (`too short`).
@@ -47,7 +47,7 @@ more than fifty messages to a request.
 | messages per request | p50 ms | max ms | input tokens per message |
 |---|---|---|---|
 | 10 | 310 | 470 | 1,039 |
-| 25 | 350 | 372 | 978 |
+| 25 | 350 | 372 | 975 |
 | 50 | 521 | 528 | 932 |
 | 100 | refused (400) | | |
 
@@ -71,14 +71,22 @@ The same eight in flight with production's retries on (3 retries, backoff 0.5 to
 
 | held for | requests | p50 ms | p95 ms | max ms | failed after retries | judged msg/s | input tokens/s |
 |---|---|---|---|---|---|---|---|
-| 15 s | 156 | 513 | 2,747 | 4,055 | 1 | 467 | 423,000 |
-| 60 s | 488 | 531 | 2,933 | 4,579 | 6 (1.2%) | 391 | 355,000 |
+| 15 s | 156 | 513 | 2,877 | 4,055 | 1 | 467 | 423,000 |
+| 60 s | 488 | 531 | 3,155 | 4,579 | 6 (1.2%) | 391 | 355,000 |
 
-So retries buy almost nothing over four in flight (391 against 404 msg/s sustained) and cost five
-times the p95. The four-in-flight level ran bare (905 tokens a message) for fifteen seconds, inside the
+(Latencies over every request, the failed ones included; the answered ones alone give a p95 of 2,747
+and 2,933.)
+
+So retries buy little over four in flight (391 msg/s held for sixty seconds against 404 for fifteen,
+which is not a like-for-like comparison) and cost five times the p95. The four-in-flight level ran bare (905 tokens a message) for fifteen seconds, inside the
 key's burst allowance; the sustained limit is the 355,000 tokens a second of the sixty-second run. With
 the conversation window a message costs 1,112 tokens, so the same limit is about 320 judged messages a
-second, which is what four streams at 100 msg/s reached (section 3). **`Judge` now holds at most four requests in flight per process**, across every tenant
+second, which is what four streams at 100 msg/s reached (section 3). So with the window, four full
+requests in flight can ask for more than the sustained limit (4 x 50 x 1,112 tokens every half second
+is about 445,000 a second), and past it the SDK's retries run inside the in-flight slot: the cap then
+bounds how many requests wait on the key, not whether a 429 happens. The four-stream replay ended with
+nothing failed open and its batches taking 1.3 s instead of 0.5; it did not record 429s, so how many
+of those 0.8 s were retries is not measured. **`Judge` now holds at most four requests in flight per process**, across every tenant
 sharing it (`MAX_INFLIGHT`, `JEVMOD_MAX_INFLIGHT` for a key with a different limit). That turns the
 key's limit into a queue inside the bot rather than 429s and retry sleeps.
 
@@ -114,7 +122,8 @@ waits for the window (1 s) plus the judge (0.5 to 0.8 s).
 `model.py` (free) is the same pipeline as arithmetic, from the measured latencies: before, every
 message stops being decided at 44 msg/s; after, the first `over_batch` is at 100 msg/s. The replay
 shows 5% shed at 100 msg/s where the model shows none, because real batches vary around the mean and
-the cap cuts the big ones.
+the cap cuts the big ones. The model caps messages before the pre-filter where the code caps only what
+reaches the model, so by the code's rule the edge is nearer 105 msg/s.
 
 ## 4. Where it queues
 
@@ -168,8 +177,15 @@ In order, from a single message to the whole bot:
   two.
 - **`Batcher` flushes what arrived during a batch** even if nothing else arrives after it. Before,
   the end of a raid waited for somebody else to speak.
-- **Decisions are matched to messages by position**, not by id, in `moderate` and in the shed path:
-  nothing makes ids unique, and a map by id handed one message's decision to another.
+- **Decisions and verdicts are matched to messages by position**, not by id, in `Judge.judge`,
+  `moderate` and the shed path: nothing makes ids unique, and a map by id handed one message's
+  verdict to another that shared its id.
+- **One message no request can hold gets its own verdict** (`too long`, unjudged) and the rest of the
+  batch is judged. Before, it failed the whole batch open, and U+FDFA, one character that NFKC turns
+  into eighteen, made such a message out of 8,000 characters. The estimate reads the context
+  normalised, as it is sent; the split is balanced to within one message; padding is kept only while
+  it fits beside the batch. `MAX_BATCH` counts texts after normalisation, so copies dressed with
+  zero-width characters are one text.
 - **A cancelled batch does not strand what arrived during it**: the re-flush runs in `finally`.
 - **A tenant is billed its own usage.** With several streams judging at once through one judge, the
   shared before/after totals billed each tenant for what the others spent in the meantime
@@ -191,8 +207,8 @@ minutes.
   the model, and lets that one stream take half of the key. That is a decision for a plan that pays for
   it (JEV-66), not a default.
 - **Cost per stream-hour** is the rate: 1,112 tokens per judged message with the window, 0.95 of
-  messages judged. $1.11 an hour at 7 msg/s, $4.44 at 28, $16 at 100 held. The ceiling per stream at
-  the default cap is about $16 an hour.
+  messages judged. $1.11 an hour at 7 msg/s, $4.44 at 28, $15 at 100 held (90% judged measured). The
+  ceiling per stream at the default cap is about $16 an hour.
 
 ## What this does not say
 

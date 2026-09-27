@@ -32,6 +32,7 @@ from jevmod.judge import (
     Verdict,
     estimate_tokens,
     prefilter,
+    request_cost,
     split_for_request,
     text_tokens,
 )
@@ -276,6 +277,43 @@ def test_a_cancelled_batch_does_not_strand_what_arrived_during_it():
     assert flushed == [[1], [2]]
 
 
+def test_copies_dressed_with_zero_width_characters_are_one_text_under_the_cap():
+    raid = [Message(f"r{i}", "FOLLOW twitch.tv/freesubs4u" + "​" * i) for i in range(300)]
+    keep, shed = within_cap(raid, 100)
+    assert shed == []
+
+
+def test_a_split_is_balanced_even_when_it_has_to_go_finer():
+    """13 long Chinese messages: the sizes differ by at most one, never 4, 4, 4, 1."""
+    items = _items([f"{i:02d}" + "直" * 6800 for i in range(13)])
+    sizes = [len(c) for c in split_for_request(items, CATS, {})]
+    assert sum(sizes) == 13 and max(sizes) - min(sizes) <= 1
+
+
+def test_the_estimate_reads_the_context_as_it_is_sent():
+    """U+FDFA is one character raw and eighteen after NFKC; the context goes out normalised."""
+    ctx = ("ﷺ" * 500,)
+    assert request_cost(_items(["hello there everyone"], context=ctx), CATS, {}) > 9_000
+
+
+def test_a_batch_cancelled_while_it_waits_does_not_strand_its_messages():
+    flushed: list[list[int]] = []
+    holder: list[Batcher] = []
+
+    async def handler(tenant, batch):
+        flushed.append(list(batch))
+
+    async def main():
+        holder.append(Batcher(0.2, handler))
+        holder[0].add("t", 1)
+        await asyncio.sleep(0.05)
+        holder[0].tasks["t"].cancel()
+        await asyncio.sleep(0.4)
+
+    asyncio.run(main())
+    assert flushed == [[1]]
+
+
 # ---------------------------------------------------------------- real Jev
 
 needs_key = pytest.mark.skipif(not KEY, reason=NO_KEY_REASON)
@@ -395,3 +433,23 @@ def test_a_request_the_api_refuses_as_too_big_is_halved_and_judged():
     assert all(v.judged for v in verdicts)
     assert judge.requests == 2, "two halves answered"
     assert spy.calls == 3, "one refused request, then the two halves"
+
+
+@needs_key
+def test_one_message_no_request_can_hold_gets_its_own_verdict_and_the_rest_are_judged():
+    """U+FDFA x 8000 is within the HTTP API's length limit and about 80,000 tokens after NFKC. It is
+    refused however it is asked; before, that failed the whole batch open."""
+    judge = Judge(cache_ttl_s=0)
+    msgs = [Message("big", "ﷺ" * 8000)] + [Message(f"n{i}", t) for i, t in enumerate(_chat(5, offset=1500))]
+    verdicts = judge.judge(msgs, CATS)
+    assert verdicts[0].reason == "too long" and not verdicts[0].judged
+    assert all(v.judged for v in verdicts[1:])
+
+
+@needs_key
+def test_verdicts_follow_positions_when_ids_repeat():
+    judge = Judge(cache_ttl_s=0)
+    scam = "FREE NITRO for the first 100!! claim at discord-gifts.ru/nitro"
+    clean = "gg everyone, same time tomorrow? that last round was close"
+    verdicts = judge.judge([Message("7", clean), Message("7", scam)], ["scam", "spam"])
+    assert max(verdicts[1].scores.values()) - max(verdicts[0].scores.values()) >= 0.2
