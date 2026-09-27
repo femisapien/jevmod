@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from typesafe_sdk import Noul, NoulAnswer, RetryPolicy, TypeSafeClient
+from typesafe_sdk import Noul, NoulAnswer, RetryPolicy, TypeSafeAPIError, TypeSafeClient
 
 from .core.context import MAX_CONTEXT_TOKENS, assemble
 from .keys import get_api_key
@@ -66,23 +66,45 @@ REQUEST_TOKEN_BUDGET = 56_000
 # the HTTP API already puts on a request.
 MAX_REQUEST_MESSAGES = 50
 # Requests one `Judge` has in flight at once, across every thread sharing it. The key is rate limited
-# on input tokens, about 330,000 a second sustained with a burst allowance above that. Four requests
+# on input tokens, about 355,000 a second sustained with a burst allowance above that. Four requests
 # of fifty ran clean for fifteen seconds and eight were refused 62% of the time, so four is the
-# measured safe number; `JEVMOD_MAX_INFLIGHT` moves it for a key with a different limit.
+# measured safe number; `JEVMOD_MAX_INFLIGHT` moves it for a key with a different limit. It is per
+# `Judge`, which is per process in every adapter: two processes on one key share the key's limit and
+# not this cap.
 MAX_INFLIGHT = max(1, int(os.environ.get("JEVMOD_MAX_INFLIGHT", "4") or 4))
 # The estimate: what one position costs in questions, measured at about 126 input tokens per
-# question on chat-sized text and rounded up, and text at three characters a token where English
-# runs nearer four. Both err towards splitting early, which costs a few percent and never a refusal.
+# question on chat-sized text and rounded up, and text by script. ASCII at three characters a token
+# where English runs nearer four. Everything else is far denser, measured on the live API on
+# 2026-09-27: Chinese at 1.08 tokens a character and emoji at 2.06 each, so a character outside ASCII
+# counts 1.5 and one outside the Basic Multilingual Plane (most emoji) 2.5. The first version counted
+# every character as a third of a token, and fifty 500-character Chinese lines were one request the
+# API refused. Every figure errs towards splitting early, which costs a few percent and not a
+# refusal; a request refused anyway is halved and asked again (`Judge._ask`).
 _TOKENS_PER_QUESTION = 135
 _CHARS_PER_TOKEN = 3
 
 
-def estimate_tokens(text: str, context: tuple[str, ...], n_cats: int, rules: dict[str, str]) -> int:
-    """Input tokens one position adds to a request: its questions, its text and its context."""
-    questions = n_cats * _TOKENS_PER_QUESTION + sum(
-        _TOKENS_PER_QUESTION + len(r) // _CHARS_PER_TOKEN for r in rules.values()
-    )
-    return questions + (len(text) + sum(len(c) for c in context)) // _CHARS_PER_TOKEN + 10
+def text_tokens(text: str) -> int:
+    """An upper estimate of the input tokens `text` costs."""
+    ascii_chars = wide = astral = 0
+    for ch in text:
+        o = ord(ch)
+        if o < 0x80:
+            ascii_chars += 1
+        elif o < 0x10000:
+            wide += 1
+        else:
+            astral += 1
+    return ascii_chars // _CHARS_PER_TOKEN + (wide * 3 + astral * 5 + 1) // 2
+
+
+def estimate_tokens(
+    text: str, context: tuple[str, ...], n_cats: int, rules: dict[str, str], topic: str = ""
+) -> int:
+    """Input tokens one position adds to a request: its questions, its text, its context and the
+    channel topic every position carries."""
+    questions = n_cats * _TOKENS_PER_QUESTION + sum(_TOKENS_PER_QUESTION + text_tokens(r) for r in rules.values())
+    return questions + text_tokens(text) + sum(text_tokens(c) for c in context) + text_tokens(topic) + 10
 
 
 def split_for_request(
@@ -101,8 +123,8 @@ def split_for_request(
     """
     if not items:
         return []
-    costs = [estimate_tokens(t, m.context, len(cats), rules) for m, t in items]
-    lead = estimate_tokens(LEAD_FILLER, (), len(cats), rules)
+    costs = [estimate_tokens(t, m.context, len(cats), rules, m.channel_topic or "general chat") for m, t in items]
+    lead = estimate_tokens(LEAD_FILLER, (), len(cats), rules, items[0][0].channel_topic or "general chat")
     k = max(1, -(-len(items) // max_messages))
     while True:
         size = -(-len(items) // k)
@@ -213,6 +235,15 @@ class Judge:
         loc = self._local
         return getattr(loc, "requests", 0), getattr(loc, "input_tokens", 0), getattr(loc, "judged_messages", 0)
 
+    def needs_request(self, m: Message, categories: list[str], custom_rules: dict[str, str] | None = None) -> bool:
+        """Whether `judge` would put this message in a request: it passes the pre-filter and is not
+        cached. What `ModerationService` counts against `MAX_BATCH`, since nothing else costs."""
+        if prefilter(m):
+            return False
+        cats = [c for c in categories if c in CATEGORIES]
+        hit = self.cache.get(_key(normalize(m.text), m.channel_topic, cats, custom_rules or {}, m.context))
+        return not (hit and time.time() - hit[0] < self.cache_ttl)
+
     def judge(
         self,
         messages: list[Message],
@@ -281,23 +312,23 @@ class Judge:
             pad = [p for p in dict.fromkeys(normalize(p) for p in padding) if p and p not in judged_texts]
             pad = list(assemble(tuple(pad), MAX_CONTEXT_TOKENS * PAD_TO))
             chunks = split_for_request(unique, cats, custom_rules, self.request_token_budget)
-            results: list[Any]
+            parts: list[tuple[list[tuple[Message, str]], Any]]
             if len(chunks) == 1:
-                results = [self._request(chunks[0], cats, custom_rules, pad, topic)]
+                parts = self._ask(chunks[0], cats, custom_rules, pad, topic)
             else:
                 # Padding goes to an unsplit request only. The service pads a batch smaller than
                 # PAD_TO, and a batch that small is split only when its messages are thousands of
                 # characters long, where the padding would itself be what overflows the request.
                 with ThreadPoolExecutor(max_workers=min(len(chunks), self.max_inflight)) as pool:
-                    futures = [pool.submit(self._request, c, cats, custom_rules, [], topic) for c in chunks]
-                results = []
-                for f in futures:
+                    futures = [pool.submit(self._ask, c, cats, custom_rules, [], topic) for c in chunks]
+                parts = []
+                for c, f in zip(chunks, futures, strict=True):
                     try:
-                        results.append(f.result())
+                        parts += f.result()
                     except Exception as exc:  # recorded below, after the chunks that were paid for
-                        results.append(exc)
+                        parts.append((c, exc))
             failure: BaseException | None = None
-            for chunk, result in zip(chunks, results, strict=True):
+            for chunk, result in parts:
                 if isinstance(result, BaseException):
                     failure = failure or result
                     continue
@@ -326,6 +357,33 @@ class Judge:
             for m, _ in to_judge:
                 out[m.id] = Verdict(m.id, {}, False, "no categories enabled")
         return [out[m.id] for m in messages]
+
+    def _ask(
+        self,
+        chunk: list[tuple[Message, str]],
+        cats: list[str],
+        custom_rules: dict[str, str],
+        pad: list[str],
+        topic: str,
+    ) -> list[tuple[list[tuple[Message, str]], Any]]:
+        """`_request` for a chunk, halved and asked again if the API refuses it as too big.
+
+        Each part comes back with its answers and tokens, or with the exception it failed with, so
+        that a half that was answered is billed and cached even when the other half fails. The
+        estimate errs high, and this is what stands behind it for text it does not know: a script
+        denser than it assumes, or a key with a smaller limit, costs one refused request (not billed)
+        and a split, instead of the whole batch failing open.
+        """
+        try:
+            return [(chunk, self._request(chunk, cats, custom_rules, pad, topic))]
+        except TypeSafeAPIError as exc:
+            if len(chunk) < 2 or not _too_big(exc):
+                return [(chunk, exc)]
+        except Exception as exc:
+            return [(chunk, exc)]
+        half = (len(chunk) + 1) // 2
+        return (self._ask(chunk[:half], cats, custom_rules, [], topic)
+                + self._ask(chunk[half:], cats, custom_rules, [], topic))
 
     def _request(
         self,
@@ -398,6 +456,11 @@ class Judge:
             resp = self.client.system_one(state=state, questions=questions)
         tokens = getattr(getattr(resp, "usage", None), "input_tokens", 0) or 0
         return resp.answers, tokens
+
+
+def _too_big(exc: TypeSafeAPIError) -> bool:
+    """The API's refusal of a request over its input limit: `400 max_tokens_exceeded`."""
+    return getattr(exc, "status", None) == 400 and "max_tokens" in f"{getattr(exc, 'body', '')} {exc}"
 
 
 def _p(answer: Any) -> float:

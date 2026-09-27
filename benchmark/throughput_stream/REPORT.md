@@ -8,17 +8,18 @@ from it. The text is the YouTube comment set in `benchmark/data/youtube_spam/` (
 corpus JEV-6 used.
 
 Total spent on these measurements: **about $3.18** (75.8 million input tokens at $0.042 per million).
-$1.21 of it is the two runs with production retries on.
+$1.21 of it is the two runs with production retries on. The live-API tests added with the change cost
+about a cent a run.
 
 ## The answers
 
 | question | answer |
 |---|---|
-| Messages per second one stream can have fully judged | **about 100** (Twitch, 1 s window), was **about 40** |
-| What happened above that before | **every message failed open**: at 60 msg/s, 95% came back `error_open` |
+| Messages per second one stream has fully judged | **60 measured** (95% judged, the rest too short to judge); at 100 msg/s, 90% judged and 5% shed. The model puts the edge at 100 (Twitch, 1 s window) |
+| Before this change | already 10% `error_open` at 30 msg/s; **95% `error_open` at 60 msg/s**, the whole batch failing open. The model puts the edge at 44 |
 | What happens above it now | the batch is capped at 100 distinct texts; the rest is shed as `over_batch`, spread across the window |
-| Messages per second one key serves | **about 400 judged**, at four requests of fifty in flight |
-| Where the 429s and retries start | above four requests of fifty in flight (about 360,000 input tokens a second) |
+| Messages per second one key serves | **about 320 judged with the conversation window** (four streams at 100 msg/s: 323 judged a second), about 400 bare |
+| Where the 429s and retries start | at the key's sustained limit, about 355,000 input tokens a second: past four requests of fifty in flight bare, and at four with the window |
 | What retries do to latency past that point | p95 goes from 0.6 s to 2.9 s; 1.2% of requests still fail |
 | Longest wait from a message arriving to its decision | 1.7 to 2.8 s for one stream up to 150 msg/s; 3.0 s with four streams at 100 msg/s |
 | Cost | **1,112 input tokens per judged message**, $0.047 per thousand, **$4.44 per 100,000-message stream** |
@@ -74,7 +75,10 @@ The same eight in flight with production's retries on (3 retries, backoff 0.5 to
 | 60 s | 488 | 531 | 2,933 | 4,579 | 6 (1.2%) | 391 | 355,000 |
 
 So retries buy almost nothing over four in flight (391 against 404 msg/s sustained) and cost five
-times the p95. **`Judge` now holds at most four requests in flight per process**, across every tenant
+times the p95. The four-in-flight level ran bare (905 tokens a message) for fifteen seconds, inside the
+key's burst allowance; the sustained limit is the 355,000 tokens a second of the sixty-second run. With
+the conversation window a message costs 1,112 tokens, so the same limit is about 320 judged messages a
+second, which is what four streams at 100 msg/s reached (section 3). **`Judge` now holds at most four requests in flight per process**, across every tenant
 sharing it (`MAX_INFLIGHT`, `JEVMOD_MAX_INFLIGHT` for a key with a different limit). That turns the
 key's limit into a queue inside the bot rather than 429s and retry sleeps.
 
@@ -124,9 +128,10 @@ In order, from a single message to the whole bot:
    `over_batch` (`action=none`, `judged=false`). This is the load shedding. It is shedding rather than
    a growing backlog on purpose: a live chat cannot be slowed down, and a verdict that arrives a
    minute late is no use to anybody watching.
-3. **Across streams, at the judge.** Four requests in flight per process. With four streams at 100
-   msg/s each (400 msg/s against a 400 msg/s key) the judge's time grows from 0.5 s to about 1.3 s,
-   the batches grow with it, and 15% is shed. Two streams at 100 msg/s shed 1%.
+3. **Across streams, at the judge.** Four requests in flight per process, and behind them the key's
+   sustained limit. With four streams at 100 msg/s each (400 msg/s against about 320 the key serves
+   with the window) the judge's time grows from 0.5 s to about 1.3 s, the batches grow with it, and
+   15% is shed. Two streams at 100 msg/s shed 1%.
 4. **Not measured: threads and platform actions.** Each tenant's batch holds one thread from asyncio's
    default pool while it waits for the judge (`min(32, cores + 4)` threads), and Twitch's `delete` and
    `timeout` calls are awaited one after another inside the batch. The default policy is flag-only,
@@ -138,15 +143,22 @@ In order, from a single message to the whole bot:
 - **The request split** (`jevmod/judge.py`, `split_for_request`, `REQUEST_TOKEN_BUDGET`). Section 1.
   Chunks of one batch go out in parallel under the in-flight cap; chunks that were answered are
   counted, billed and cached even when another chunk of the same batch fails, and the batch then
-  fails open as before.
+  fails open as before. The estimate counts text by script: ASCII at a third of a token a character,
+  anything else at 1.5 and emoji at 2.5, because Chinese measured 1.08 tokens a character and emoji
+  2.06 each; the channel topic every position carries is counted too. A request the API refuses as
+  too big anyway is halved and asked again (`Judge._ask`), so an estimate that is wrong costs one
+  unbilled refusal and not a batch failing open. Both are tested against the live API
+  (`tests/test_throughput.py`).
 - **Four requests in flight per process** (`MAX_INFLIGHT`). Section 2.
 - **Identical lines asked once.** Copies of one text in one batch read the same context, so they are
   one position in the request and share its answer. The raid replay above: half the messages copies of
   three lines, 98% judged, 544 tokens per judged message instead of 1,066. A tenant's usage counts the
   positions asked, which is what was spent.
-- **`MAX_BATCH` counts distinct texts** (`within_cap` in `jevmod/core/service.py`), per channel. A raid
-  of 300 copies is one position; counting messages shed 200 of them unjudged in exactly the batch a
-  raid is. Before, 150 msg/s with half of it raid copies: 0% judged. After: 98%.
+- **`MAX_BATCH` counts distinct texts that will reach the model** (`within_cap` in
+  `jevmod/core/service.py`), per channel. A raid of 300 copies is one position; counting messages shed
+  200 of them unjudged in exactly the batch a raid is. Before, 150 msg/s with half of it raid copies:
+  0% judged. After: 98%. Lines the pre-filter drops and lines the cache answers cost nothing and do
+  not count, so emote chat does not push real sentences out.
 - **Over the cap, what is kept is spread across the batch**, not its first 100. Taking the start shed
   the end of every overloaded window, the same part every time.
 - **`Batcher` counts the window from the oldest waiting message.** Before, what arrived while a batch
@@ -156,6 +168,9 @@ In order, from a single message to the whole bot:
   two.
 - **`Batcher` flushes what arrived during a batch** even if nothing else arrives after it. Before,
   the end of a raid waited for somebody else to speak.
+- **Decisions are matched to messages by position**, not by id, in `moderate` and in the shed path:
+  nothing makes ids unique, and a map by id handed one message's decision to another.
+- **A cancelled batch does not strand what arrived during it**: the re-flush runs in `finally`.
 - **A tenant is billed its own usage.** With several streams judging at once through one judge, the
   shared before/after totals billed each tenant for what the others spent in the meantime
   (`Judge.thread_usage`).
@@ -166,11 +181,12 @@ In order, from a single message to the whole bot:
 peaks are. A raid, a giveaway or a clip moment runs a chat at several times its average for seconds to
 minutes.
 
-- **A stream is fully judged to about 100 msg/s held**, and a raid of copies costs one position per
-  line, so a copypasta wave above that is still judged whole. Above 100 distinct messages a second the
-  stream is sampled: 67% judged at 150 msg/s.
-- **One key serves about 400 judged messages a second** across every stream on it: about four streams
-  at a 100 msg/s peak at the same moment, or 48 four-hour 100k streams at their average.
+- **A stream is fully judged to at least 60 msg/s measured and about 100 by the model**, 90% at a held
+  100 msg/s, and a raid of copies costs one position per line, so a copypasta wave above that is still
+  judged whole. Above 100 distinct messages a second the stream is sampled: 67% judged at 150 msg/s.
+- **One key serves about 320 judged messages a second** with the window across every stream on it:
+  about three streams at a 100 msg/s peak at the same moment, or 48 four-hour 100k streams at their
+  average.
 - **`JEVMOD_MAX_BATCH` is the per-stream knob.** 200 raises one stream's ceiling to about 200 msg/s by
   the model, and lets that one stream take half of the key. That is a decision for a plan that pays for
   it (JEV-66), not a default.

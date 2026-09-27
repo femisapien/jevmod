@@ -61,7 +61,9 @@ PAD_BATCH = _PAD_RAW is None or _PAD_RAW.strip().lower() not in _PAD_FALSE
 # defined in `store` so that the gate and the quota that enforce them cannot drift apart.
 
 
-def within_cap(messages: list[Message], cap: int) -> tuple[list[Message], list[Message]]:
+def within_cap(
+    messages: list[Message], cap: int, costs: Callable[[Message], bool] = lambda m: True
+) -> tuple[list[int], list[int]]:
     """Which messages of a batch are judged under `MAX_BATCH`, and which are shed as `over_batch`.
 
     The cap counts distinct texts, not messages. `Judge` asks identical text in the same context once
@@ -72,16 +74,22 @@ def within_cap(messages: list[Message], cap: int) -> tuple[list[Message], list[M
 
     When the distinct texts still exceed the cap, the ones kept are spread evenly across the batch
     rather than taken from its start. Taking the first `cap` shed the end of every overloaded window,
-    the same part every time, so whatever was posted last in a burst was never looked at. The order of
-    the batch is kept in both lists.
+    the same part every time, so whatever was posted last in a burst was never looked at.
+
+    Only messages `costs` says would reach the model count and can be shed: a line the pre-filter drops
+    or the cache answers is free, and Twitch emote chat is mostly such lines. Returns the indices kept
+    and the indices shed, each in batch order; indices rather than messages because nothing makes
+    message ids unique.
     """
-    distinct = list(dict.fromkeys((m.text, m.channel) for m in messages))
+    paid = [costs(m) for m in messages]
+    distinct = list(dict.fromkeys((m.text, m.channel) for m, p in zip(messages, paid, strict=True) if p))
     if len(distinct) <= cap:
-        return list(messages), []
+        return list(range(len(messages))), []
     step = len(distinct) / cap
     kept = {distinct[int(i * step)] for i in range(cap)}
-    return ([m for m in messages if (m.text, m.channel) in kept],
-            [m for m in messages if (m.text, m.channel) not in kept])
+    keep = [i for i, m in enumerate(messages) if not paid[i] or (m.text, m.channel) in kept]
+    shed = [i for i, m in enumerate(messages) if paid[i] and (m.text, m.channel) not in kept]
+    return keep, shed
 
 
 class ModerationService:
@@ -173,22 +181,23 @@ class ModerationService:
         # quota, over the shared budget, or has never enabled a single Jev category still gets its link
         # filter, its word list and its patterns. A message a local rule decides is logged like any other
         # decision and never reaches a gate that only governs what is left for the model.
-        decided: dict[str, Decision] = {}
-        remaining: list[Message] = []
-        for m in messages:
+        # By position, not by id: nothing makes message ids unique, and a map by id handed one
+        # message's decision to another that shared its id.
+        out: list[Decision | None] = [None] * len(messages)
+        remaining: list[int] = []
+        for i, m in enumerate(messages):
             d = local.check(m, policy, self.seen)
             if d is None:
-                remaining.append(m)
+                remaining.append(i)
             else:
-                decided[m.id] = d
+                out[i] = d
                 self.store.log_decision(tenant, m, d, rid)
 
-        if not remaining:
-            return [decided[m.id] for m in messages]
-
-        judged = self._gate_and_judge(tenant, policy, remaining, rid)
-        by_id: dict[str, Decision] = {**decided, **{d.message_id: d for d in judged}}
-        return [by_id[m.id] for m in messages]
+        if remaining:
+            judged = self._gate_and_judge(tenant, policy, [messages[i] for i in remaining], rid)
+            for i, d in zip(remaining, judged, strict=True):
+                out[i] = d
+        return [d for d in out if d is not None]
 
     def _gate_and_judge(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
         """Everything that only governs what is left after local rules have already decided what they can:
@@ -206,13 +215,20 @@ class ModerationService:
             return [Decision(m.id, "none", None, 0.0, {}, False, hit) for m in messages]
         # A batch is checked once and then spent whole, so its size is the amount any ceiling can be
         # overshot by. Two seconds of a raid is otherwise one batch of whatever arrived.
-        keep, shed = within_cap(messages, MAX_BATCH)
+        needs = getattr(self.judge, "needs_request", None)
+        cats, rules = policy.enabled_categories(), policy.rules
+        keep, shed = within_cap(messages, MAX_BATCH, (lambda m: needs(m, cats, rules)) if needs else (lambda m: True))
         if shed:
             log.warning({"event": "over_batch", "tenant": tenant, "rid": rid,
                          "messages": len(messages), "shed": len(shed)})
-            by_id = {d.message_id: d for d in self._gate_and_judge(tenant, policy, keep, rid)}
-            by_id.update({m.id: Decision(m.id, "none", None, 0.0, {}, False, "over_batch") for m in shed})
-            return [by_id[m.id] for m in messages]
+            out: list[Decision | None] = [None] * len(messages)
+            judged = self._judge_batch(tenant, policy, [messages[i] for i in keep], rid)
+            for i, d in zip(keep, judged, strict=True):
+                out[i] = d
+            for i in shed:
+                m = messages[i]
+                out[i] = Decision(m.id, "none", None, 0.0, {}, False, "over_batch")
+            return [d for d in out if d is not None]
         return self._judge_batch(tenant, policy, messages, rid)
 
     def _judge_batch(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
@@ -318,14 +334,16 @@ class Batcher:
         await asyncio.sleep(max(0.0, self.window - waited))
         batch = self.pending.pop(tenant, [])
         self.since.pop(tenant, None)
-        if batch:
-            try:
+        try:
+            if batch:
                 await self.handler(tenant, batch)
-            except Exception as exc:  # an adapter bug must not stop future batches
-                log.exception({"event": "batch_handler_error", "tenant": tenant, "error": str(exc)[:200]})
-        # What arrived while the handler ran. `add` saw this task still running and did not start
-        # another, so without this those messages waited for the next message to arrive: the end
-        # of a raid sat unjudged until somebody else spoke, which in a chat that just went quiet
-        # could be minutes.
-        if self.pending.get(tenant):
-            self.tasks[tenant] = asyncio.create_task(self._flush(tenant))
+        except Exception as exc:  # an adapter bug must not stop future batches
+            log.exception({"event": "batch_handler_error", "tenant": tenant, "error": str(exc)[:200]})
+        finally:
+            # What arrived while the handler ran. `add` saw this task still running and did not
+            # start another, so without this those messages waited for the next message to arrive:
+            # the end of a raid sat unjudged until somebody else spoke, which in a chat that just
+            # went quiet could be minutes. In `finally` so that a cancelled batch does not strand
+            # them either.
+            if self.pending.get(tenant):
+                self.tasks[tenant] = asyncio.create_task(self._flush(tenant))
