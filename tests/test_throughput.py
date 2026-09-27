@@ -48,6 +48,10 @@ def _chat(n: int, offset: int = 0) -> list[str]:
     for f in sorted(YT.glob("*.csv")):
         with f.open(encoding="utf-8") as fh:
             out += [r["CONTENT"][:200] for r in csv.DictReader(fh) if len(r["CONTENT"].strip()) > 20]
+    if not out:
+        # The comment set is fetched by `benchmark/prepare.py` and git-ignored, so a clean checkout (CI)
+        # does not have it. Skipped visibly rather than run on an empty batch that proves nothing.
+        pytest.skip(f"{YT} is empty; run benchmark/prepare.py to fetch it")
     out = list(dict.fromkeys(out))[offset : offset + n]
     assert len(out) == n, f"the corpus has {offset + len(out)} distinct lines, not {offset + n}"
     return out
