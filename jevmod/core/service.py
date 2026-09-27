@@ -30,7 +30,7 @@ log = logging.getLogger("jevmod")
 JEV_USD_PER_M_INPUT = 0.042
 # The most one check-then-spend window may commit. A quota is checked before a batch and written
 # after it, so a batch bigger than this is a ceiling overshot by exactly that much.
-MAX_BATCH = int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100)
+MAX_BATCH = max(1, int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100))
 
 # Pad a small batch with recent messages from the same channel so a quiet server is not moderated
 # worse than a busy one. On by default, and the reason is that the alternative is not moderation:
@@ -59,6 +59,29 @@ if _PAD_RAW is not None and _PAD_RAW.strip().lower() not in _PAD_FALSE | _PAD_TR
 PAD_BATCH = _PAD_RAW is None or _PAD_RAW.strip().lower() not in _PAD_FALSE
 # Whether plans mean anything here, and the plan a tenant sits on when nothing is paying for it. Both are
 # defined in `store` so that the gate and the quota that enforce them cannot drift apart.
+
+
+def within_cap(messages: list[Message], cap: int) -> tuple[list[Message], list[Message]]:
+    """Which messages of a batch are judged under `MAX_BATCH`, and which are shed as `over_batch`.
+
+    The cap counts distinct texts, not messages. `Judge` asks identical text in the same context once
+    (`jevmod/judge.py`), and every copy in a batch reads the same context, so a copy costs nothing
+    once its text is in: a raid of three hundred copies of one line is one position. Distinct per
+    channel, because a Discord batch can span channels and each channel reads its own context. Counting messages
+    shed two hundred of those copies unjudged, in exactly the batch a raid is.
+
+    When the distinct texts still exceed the cap, the ones kept are spread evenly across the batch
+    rather than taken from its start. Taking the first `cap` shed the end of every overloaded window,
+    the same part every time, so whatever was posted last in a burst was never looked at. The order of
+    the batch is kept in both lists.
+    """
+    distinct = list(dict.fromkeys((m.text, m.channel) for m in messages))
+    if len(distinct) <= cap:
+        return list(messages), []
+    step = len(distinct) / cap
+    kept = {distinct[int(i * step)] for i in range(cap)}
+    return ([m for m in messages if (m.text, m.channel) in kept],
+            [m for m in messages if (m.text, m.channel) not in kept])
 
 
 class ModerationService:
@@ -183,16 +206,23 @@ class ModerationService:
             return [Decision(m.id, "none", None, 0.0, {}, False, hit) for m in messages]
         # A batch is checked once and then spent whole, so its size is the amount any ceiling can be
         # overshot by. Two seconds of a raid is otherwise one batch of whatever arrived.
-        if len(messages) > MAX_BATCH:
-            head, tail = messages[:MAX_BATCH], messages[MAX_BATCH:]
-            return self._gate_and_judge(tenant, policy, head, rid) + [
-                Decision(m.id, "none", None, 0.0, {}, False, "over_batch") for m in tail
-            ]
+        keep, shed = within_cap(messages, MAX_BATCH)
+        if shed:
+            log.warning({"event": "over_batch", "tenant": tenant, "rid": rid,
+                         "messages": len(messages), "shed": len(shed)})
+            by_id = {d.message_id: d for d in self._gate_and_judge(tenant, policy, keep, rid)}
+            by_id.update({m.id: Decision(m.id, "none", None, 0.0, {}, False, "over_batch") for m in shed})
+            return [by_id[m.id] for m in messages]
         return self._judge_batch(tenant, policy, messages, rid)
 
     def _judge_batch(self, tenant: str, policy: Policy, messages: list[Message], rid: str) -> list[Decision]:
         j = self.judge
-        before = (j.requests, j.input_tokens, j.judged_messages)
+        # This call's own spend. The judge is shared by every tenant, and each tenant's batch runs on
+        # its own thread, so reading the shared totals before and after counted whatever another
+        # tenant spent in between as this one's: two busy streams billed each other. A judge that
+        # does not keep per-thread usage, such as a test double, falls back to the shared totals.
+        usage = getattr(j, "thread_usage", None)
+        before = usage() if usage else (j.requests, j.input_tokens, j.judged_messages)
         t0 = time.perf_counter()
         # Padding is drawn from the same window the context comes from, so a message's cache key
         # already varies with it: `_key` hashes `m.context`, and both are this channel's recent
@@ -218,13 +248,18 @@ class ModerationService:
             log.warning(
                 {"event": "judge_error", "tenant": tenant, "rid": rid, "error": f"{type(exc).__name__}: {exc}"[:200]}
             )
+            # A split batch can fail in one request after another was answered and billed. That
+            # spend is real and the budget ceilings have to see it, even though the batch fails open.
+            after = usage() if usage else (j.requests, j.input_tokens, j.judged_messages)
+            spent = [a - b for a, b in zip(after, before, strict=True)]
+            if spent[0]:
+                self.store.add_usage(tenant, spent[2], spent[0], spent[1])
             if not self.fail_open:
                 raise
             return [Decision(m.id, "none", None, 0.0, {}, False, "error_open") for m in messages]
         ms = int((time.perf_counter() - t0) * 1000)
-        judged = j.judged_messages - before[2]
-        reqs = j.requests - before[0]
-        toks = j.input_tokens - before[1]
+        after = usage() if usage else (j.requests, j.input_tokens, j.judged_messages)
+        reqs, toks, judged = (a - b for a, b in zip(after, before, strict=True))
         self.store.add_usage(tenant, judged, reqs, toks)
         decisions = [decide(policy, v) for v in verdicts]
         for m, d in zip(messages, decisions, strict=True):
@@ -249,25 +284,48 @@ class ModerationService:
 
 class Batcher:
     """Collects messages per tenant for `window_s`, then hands the batch to `handler` (async). One Jev request per
-    tenant per window instead of one per message."""
+    tenant per window instead of one per message.
+
+    One batch per tenant at a time, so a tenant's batches are judged in order and its quota is checked
+    against what the previous batch actually spent. The window is counted from the oldest message
+    waiting, not from when the previous batch finished: what arrived while a batch was being judged
+    has already waited, and making it wait a full window more set a busy stream's cycle to the window
+    plus the judge's time instead of the longer of the two. On a one second Twitch window with the
+    judge at half a second that cycle was 1.5 s, and every batch was half as big again as the window
+    alone would make it, which is what pushed a stream past `MAX_BATCH` at about 65 messages a second
+    instead of 100 (`benchmark/throughput_stream/REPORT.md`).
+    """
 
     def __init__(self, window_s: float, handler: Callable[[str, list[Any]], Any]) -> None:
         self.window = window_s
         self.handler = handler
         self.pending: dict[str, list[Any]] = {}
         self.tasks: dict[str, asyncio.Task] = {}
+        # When the oldest message now pending for a tenant arrived, on the loop's clock.
+        self.since: dict[str, float] = {}
 
     def add(self, tenant: str, item: Any) -> None:
+        if not self.pending.get(tenant):
+            self.since[tenant] = asyncio.get_running_loop().time()
         self.pending.setdefault(tenant, []).append(item)
         t = self.tasks.get(tenant)
         if t is None or t.done():
             self.tasks[tenant] = asyncio.create_task(self._flush(tenant))
 
     async def _flush(self, tenant: str) -> None:
-        await asyncio.sleep(self.window)
+        loop = asyncio.get_running_loop()
+        waited = loop.time() - self.since.get(tenant, loop.time())
+        await asyncio.sleep(max(0.0, self.window - waited))
         batch = self.pending.pop(tenant, [])
+        self.since.pop(tenant, None)
         if batch:
             try:
                 await self.handler(tenant, batch)
             except Exception as exc:  # an adapter bug must not stop future batches
                 log.exception({"event": "batch_handler_error", "tenant": tenant, "error": str(exc)[:200]})
+        # What arrived while the handler ran. `add` saw this task still running and did not start
+        # another, so without this those messages waited for the next message to arrive: the end
+        # of a raid sat unjudged until somebody else spoke, which in a chat that just went quiet
+        # could be minutes.
+        if self.pending.get(tenant):
+            self.tasks[tenant] = asyncio.create_task(self._flush(tenant))
