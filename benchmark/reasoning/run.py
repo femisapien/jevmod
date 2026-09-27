@@ -7,7 +7,7 @@ write replies, produce code, or generate explanations of their reasoning" (docs.
 generated: a Choice over reason codes written here, and a Choice over spans of the message that code cuts out.
 This runner measures both, in the two places they could live:
 
-- **inline** (arm B): one extra Choice per message in the same request as the eight-category judgment, over
+- **inline** (arm B): one extra Choice per message in the same request as the seven-category judgment, over
   every category's reason codes. Paid for every judged message; it is the "extra field" option.
 - **companion** (arm C): a second request, only for messages the policy flagged, with a reason-code Choice
   for the flagged category and an evidence-span Choice. Measured batched (every flagged message of a
@@ -253,9 +253,14 @@ def judge() -> None:
                 j = Judge()  # a fresh Judge per arm: an empty cache, so every arm really asks
                 rec = Recording(j.client, inline=arm == "B")
                 j.client = rec  # type: ignore[assignment]
+                # No padding, so every position after m0 is a judged message, numbered in the order
+                # Judge judged them; a message Judge skips takes no position, so `why_{i}` counts only
+                # judged verdicts rather than positions in the chunk.
                 verdicts = j.judge(msgs, CATS)
                 spent += rec.last.get("in", 0)
-                for i, (it, v) in enumerate(zip(chunk, verdicts, strict=True), start=1):
+                i = 0
+                for it, v in zip(chunk, verdicts, strict=True):
+                    i += v.judged
                     row = {"arm": arm, "batch": b // BATCH, "id": it["id"], "judged": v.judged,
                            "reason": v.reason, "scores": v.scores, "flagged": flagged(v.scores),
                            "req_in": rec.last.get("in"), "req_out": rec.last.get("out"),
@@ -454,36 +459,53 @@ def report() -> None:
     reqs["companion batched"] = list(per_req([r for r in C if r["mode"] == "batched"], "batch").values())
     reqs["companion single"] = [r for r in C if r["mode"] == "single"]
     reqs["companion single, every flagged category"] = [r for r in C if r["mode"] == "all"]
+    # A judge request's `req_n` is the chunk; a message Judge skipped is in the chunk but not in the request.
+    n_judged = {f"judge {a}": sum(r["judged"] for r in J if r["arm"] == a) for a in ("A", "B", "A2")}
+    per_msg: dict[str, float] = {}
     for name, rs in reqs.items():
-        n = sum(r["req_n"] for r in rs)
+        n = n_judged.get(name) or sum(r["req_n"] for r in rs)
         tin, tout = sum(r["req_in"] for r in rs), sum(r["req_out"] or 0 for r in rs)
+        per_msg[name] = tin / n
         ms = [r["req_ms"] for r in rs]
         print(f"| {name} | {len(rs)} | {n} | {tin / n:,.0f} | {tout / n:,.1f} | ${tin / n * 1000 * USD_PER_M / 1e6:.4f}"
               f" | {pct(ms, .5):,} ms | {pct(ms, .95):,} ms |")
-    a_in = sum(r["req_in"] for r in reqs["judge A"])
-    b_in = sum(r["req_in"] for r in reqs["judge B"])
-    a_ms = statistics.median(r["req_ms"] for r in reqs["judge A"])
-    b_ms = statistics.median(r["req_ms"] for r in reqs["judge B"])
-    print(f"\nInline adds {b_in / a_in - 1:+.1%} input tokens to every judgment request and "
-          f"{b_ms - a_ms:+,.0f} ms to its median latency.")
-    total = sum(r["req_in"] for rs in reqs.values() for r in rs)
-    print(f"Total spend for this experiment: {total:,} input tokens = ${total * USD_PER_M / 1e6:.4f}")
+    med = {a: statistics.median(r["req_ms"] for r in reqs[f"judge {a}"]) for a in ("A", "B", "A2")}
+    print(f"\nWith 15 requests per judge arm the p95 is the slowest request. A and A2 are the same request and differ "
+          f"by {abs(med['A'] - med['A2']):,.0f} ms at the median; B is {med['B'] - med['A']:+,.0f} ms from A, so "
+          "the inline Choice's latency cost is not resolved by this run beyond 'small'.")
+    ctrl_in = sum(r["req_in"] for r in C if r["mode"] == "control")
+    total = sum(r["req_in"] for rs in reqs.values() for r in rs) + ctrl_in
+    print(f"Total spend for this experiment, the {sum(r['mode'] == 'control' for r in C)} control requests included: "
+          f"{total:,} input tokens = ${total * USD_PER_M / 1e6:.4f}")
 
-    print("\n### Flag rate in arm A, and what the companion costs per 1,000 judged messages\n")
+    print("\n### Flag rate in arm A, and what the companion costs per judged message\n")
     fl = [i for i in judged if arm["A"][i]["flagged"]]
     print(f"Arm A flagged {len(fl)} of {len(judged)} ({len(fl) / len(judged):.1%}); this set is enriched on purpose.")
     per_k = 1000 * USD_PER_M / 1e6  # dollars per 1,000 messages for each input token per message
-    a_msg = a_in / sum(r["req_n"] for r in reqs["judge A"])
-    inl = (b_in - a_in) / sum(r["req_n"] for r in reqs["judge B"])
-    s_in = statistics.mean(r["req_in"] for r in reqs["companion single"])
-    x_in = statistics.mean(r["req_in"] for r in reqs["companion single, every flagged category"])
-    print(f"Judging costs ${a_msg * per_k:.4f} per 1,000 messages (arm A). A real community flags far less than this "
-          "set, so the companion is priced at assumed flag rates; inline is paid on every message whatever the rate.\n")
+    a_msg = per_msg["judge A"]
+    inl = per_msg["judge B"] - per_msg["judge A"]
+    s_in, x_in = per_msg["companion single"], per_msg["companion single, every flagged category"]
+    # Arm A is the cheapest judgment there is: nine real messages sharing one request. Production pads a quiet
+    # channel's small batch to ten positions, which jevmod/core/service.py puts at about eight times the spend
+    # per judged message. Both are shown, so the share is a range and not one number.
+    pad = 8 * a_msg
+    print(f"Tokens per judged message: judging costs {a_msg:,.0f} in a full batch of nine (arm A) and about {pad:,.0f} "
+          "for a message padded alone (eight times, jevmod/core/service.py). The companion is priced at assumed "
+          "flag rates; the inline Choice is paid on every judged message.\n")
     print("| flag rate | companion, top category | companion, every flagged category | inline Choice |")
     print("|---|---|---|---|")
     for rate in (0.01, 0.02, 0.05, 0.10):
-        cells = [rate * s_in * per_k, rate * x_in * per_k, inl * per_k]
-        print(f"| {rate:.0%} | " + " | ".join(f"${c:.5f} (+{c / (a_msg * per_k):.1%})" for c in cells) + " |")
+        cells = [rate * s_in, rate * x_in, inl]
+        print(f"| {rate:.0%} | " + " | ".join(
+            f"{t:,.0f} tok, ${t * per_k:.5f} per 1,000, +{t / a_msg:.1%} full / +{t / pad:.1%} padded"
+            for t in cells) + " |")
+
+    cut = "…"
+    trunc = [r for r in reqs["companion single"] if any(p.endswith(cut) for p in r["spans"])]
+    chose = [r for r in trunc if r["span"] and r["span"]["choice"].startswith("s")
+             and r["spans"][int(r["span"]["choice"][1:]) - 1].endswith(cut)]
+    print(f"\nSpans cut at {SPAN_CHARS} characters: {len(trunc)} of {len(reqs['companion single'])} flagged messages "
+          f"had at least one, and on {len(chose)} the chosen span was a cut one: {', '.join(r['id'] for r in chose)}.")
 
     print("\n### Agreement\n")
     single = {r["id"]: r for r in C if r["mode"] == "single"}
