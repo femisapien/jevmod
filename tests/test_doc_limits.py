@@ -54,3 +54,9 @@ def test_server_enforces_the_named_limits() -> None:
 def test_store_default_retention_is_the_named_constant() -> None:
     default = inspect.signature(store_mod.Store.__init__).parameters["retention_days"].default
     assert default == store_mod.RETENTION_DAYS
+
+
+def test_store_text_and_topic_are_the_named_constants() -> None:
+    src = (ROOT / "jevmod" / "core" / "store.py").read_text(encoding="utf-8")
+    assert "channel_topic[:TOPIC_CHARS]" in src
+    assert '"JEVMOD_KEEP_TEXT_CHARS", str(KEEP_TEXT_CHARS)' in src

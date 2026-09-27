@@ -55,6 +55,10 @@ PRO_MONTHLY = 50_000
 # How long a decision record is kept before it is purged. The privacy notice, the security page and the DPA
 # state this number in six languages; the hosted site's `sync_prose.py --check` fails when they disagree with it.
 RETENTION_DAYS = 30
+# Characters of a message's text a store keeps when neither the caller nor JEVMOD_KEEP_TEXT_CHARS says otherwise
+# (the hosted service sets 0), and characters of the channel topic every decision record keeps.
+KEEP_TEXT_CHARS = 300
+TOPIC_CHARS = 80
 PLAN_QUOTAS: dict[str, int] = {
     INACTIVE: FREE_MONTHLY,
     "pro": PRO_MONTHLY,
@@ -113,7 +117,9 @@ class Store:
         self._paying = 0         # paid-plan tenants, cached; see paying_tenants
         self._paying_at = 0.0
         self.keep_text_chars = (
-            int(os.environ.get("JEVMOD_KEEP_TEXT_CHARS", "300")) if keep_text_chars is None else keep_text_chars
+            int(os.environ.get("JEVMOD_KEEP_TEXT_CHARS", str(KEEP_TEXT_CHARS)))
+            if keep_text_chars is None
+            else keep_text_chars
         )
         self.retention_days = retention_days
         self.monthly_quota = FREE_MONTHLY if monthly_quota is None else monthly_quota  # 0 = unlimited
@@ -491,7 +497,7 @@ class Store:
                     rid,
                     m.id,
                     m.author,
-                    m.channel_topic[:80],
+                    m.channel_topic[:TOPIC_CHARS],
                     d.category,
                     d.probability,
                     d.action,
