@@ -69,9 +69,18 @@ async def validation_error(request: Request, exc: Exception) -> Response:
     input is the lone surrogate that made it fail, that encode raises, and the caller gets a bare 500 in
     place of the error that names its field. Same status, same `{"detail": [...]}` shape, ASCII-escaped.
     Public so that an app mounting these routes on another FastAPI app installs it there too: exception
-    handlers belong to the app, not to the route."""
+    handlers belong to the app, not to the route.
+
+    The echoed `input` is whatever the caller sent, so it can still be something no encoder takes: nested
+    deeper than the encoder can recurse, or raw bytes that are not UTF-8 (red-team round 2). Then the same
+    422 goes out with `type`, `loc` and `msg` only, which is still the field and the reason."""
     assert isinstance(exc, RequestValidationError)
-    return AsciiJSONResponse({"detail": jsonable_encoder(exc.errors())}, status_code=422)
+    try:
+        return AsciiJSONResponse({"detail": jsonable_encoder(exc.errors())}, status_code=422)
+    except (RecursionError, ValueError, TypeError):  # UnicodeDecodeError is a ValueError
+        bare = [{"type": str(e.get("type")), "loc": [x if isinstance(x, int) else str(x) for x in e.get("loc", ())],
+                 "msg": str(e.get("msg"))} for e in exc.errors()]
+        return AsciiJSONResponse({"detail": bare}, status_code=422)
 
 
 app.add_exception_handler(RequestValidationError, validation_error)

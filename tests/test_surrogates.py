@@ -207,6 +207,25 @@ def test_a_422_echoing_nan_or_infinity_is_still_a_422(api, body):
     assert r.status_code == 422 and jev.calls == 0
 
 
+@pytest.mark.parametrize("depth", [300, 900])
+def test_a_422_echoing_deeply_nested_input_is_still_a_422(api, depth):
+    """Red-team round 2: an echoed input nested past the encoder's recursion limit turned the 422 into a 500."""
+    client, auth, jev, _ = api
+    nested = "[" * depth + "]" * depth
+    r = client.put("/v1/policy", content='{"rules":' + nested + "}", headers=auth)
+    assert r.status_code == 422, r.text[:200]
+    r = client.post("/v1/moderate", content='{"messages":[{"text":' + nested + "}]}", headers=auth)
+    assert r.status_code == 422 and jev.calls == 0
+    assert ["body", "messages", 0, "text"] in [e["loc"] for e in r.json()["detail"]]
+
+
+def test_a_422_echoing_bytes_that_are_not_utf8_is_still_a_422(api):
+    client, auth, jev, _ = api
+    r = client.post("/v1/moderate", content=b"\xff\xfe\xfa", headers={**auth, "Content-Type": "text/plain"})
+    assert r.status_code == 422, r.text
+    assert jev.calls == 0
+
+
 def test_the_service_refuses_a_surrogate_request_id_before_calling_the_model(tmp_path):
     jev = _Jev()
     svc = ModerationService(Store(tmp_path / "s.sqlite"), judge=Judge(client=jev, cache_ttl_s=0))
