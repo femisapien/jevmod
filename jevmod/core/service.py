@@ -34,21 +34,22 @@ MAX_BATCH = int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100)
 
 # Pad a small batch with recent messages from the same channel so a quiet server is not moderated
 # worse than a busy one. On by default, and the reason is that the alternative is not moderation:
-# spam recall at the shipped threshold is 17.3% when a message is judged alone and 38.7% in a
-# request of ten (`benchmark/BATCH_EFFECT.md` section 7), and `Batcher` sizes a batch by how busy
-# the channel is, so which of those a server gets is decided by its traffic.
+# spam recall at the shipped threshold is 17.3% when a message is judged alone at `m0` and 38.7% in
+# a request of ten (`benchmark/BATCH_EFFECT.md` section 7). Section 9 of the same file found most of
+# that gap was position `m0`, now always a filler: the filler alone measured 26.7%. What padding
+# with the channel's own history adds over the filler has not been isolated.
 #
-# It costs about eight times the model spend for the messages that get padded, and only those: a
-# busy channel already fills its own request and pays nothing extra. At $0.042/M input that is
-# $0.51 per thousand judged messages against $0.06, so a quiet server at a thousand messages a
-# month goes from six cents to fifty against a $3.99 plan.
+# It costs up to 4.5 times the model spend for the messages that get padded, and only those: a busy
+# channel already fills its own request and pays nothing extra. At $0.042/M input that is $0.41 per
+# thousand judged messages against $0.09 with the filler alone (`benchmark/context_cost/REPORT.md`,
+# JEV-67, measured on 48-character comments with a full window; longer text costs more).
 #
-# `JEVMOD_PAD_BATCH=0` buys the cheaper version back. What it trades away is twenty-one points of
-# spam recall, which is why the number is written here next to the switch rather than in a
-# changelog nobody reads.
+# `JEVMOD_PAD_BATCH=0` buys the cheaper version back and keeps the filler. What it trades away is
+# the recall padding adds over the filler, which is written here next to the switch rather than in
+# a changelog nobody reads, and which JEV-19 asks to be measured before the default changes.
 # Explicit about every spelling it accepts, and loud about one it does not. The first version
 # treated anything outside {0, false, no} as on, so `JEVMOD_PAD_BATCH=off` left padding running and
-# said nothing: an operator who believed they had turned off eight times the model spend had not.
+# said nothing: an operator who believed they had turned off 4.5 times the model spend had not.
 _PAD_RAW = os.environ.get("JEVMOD_PAD_BATCH")
 _PAD_FALSE = {"0", "false", "no", "off", "n", ""}
 _PAD_TRUE = {"1", "true", "yes", "on", "y"}
