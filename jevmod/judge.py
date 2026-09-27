@@ -74,28 +74,23 @@ MAX_REQUEST_MESSAGES = 50
 MAX_INFLIGHT = max(1, int(os.environ.get("JEVMOD_MAX_INFLIGHT", "4") or 4))
 # The estimate: what one position costs in questions, measured at about 126 input tokens per
 # question on chat-sized text and rounded up, and text by script. ASCII at three characters a token
-# where English runs nearer four. Everything else is far denser, measured on the live API on
-# 2026-09-27: Chinese at 1.08 tokens a character and emoji at 2.06 each, so a character outside ASCII
-# counts 1.5 and one outside the Basic Multilingual Plane (most emoji) 2.5. The first version counted
-# every character as a third of a token, and fifty 500-character Chinese lines were one request the
-# API refused. Every figure errs towards splitting early, which costs a few percent and not a
-# refusal; a request refused anyway is halved and asked again (`Judge._ask`).
+# where English runs nearer four. Everything else counts its UTF-8 bytes, one token a byte, because
+# that is the ceiling the live API showed on 2026-09-27: Chinese 1.08 tokens a character (3 bytes),
+# emoji 2.06 (4 bytes), Hangul 2.22 (3), Yi 2.98 (3), CJK Extension A 2.97 (3), Extension B 3.95 (4).
+# A byte-level tokenizer cannot spend more than one token a byte. The first version counted every
+# character as a third of a token and fifty 500-character Chinese lines were one request the API
+# refused; the second counted 1.5 and 2.5, which Yi and Extension B still beat. Common scripts are
+# overestimated by up to three times, which splits some long non-Latin batches earlier than needed;
+# a request refused anyway is asked again without padding and then halved (`Judge._ask`).
 _TOKENS_PER_QUESTION = 135
 _CHARS_PER_TOKEN = 3
 
 
 def text_tokens(text: str) -> int:
-    """An upper estimate of the input tokens `text` costs."""
-    ascii_chars = wide = astral = 0
-    for ch in text:
-        o = ord(ch)
-        if o < 0x80:
-            ascii_chars += 1
-        elif o < 0x10000:
-            wide += 1
-        else:
-            astral += 1
-    return ascii_chars // _CHARS_PER_TOKEN + (wide * 3 + astral * 5 + 1) // 2
+    """An upper estimate of the input tokens `text` costs: ASCII at three characters a token, every
+    other character at its UTF-8 length."""
+    ascii_chars = sum(1 for ch in text if ch < "")
+    return ascii_chars // _CHARS_PER_TOKEN + len(text.encode("utf-8", "surrogatepass")) - ascii_chars
 
 
 def estimate_tokens(
@@ -120,19 +115,28 @@ def split_for_request(
     (`benchmark/BATCH_EFFECT.md`): a greedy split of 55 would send 50 and then 5, and the 5 would be
     judged in the kind of small request that section measured losing half its spam recall. The m0
     position every request carries is counted too.
+
+    A message too big to share a request goes alone, and the rest are split without it. Balancing
+    the count with it in scattered one oversized line into fifty requests of one: twice the tokens,
+    every message judged alone, and the key's four slots taken from everybody else.
     """
     if not items:
         return []
     costs = [_position_cost(m, t, cats, rules) for m, t in items]
     lead = estimate_tokens(LEAD_FILLER, (), len(cats), rules, items[0][0].channel_topic or "general chat")
-    n = len(items)
+    alone = [i for i, c in enumerate(costs) if lead + c > budget // 2]
+    rest = [i for i in range(len(items)) if lead + costs[i] <= budget // 2]
+    n = len(rest)
     k = max(1, -(-n // max_messages))
-    while True:
+    while n:
         # k parts whose sizes differ by at most one: 13 in four is 4, 3, 3, 3, never 4, 4, 4, 1.
-        chunks = [list(range(i * n // k, (i + 1) * n // k)) for i in range(k)]
+        chunks = [[rest[j] for j in range(i * n // k, (i + 1) * n // k)] for i in range(k)]
         if k >= n or all(lead + sum(costs[j] for j in c) <= budget for c in chunks):
-            return [[items[j] for j in c] for c in chunks if c]
+            break
         k += 1
+    else:
+        chunks = []
+    return [[items[j] for j in c] for c in chunks + [[i] for i in alone] if c]
 
 
 def _position_cost(m: Message, text: str, cats: list[str], rules: dict[str, str]) -> int:
@@ -252,11 +256,12 @@ class Judge:
         return getattr(loc, "requests", 0), getattr(loc, "input_tokens", 0), getattr(loc, "judged_messages", 0)
 
     def needs_request(self, m: Message, categories: list[str], custom_rules: dict[str, str] | None = None) -> bool:
-        """Whether `judge` would put this message in a request: it passes the pre-filter and is not
-        cached. What `ModerationService` counts against `MAX_BATCH`, since nothing else costs."""
-        if prefilter(m):
-            return False
+        """Whether `judge` would put this message in a request: it passes the pre-filter, is not
+        cached, and there is something to ask. What `ModerationService` counts against `MAX_BATCH`,
+        since nothing else costs."""
         cats = [c for c in categories if c in CATEGORIES]
+        if prefilter(m) or not (cats or custom_rules):
+            return False
         hit = self.cache.get(_key(normalize(m.text), m.channel_topic, cats, custom_rules or {}, m.context))
         return not (hit and time.time() - hit[0] < self.cache_ttl)
 
@@ -393,7 +398,10 @@ class Judge:
             if failure is not None:
                 # The contract is unchanged: a request that failed raises, and the caller decides
                 # fail-open or fail-closed for the batch. The chunks that did succeed were billed,
-                # so they are counted and cached above before this is raised, not lost with it.
+                # so they are counted and cached above before this is raised, not lost with it, and
+                # their verdicts ride on the exception (`partial_verdicts`, None where a message was
+                # not answered) so a caller that fails open can still act on the ones it paid for.
+                failure.partial_verdicts = [out.get(i) for i in range(len(messages))]  # type: ignore[attr-defined]
                 raise failure
         elif to_judge:
             for idx, (m, _) in zip(where, to_judge, strict=True):
@@ -419,7 +427,15 @@ class Judge:
         try:
             return [(chunk, self._request(chunk, cats, custom_rules, pad, topic))]
         except TypeSafeAPIError as exc:
-            if len(chunk) < 2 or not _too_big(exc):
+            if not _too_big(exc):
+                return [(chunk, exc)]
+            if pad:
+                # The padding is the channel's history, which anybody in the channel can fill. A
+                # refusal with padding in it is asked again without, before anything is declared too
+                # long: otherwise nine long lines in the window left every lone message after them
+                # unjudged.
+                return self._ask(chunk, cats, custom_rules, [], topic)
+            if len(chunk) < 2:
                 return [(chunk, exc)]
         except Exception as exc:
             return [(chunk, exc)]
@@ -509,6 +525,12 @@ def _p(answer: Any) -> float:
     if not isinstance(answer, NoulAnswer):
         raise TypeError(f"expected a Noul answer, got {type(answer).__name__}")
     return float(answer.noul)
+
+
+def dedupe_text(text: str) -> str:
+    """The form of a message's text that decides whether two messages are one question: what `_key`
+    hashes. `ModerationService` counts `MAX_BATCH` in these."""
+    return normalize(text).lower()
 
 
 def _key(text: str, topic: str, cats: list[str], rules: dict[str, str], context: tuple[str, ...] = ()) -> str:
