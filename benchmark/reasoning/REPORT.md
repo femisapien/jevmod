@@ -1,6 +1,6 @@
 # Does Jev return reasoning, and at what cost (JEV-15)
 
-Run on 2026-09-27 against `jev-1.13.0`, 135 messages, 776,584 input tokens, **$0.0326** at the $0.042/M
+Run on 2026-09-27 against `jev-1.13.0`, 135 messages, 799,378 input tokens, **$0.0336** at the $0.042/M
 list price. Runner: `run.py` in this directory. Raw outputs: `results/dataset.jsonl` (the messages),
 `results/judge.jsonl` (every score of arms A, B and A2), `results/companion.jsonl` (every rationale),
 `results/handread.md` and `results/handread.jsonl` (the 30 read by hand, with a note on each miss).
@@ -15,15 +15,16 @@ list price. Runner: `run.py` in this directory. Raw outputs: `results/dataset.js
    criteria each, for example "a fake giveaway: free Nitro, skins, gift cards or crypto") and a Choice over
    the parts of the message ("which part should a moderator read first"). The moderator reads a sentence we
    wrote, picked by Jev, plus a quote from the message.
-3. **It is truthful and useful on 25 of 30 read by hand**, 27 of 30 truthful.
-4. **It costs 724 input tokens per explained message** as a separate request, $0.03 per 1,000 explained
-   messages, 238 ms p50 and 303 ms p95. At a 5% flag rate that adds 3.4% to the cost of judging (4.1% when
-   every flagged category is explained). Asked inline in the judgment request it adds 97.6% to every
-   judgment, flagged or not.
+3. **It is truthful and useful on 25 of 30 read by hand** (23 of 30 on a stricter reading), 27 of 30
+   truthful.
+4. **As a separate request it costs 724 input tokens per explained message**, 238 ms p50. Spread over every
+   judged message at a 5% flag rate that is 36 tokens, +3.3% on the cheapest judgment (a full batch of nine)
+   and +0.4% on a message padded alone. Asked inline in the judgment request it costs 1,060 tokens on every
+   judged message, flagged or not: +97.6% on a full batch, +12.2% padded.
 5. **It does not move the scores.** The inline arm shifts the category scores by 0.0036 on average, the
    same as sending the identical request twice (0.0037). A separate request cannot touch them at all.
-6. **It is not a second opinion.** Given a real flag it never disagreed (0 of 94), including on the two
-   flags that are plainly false positives. It explains the flag; it does not check it.
+6. **As asked here, it is not a second opinion.** Given a real flag it never disagreed (0 of 94). It
+   explains the flag; with this prompt, which tells Jev the message was flagged, it does not check it.
 
 ## What was measured
 
@@ -35,7 +36,7 @@ not exercised** (one doxxing flag appears as a second category); their reason co
 
 | arm | what it sends | why |
 |---|---|---|
-| A | the judgment exactly as `Judge.judge()` builds it, nine messages plus the m0 filler | the baseline |
+| A | the judgment exactly as `Judge.judge()` builds it, nine messages plus the m0 filler, no padding | the baseline |
 | B | A plus one Choice per message over every category's reason codes and `nothing` | the "extra field" option |
 | A2 | A again, identical | how much a plain repeat moves the scores, to compare B's shift with |
 | C single | one request per flagged message: a reason Choice for its top category and a span Choice | the companion, and what "on demand" costs |
@@ -44,8 +45,8 @@ not exercised** (one doxxing flag appears as a second category); their reason co
 | control | C single on 33 clean, unflagged messages, as if flagged under their highest-scoring category | can it say `not_it` |
 
 A, B and A2 go through `jevmod.judge.Judge` itself; B only appends questions to the request Judge built,
-so the judgment questions and state are byte for byte what production sends. The three were sent back to
-back for every batch, so drift hits all three alike.
+so the judgment questions and state are byte for byte what an unpadded production request sends. The three
+were sent back to back for every batch, so drift hits all three alike.
 
 ## Does asking for it change the scores
 
@@ -55,8 +56,9 @@ back for every batch, so drift hits all three alike.
 | B vs A (inline) | 938 | 0.0036 | 0.020 | 0.10 | 2.1% | 2 of 134 |
 | B vs A2 | 938 | 0.0035 | 0.020 | 0.07 | 1.8% | 0 of 134 |
 
-The inline Choice moves the scores no more than repeating the request does. The companion is a separate
-request after the verdict, so it cannot move them by construction.
+The inline Choice moves the scores no more than repeating the request does; the two messages whose flags
+changed are the same two in both comparisons, so it was A that moved. The companion is a separate request
+after the verdict, so it cannot move them by construction.
 
 ## Tokens, cost and latency
 
@@ -64,25 +66,32 @@ Output tokens are free (docs.typesafe.ai/models), so only input is priced.
 
 | request | requests | messages | input tok / msg | output tok / msg | $ / 1,000 msgs | p50 | p95 |
 |---|---|---|---|---|---|---|---|
-| judge A | 15 | 135 | 1,078 | 148.3 | $0.0453 | 396 ms | 939 ms |
-| judge B (inline) | 15 | 135 | 2,130 | 533.9 | $0.0895 | 448 ms | 1,353 ms |
-| judge A2 | 15 | 135 | 1,078 | 148.3 | $0.0453 | 371 ms | 763 ms |
+| judge A | 15 | 134 | 1,086 | 149.4 | $0.0456 | 396 ms | 939 ms |
+| judge B (inline) | 15 | 134 | 2,146 | 537.9 | $0.0901 | 448 ms | 1,353 ms |
+| judge A2 | 15 | 134 | 1,086 | 149.4 | $0.0456 | 371 ms | 763 ms |
 | companion batched | 15 | 94 | 502 | 116.5 | $0.0211 | 273 ms | 341 ms |
 | companion single | 94 | 94 | 724 | 119.1 | $0.0304 | 238 ms | 303 ms |
 | companion single, every flagged category | 94 | 94 | 880 | 174.2 | $0.0370 | 266 ms | 382 ms |
 
 "$ / 1,000 msgs" is per message judged for the judge rows and per message explained for the companion rows.
-Per 1,000 **judged** messages, at assumed flag rates (a community flags far less than this set does):
+With 15 requests per judge arm the p95 is the slowest request, and A and A2, the same request, differ by
+25 ms at the median; B's +52 ms over A is therefore "small", not a measured cost.
+
+Arm A is the cheapest a judgment gets: nine real messages sharing one request. Production pads a quiet
+channel's small batch to ten positions, which `jevmod/core/service.py` puts at about eight times the spend
+per judged message. So the share each option adds is a range, from a full batch to a message padded alone
+(about 8,689 tokens):
 
 | flag rate | companion, top category | companion, every flagged category | inline Choice |
 |---|---|---|---|
-| 1% | $0.00030 (+0.7%) | $0.00037 (+0.8%) | $0.04419 (+97.6%) |
-| 2% | $0.00061 (+1.3%) | $0.00074 (+1.6%) | $0.04419 (+97.6%) |
-| 5% | $0.00152 (+3.4%) | $0.00185 (+4.1%) | $0.04419 (+97.6%) |
-| 10% | $0.00304 (+6.7%) | $0.00370 (+8.2%) | $0.04419 (+97.6%) |
+| 1% | 7 tok / judged msg, +0.7% full, +0.1% padded | 9 tok, +0.8% full, +0.1% padded | 1,060 tok, +97.6% full, +12.2% padded |
+| 2% | 14 tok, +1.3% full, +0.2% padded | 18 tok, +1.6% full, +0.2% padded | 1,060 tok, +97.6% full, +12.2% padded |
+| 5% | 36 tok, +3.3% full, +0.4% padded | 44 tok, +4.1% full, +0.5% padded | 1,060 tok, +97.6% full, +12.2% padded |
+| 10% | 72 tok, +6.7% full, +0.8% padded | 88 tok, +8.1% full, +1.0% padded | 1,060 tok, +97.6% full, +12.2% padded |
 
-The inline Choice doubles the input because its list of 32 options (31 reason codes and `nothing`) is sent
-once per message in the batch.
+In money, at a 5% flag rate: $0.00185 per 1,000 judged messages for the companion on every flagged
+category, $0.0445 for the inline Choice. The inline Choice costs so much because its 32 options (31 reason
+codes and `nothing`) are sent once per message in the batch.
 
 ## Quality: the 30 read by hand
 
@@ -95,6 +104,7 @@ only that line and the quote knows what to look at, beyond the category name the
 | truthful | 27 |
 | useful | 25 |
 | both | 25 |
+| both, strict (also counting `rt_l4` and `oai331` as misses) | 23 |
 
 The five misses, one line each (full notes in `handread.jsonl`):
 
@@ -106,11 +116,24 @@ The five misses, one line each (full notes in `handread.jsonl`):
 - `oai1549`, true that it demeans a group, but the quoted part is the lesser sentence; the call to kill
   "these animals" is in the third.
 
+The strict reading also fails `rt_l4` (a request for bank details explained as `fake_giveaway`, where
+`credentials` fits better, though the quoted part is the right one) and `oai331` (`insult` "aimed at a
+person" on a jab at a group of readers).
+
 Three of the five are the same failure: a message flagged both spam and scam, explained only under spam.
 38 of 94 flags carry more than one category, 28 of them spam and scam together. Explaining **every** flagged
 category (the last companion row) gives those three a scam line too: `fake_giveaway` on all three, which is
-true of `rt_l16` and `rt_e2` and close for `rt_e8` (`credentials` would be closer). It costs 880 tokens per
-message instead of 724.
+true of `rt_l16` and `rt_e2` and close for `rt_e8`. It costs 880 tokens per message instead of 724.
+
+**`fake_giveaway` is over-picked.** It wins 21 of the 28 spam and scam pairs, including the two that ask for
+a login or bank details, where `credentials` already exists and came second (`rt_e8` 0.53 against 0.42,
+`rt_l4` 0.54 against 0.38). The fix is sharper wording for those two codes, not a new code.
+
+**Cut spans can hide the evidence.** A part longer than 160 characters is cut before it is offered, so the
+quote can miss the words that matter. 15 of 94 flagged messages had a cut part, and on 5 the chosen part was
+a cut one (`rt_g2`, `oai7`, `oai1196`, `oai185`, `oai1603`). On `rt_g2` the "free nitro" link falls past the
+cut, so no offered part contains it, and Jev still chose that part with p=0.90: the moderator would be shown
+a quote about seller prices. None of the five fell in the hand-read sample.
 
 ## Agreement and the control
 
@@ -122,21 +145,28 @@ message instead of 724.
   crossed its line.
 - `not_it` (the companion disagreeing with the flag): **0 of 94** real flags, in single and in batched, with
   a median p(not_it) of 0.00 and a maximum of 0.04. Across every flagged category, 1 of 133 pairs.
-- Control, 33 clean unflagged messages sent as if flagged: `not_it` on 28, median p(not_it) 0.94.
+- Control, 33 clean unflagged messages sent as if flagged: `not_it` on 28, median p(not_it) 0.94. The
+  controls are easy (the category they were sent under scored 0.01 to 0.28), and the five it explained
+  anyway are clean messages that sound like the category: game banter (`rt_f1`, "kill you all in the next
+  round") as a threat, a second-hand GPU sale (`rt_f11`) as a DM deal, a note on a game's gore setting
+  (`rt_n5`) as gore, a concert listing (`oai637`) as advertising, and a prompt injection (`rt_i6`) as `other`.
 
 So the companion can say "nothing here" when a message is plainly clean, but it does not second-guess a
-flag Jev already raised. Of the six flags whose source labels them clean, four are arguably right
-(a cam ad, male-enhancement spam, a pirate download listing, a real self-harm post) and two are false
-positives: `oai7` (the story) and `cc161` (a friendly "Greg, get a job, your store is closed"), explained as
-`hopeless` and `insult`. **A rationale that reads well on a false positive is the risk to design for.**
+flag Jev already raised. Of the six flags whose source labels them clean, four are arguably right (a cam ad,
+male-enhancement spam, a pirate download listing, a real self-harm post) and two are false positives:
+`oai7` (the story) and `cc161` (a friendly "Greg, get a job, your store is closed"), explained as `hopeless`
+and `insult`. That is two cases, and the instruction opens with "A moderation system flagged this as X",
+which invites agreement; a neutral wording was not tried. **A rationale that reads well on a false positive
+is the risk to design for.**
 
 ## Recommendation for JEV-16
 
-1. **A companion request, never inline.** Inline doubles the cost of every judgment to explain the few
-   that are flagged, and adds 52 ms to the p50 of the judgment the bot waits on.
+1. **A companion request, never inline.** Inline costs 1,060 tokens on every judged message to explain the
+   few that are flagged.
 2. **Only for flagged messages, every flagged category, one message per request**, sent after the verdict
    and off its critical path, when the queue item is created. Not on demand when a moderator opens the item:
-   - the saving is only on items nobody opens, and the whole thing costs +4.1% of judging at a 5% flag rate;
+   - the saving is only on items nobody opens, and the whole thing is 44 tokens per judged message at a 5%
+     flag rate;
    - the Discord log embed is posted at flag time and nobody "opens" it;
    - on demand needs the message text at open time, which the server does not have when
      `JEVMOD_QUEUE_TEXT` is off (`odd/decisions/jev-13-review-queue.md` in the private repository);
@@ -146,19 +176,24 @@ positives: `oai7` (the story) and `cc161` (a friendly "Greg, get a job, your sto
 3. **Store codes, not text**: per category the reason code, and the chosen part as character offsets into
    the stored text (no offsets when text is not kept). The UI renders the sentence from the code table,
    which makes it translatable into the six locales, and a code carries no message content.
-4. **Word it as an explanation of the flag, not a verdict**: "Flagged as scam: a fake giveaway. See:
+4. **Never cut a part that can be quoted.** Offer whole parts (split long sentences at clauses first, and
+   send the full part), so the quote always contains what it was chosen for.
+5. **Word it as an explanation of the flag, not a verdict**: "Flagged as scam: a fake giveaway. See:
    (quote)". Never use `not_it` to dismiss anything and never present the rationale as agreement; it agreed
    with every flag in this run, false positives included. This fits the queue decision's rule that the
    suggestion is a label, not a filled button.
-5. **Fix the table before shipping it**: `hopeless` must not assert "the author's own life" (fiction and
-   quoted speech trip it); add a phishing or fake-login code under scam; list scam before spam when both
-   are flagged. Doxxing and minors codes need their own read before they are shown.
-6. **Where it lives**: the reason codes are new V1 capability, so under the backlog rules they are built in
+6. **Fix the table before shipping it**: `hopeless` must not assert "the author's own life" (fiction and
+   quoted speech trip it); reword `fake_giveaway` and `credentials` so a request for a login or bank details
+   is not a giveaway; list scam before spam when both are flagged. Doxxing and minors codes need their own
+   read before they are shown. Re-read 30 after the rewrite.
+7. **Where it lives**: the reason codes are new V1 capability, so under the backlog rules they are built in
    the private hosted repository next to the queue, not in this engine. This directory is the measurement.
 
 ## Limits
 
-- 135 messages, 94 flags, one run, one model version (`jev-1.13.0`). The hand reading is one reader.
-- The set is enriched and mostly English.
+- 135 messages, 94 flags, one run, one model version (`jev-1.13.0`).
+- One reader, who also wrote the reason codes, and who read knowing what was flagged; not blind.
+- The set is enriched and mostly English. Judging was measured unpadded; the padded cost is the eight
+  times documented in `jevmod/core/service.py`, not measured here.
 - The reason codes were written here from `categories.json`; a different table would read differently.
   The quality number is for this table, not for the idea.
