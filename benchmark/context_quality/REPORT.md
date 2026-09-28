@@ -73,10 +73,11 @@ row (`harassment-p01-pos`) was made before the commit to test the runner; its sc
 
 **A second labeller** (a separate model instance, reading only a file of shuffled rows with the label,
 kind and reasoning removed and the ids replaced) relabelled all 280 from the conversation. It agreed on 269
-(96%): 96 of 105 pair positives, 103 of 105 pair negatives, all 70 controls. Seven of the eleven
+(96%): 96 of 105 pair positives, 103 of 105 pair negatives, all 70 controls. Every disagreement gave
+both halves of a pair the same label, so counted in pairs it separated 94 of 105. Seven of the eleven
 disagreements are nsfw pair positives, so the nsfw set's positives are the weakest labels here.
-`report --agreed-only` recomputes everything on the 269; no verdict in section 2 changes, pooled gain moves
-from +35 to +37 points. The agreement is an upper bound on independence: 105 closing lines appear twice in
+`report --agreed-only` drops those eleven pairs whole (258 rows, no half left unpaired); no verdict in
+section 2 changes, pooled gain moves from +35 to +37 points (+28 to +46). The agreement is an upper bound on independence: 105 closing lines appear twice in
 the labeller's file, so it could infer that each pair has one of each. It was started before the paid run
 and finished while it ran, reading only a copy of that file in a separate folder. That isolation is the author's account, not a record: the key
 (`results/blind_key.json`) was committed beside the input, and the labeller's prompt and folder were not kept.
@@ -190,8 +191,8 @@ gap is the labels.
   and 0.15 to 0.56 with the window and no padding. The model partly scores the conversation instead of
   the message. With the shipped window nothing crosses 0.70, or would cross 0.50; without padding one
   row reaches 0.56. The same check on the other categories' control negatives: selfharm's mean rises
-  0.02 with the shipped window and 0.11 without padding; the other five move 0.03 or less, harassment's
-  down.
+  0.02 with the shipped window and 0.11 without padding; four of the other five rise 0.03 or less,
+  and harassment's falls 0.04.
 - **Any category on a negative row**, other categories included: 22 of 140 negatives were flagged for
   something alone, 10 with the shipped window. The window removed more false flags than it added.
 
@@ -320,6 +321,15 @@ these lead-ups hold 4 to 9 messages, so a padded request has fewer positions.
 - **It is not real traffic.** The rows were written by model instances to make the window matter; the
   gain is what the window can do when context decides, not how often it does. The authors and the blind
   labeller are models, not moderators, and no human has read all 280 rows.
+- **Part of the gain may be the model scoring the conversation, not the closing line.** In a violating
+  half the violation is already in the lead-up, and the window carries no speakers, so a model that scores
+  "this conversation is bad" gets those rows right without judging the last line. The control negatives
+  are the only check and their closings are plainly innocent (reports, moderators stepping in); no row
+  ends on the same ambiguous line, innocent, after a lead-up that violates. The minors and selfharm
+  leakage in section 3 says the model does partly score the neighbourhood. Rows of that shape are what
+  would separate the two.
+- **That no paid call preceded the labels rests on the commit order** (`0c391ca` at 11:22:40, the first
+  judgement at 11:22:48) and on the one declared smoke call; there is no provider log in the repository.
 - **English only, one register, short lead-ups** (4 to 9 messages), one message per request. Batches
   were not run; `BATCH_EFFECT.md` found scores move with batch membership, so a batched window may land
   differently near a threshold.
