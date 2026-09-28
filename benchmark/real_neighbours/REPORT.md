@@ -80,7 +80,8 @@ message; that is where repetition and raid patterns would show.
 ## Results (added 2026-09-28, after the run)
 
 **The run.** 7,200 rows: a 24-row pilot (three per arm) and the full plan of 7,176, in one resumed file, 0
-unjudged, 46,567,859 billed input tokens, **$1.956** at $0.042 per million. Padding-on arms ran as one pass and
+unjudged, 46,567,859 billed input tokens, **$1.956** at $0.042 per million. That is input only, as in every other
+benchmark here: the runner does not record output tokens, and Jev's answers are scores, not text. Padding-on arms ran as one pass and
 padding-off arms as a second pass, each shuffled with a fixed seed. `clean_off` against `none`, which straddle
 the two passes and differ only in the `context` field, is +1.0 points [-1.5, +3.6], p 0.58, so the passes do
 not show a drift large enough to matter here. Every table comes from `python -m benchmark.real_neighbours.run
@@ -156,8 +157,9 @@ On the clean side every one of these is 0 / 0 at 0.85. Mean clean-side spam scor
    quiet channel: the channel's own clean history buys +2.7 over nothing, not significant.
 2. **Variety: more than confirmed, in a direction the hypothesis did not state.** Ten fixed, varied,
    off-topic chat lines buy +9.0 points over the filler alone, 27 messages up and none down, more than the
-   channel's own clean history does. Real neighbours are not what buys recall here; neighbours unlike the
-   message might be. The arm cannot say through which channel: the ten lines are in the buffer, so they are
+   channel's own clean history does, and about as much as ten spam neighbours (`spam_on`, 28.3%). So being
+   real is not what buys recall here; which property does, this run cannot say (`synth_on` and `spam_on`
+   were never contrasted with each other, or `synth_on` with `clean_on`). The arm cannot say through which channel: the ten lines are in the buffer, so they are
    also every message's `context`, and there is no `synth_off` to separate the field from the positions. It is
    also one fixed set in one order. This is one set of ten lines on 300 messages, not a decision contrast, and it costs the
    same 4 to 4.5 times: it is a follow-up, not a change.
@@ -188,7 +190,8 @@ On the clean side every one of these is 0 / 0 at 0.85. Mean clean-side spam scor
 Five spam messages share a link with a neighbour, and all five are caught with and without padding. 82 of the
 600 had an exact copy of themselves in the ten, which the service drops. No bucket shows padding moving the
 mean score. Whatever the history holds reaches the model through the `context` field, which padding-off keeps;
-asking the model about the same lines as extra positions adds nothing measurable to that.
+asking the model about the same lines as extra positions adds little on top: +1.5 points on this history, which
+is measurable (p 0.049; [+0.2, +3.1] resampling texts) and under the five points padding had to buy.
 
 ### What changes
 

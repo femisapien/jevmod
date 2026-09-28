@@ -74,9 +74,11 @@ never puts a real message at `messages.m0`: that position always holds either th
 no padding at all, a constant filler (`hey everyone, how is it going today`). `benchmark/position_zero.py` in
 the Python package found that position gains nothing from its neighbours while every other position gains
 about 0.22, asymmetrically, so a message judged alone is always at the one position that costs it recall. This
-package never fills `padding` on its own — there is no conversation buffer here — so a caller that wants the
-same batch-size benefit the Python package's bots get for free needs to keep its own short rolling window of
-recent channel text and pass it in. `check` and `checkMany` take it as an option, so you do not have to drop
+package never fills `padding` on its own — there is no conversation buffer here. The Python package no longer
+pads by default either: measured on its production path (JEV-61, `benchmark/real_neighbours/REPORT.md`),
+padding with the channel's recent history bought about one point of spam recall over the filler alone, for
+about four times the tokens. A caller who still wants it keeps its own short rolling window of recent channel
+text and passes it in. `check` and `checkMany` take it as an option, so you do not have to drop
 down to `Judge` to use it.
 
 The padding is part of the cache key, which costs hit rate deliberately. The same text scored beside different

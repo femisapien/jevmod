@@ -282,8 +282,9 @@ is 1.3, 3.6 or 4.5.
   padding. **Run in JEV-61** (`benchmark/real_neighbours/REPORT.md`): +1.0 points of spam recall
   [-0.2, +2.2] for a quiet channel, under JEV-19's five, so `JEVMOD_PAD_BATCH` is off by default since then.
 - **Price on the batch-size distribution, which is unmeasured.** Until it is measured, with padding
-  as shipped, price a small server between the worked example and the ceiling, 3.6x to 4.5x, and a
-  busy one on the batch-of-25 row, 1.3x.
+  on (as it shipped until JEV-61), price a small server between the worked example and the ceiling,
+  3.6x to 4.5x; with padding off, the default since JEV-61, a message alone is about 1.15x. A busy one
+  prices on the batch-of-25 row, 1.3x.
 - **Split batches by tokens, not by count**, whatever JEV-19 decides. Section 6 is a fail-open path
   that a raid reaches today.
 

@@ -27,8 +27,8 @@ export interface CheckOptions {
    * checking one message at a time is at the bottom of that curve. Ten is where it saturates.
    *
    * Only the text: no author names or ids, the same promise the rest of the package keeps. The
-   * Python package fills this from its own conversation buffer; this one is stateless, so the
-   * caller keeps the window.
+   * Python package can fill this from its own conversation buffer (`JEVMOD_PAD_BATCH=1`, off by
+   * default since JEV-61); this one is stateless, so the caller keeps the window.
    */
   padding?: readonly string[];
 }

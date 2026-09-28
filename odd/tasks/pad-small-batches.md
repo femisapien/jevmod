@@ -1,5 +1,9 @@
 # Pad a small batch so a quiet server is not moderated worse than a busy one
 
+**Superseded by JEV-61 (2026-09-28): padding is off by default.** Measured on production's path, it bought
++1.0 points of spam recall [-0.2, +2.2] over the filler at `m0` for a quiet channel, for about four times the
+tokens (`benchmark/real_neighbours/REPORT.md`). The filler at `m0`, which this task also introduced, stays.
+
 JEV-57, Urgent, Bug. <https://linear.app/jevmod/issue/JEV-57>
 
 ## Objective
