@@ -60,3 +60,13 @@ def test_store_text_and_topic_are_the_named_constants() -> None:
     src = (ROOT / "jevmod" / "core" / "store.py").read_text(encoding="utf-8")
     assert "channel_topic[:TOPIC_CHARS]" in src
     assert '"JEVMOD_KEEP_TEXT_CHARS", str(KEEP_TEXT_CHARS)' in src
+
+
+def test_judge_defaults_are_the_named_constants() -> None:
+    from jevmod import judge
+
+    params = inspect.signature(judge.Judge.__init__).parameters
+    assert params["cache_ttl_s"].default == judge.CACHE_TTL_S
+    assert params["timeout_s"].default == judge.TIMEOUT_S
+    src = (ROOT / "jevmod" / "judge.py").read_text(encoding="utf-8")
+    assert "max_retries=MAX_RETRIES," in src

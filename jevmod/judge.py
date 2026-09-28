@@ -65,6 +65,11 @@ REQUEST_TOKEN_BUDGET = 56_000
 # And never more than this many messages: the batch size the throughput runs measured, and the cap
 # the HTTP API already puts on a request.
 MAX_REQUEST_MESSAGES = 50
+# A repeated text within this long is answered from memory, a request's timeout, and the retries on 429 and
+# 5xx before `TypeSafeError` is raised. Named because the website states each of them (JEV-63).
+CACHE_TTL_S = 86_400
+TIMEOUT_S = 20.0
+MAX_RETRIES = 3
 # Requests one `Judge` has in flight at once, across every thread sharing it. The key is rate limited
 # on input tokens, about 355,000 a second sustained with a burst allowance above that. Four requests
 # of fifty ran clean for fifteen seconds and eight were refused 62% of the time, so four is the
@@ -224,11 +229,16 @@ def prefilter(m: Message, min_chars: int = 8) -> str | None:
 
 
 class Judge:
-    def __init__(self, client: TypeSafeClient | None = None, cache_ttl_s: int = 86400, timeout_s: float = 20.0) -> None:
+    def __init__(
+        self, client: TypeSafeClient | None = None, cache_ttl_s: int = CACHE_TTL_S, timeout_s: float = TIMEOUT_S
+    ) -> None:
         self.client = client or TypeSafeClient(
             api_key=get_api_key(),
             retry=RetryPolicy(
-                max_retries=3, backoff_initial=0.5, backoff_max=8.0, http_statuses={429, 500, 502, 503, 504, 529}
+                max_retries=MAX_RETRIES,
+                backoff_initial=0.5,
+                backoff_max=8.0,
+                http_statuses={429, 500, 502, 503, 504, 529},
             ),
             timeout=timeout_s,
         )
