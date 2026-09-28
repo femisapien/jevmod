@@ -6,7 +6,7 @@ beside every other category it has enabled, in one request, and [REPORT2.md](REP
 shares a request moves the score, so REPORT3's numbers were a premise until this run.
 
 This run is D through Judge, unpadded, no channel context, all nine categories. It is not the full production
-path: production pads a batch with the channel's recent messages, attaches the conversation before each message
+path: production (padding off by default since JEV-61) attaches the conversation before each message
 and sends the channel's own topic, and none of the three was measured here.
 
 **D was not shipped.** See the decision at the end.

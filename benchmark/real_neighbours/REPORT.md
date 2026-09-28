@@ -81,7 +81,7 @@ message; that is where repetition and raid patterns would show.
 
 **The run.** 7,200 rows: a 24-row pilot (three per arm) and the full plan of 7,176, in one resumed file, 0
 unjudged, 46,567,859 billed input tokens, **$1.956** at $0.042 per million. That is input only, as in every other
-benchmark here: the runner does not record output tokens, and Jev's answers are scores, not text. Padding-on arms ran as one pass and
+benchmark here: output tokens are not billed (docs.typesafe.ai/models), and the runner does not record them. Padding-on arms ran as one pass and
 padding-off arms as a second pass, each shuffled with a fixed seed. `clean_off` against `none`, which straddle
 the two passes and differ only in the `context` field, is +1.0 points [-1.5, +3.6], p 0.58, so the passes do
 not show a drift large enough to matter here. Every table comes from `python -m benchmark.real_neighbours.run
@@ -123,7 +123,7 @@ not across files.
 - **The 600 are 497 distinct texts.** Targets are distinct comment ids, and these streams repeat spam verbatim
   ("Check out this video on YouTube:" alone many times), so the pairs are not all independent. Collapsed to one
   message per text the primary is +1.2 points (8 / 2, p 0.11), and a bootstrap that resamples texts gives
-  [-0.3, +2.4]; the secondary gives [+0.2, +3.1]. Both upper ends stay under 5, so the verdict does not move.
+  [-0.3, +2.4]; the secondary is +2.0 (12 / 2, p 0.013) and [+0.2, +3.1]. Both upper ends stay under 5, so the verdict does not move.
 - **What the one point is.** All 12 discordant pairs of the primary have both scores between 0.80 and 0.89, and
   the mean score difference is +0.005: messages sitting on the line and tipping either way, not a small shift
   of the distribution.
@@ -152,9 +152,10 @@ On the clean side every one of these is 0 / 0 at 0.85. Mean clean-side spam scor
 `synth_on` 0.048, `clean_on` 0.035, `none` 0.034.
 
 1. **Same kind of neighbour: confirmed, and it is what the issue feared.** Spam history beats clean history
-   by 6.7 points, and the channel's history as it was (mostly spam before a spam message) beats clean history by 6.0. The
-   29.3% that `BATCH_EFFECT.md` section 9 measured with same-pool spam as neighbours does not transfer to a
-   quiet channel: the channel's own clean history buys +2.7 over nothing, not significant.
+   by 6.7 points, and the channel's history as it was (mostly spam before a spam message) beats clean history by 6.0. What
+   neighbours buy depends on what they are, so section 9's arm (same-pool spam as neighbours) was the favourable
+   case. The gain itself is not shown to be smaller: section 9 had +2.6 points (26.7% to 29.3%) and the channel's
+   own clean history here buys +2.7 [-0.2, +5.6] over nothing, not significant, on a different sample.
 2. **Variety: more than confirmed, in a direction the hypothesis did not state.** Ten fixed, varied,
    off-topic chat lines buy +9.0 points over the filler alone, 27 messages up and none down, more than the
    channel's own clean history does, and about as much as ten spam neighbours (`spam_on`, 28.3%). So being
