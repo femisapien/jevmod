@@ -2,7 +2,11 @@
 
 JEV-88. Runner `benchmark/key_order/run.py`, raw rows `results/raw.jsonl`.
 
-**Status: pre-registered, not run.** This section is committed and pushed before any paid request.
+**Status: run, decided.** The pre-registration below was committed and pushed in `74627d0` before any paid
+request and is unchanged since: `git diff 74627d0 -- REPORT.md` touches only this status line and adds the
+sections after it. **Verdict by the criterion: do not ship.** The order raises spam recall by 7.5 points, and a
+guard fires: it also raises harassment scores on messages without that label. What it does is move scores up,
+not separate better; the same recall is on the current request at a line 0.04 to 0.06 lower.
 
 ## Pre-registration (written 2026-09-28, before the run)
 
@@ -74,3 +78,93 @@ noise floor, harassment and scam per set, and the red-team rows.
 - Discord. These are YouTube comments under music videos and public moderation sets.
 - Why the order would matter. The server's handling of key order is not observable from here; this measures
   whether it does, not why.
+
+## Results (added 2026-09-28, after the run)
+
+**The run.** 13,695 rows: a pilot of two units per set and arm, then the full plan, then one resume, in one file.
+6,886 request units, 23,232,991 billed input tokens, **$0.976** at $0.042 per million (input only, as in every
+benchmark here). One request failed open (`hx`, `current`, `oai882`; the error was not recorded) and was asked again
+by the resume, which is the row used. The other unjudged rows are `too short`, the pre-filter, the same messages in
+every arm (the resume re-lists the lone ones at no cost). Pairs use only rows judged in both arms. Every request's key order
+was checked against the SDK's own encoder before it was sent: `current` went out as `m1,m0`, `m0_first` as
+`m0,m1`, and no request was reordered by the encoder. Tables come from `python -m benchmark.key_order.run report`.
+
+### Per set and arm
+
+| set | arm | n with the label | recall at the line [Wilson 95%] | n without | over the line | over 0.50 | tokens per judged message |
+|---|---|---|---|---|---|---|---|
+| yt | `current` | 653 | spam 26.6% [23.4, 30.2] | 628 | 0 | 1 | 2,433 |
+| yt | `m0_first` | 653 | spam 34.2% [30.6, 37.9] | 628 | 1 | 6 | 2,433 |
+| yt | `repeat` | 653 | spam 25.9% [22.7, 29.4] | 628 | 0 | 3 | 2,433 |
+| hx | `current` | 352 | harassment 76.1% [71.4, 80.3] | 498 | 32 | 80 | 2,177 |
+| hx | `m0_first` | 352 | harassment 77.3% [72.6, 81.3] | 498 | 37 | 95 | 2,177 |
+| hx | `repeat` | 352 | harassment 76.4% [71.7, 80.6] | 498 | 32 | 80 | 2,177 |
+| rt | `current` | 27 | scam 88.9% [71.9, 96.1] | | | | 2,117 |
+| rt | `m0_first` | 27 | scam 88.9% [71.9, 96.1] | | | | 2,117 |
+| ytb | `current` | 760 | spam 35.4% [32.1, 38.9] | 675 | 0 | 1 | 1,217 |
+| ytb | `m0_first` | 760 | spam 43.8% [40.3, 47.4] | 675 | 0 | 2 | 1,217 |
+| ytb | `sorted_lex` | 760 | spam 40.5% [37.1, 44.1] | 675 | 0 | 2 | 1,217 |
+| hxb | `current` | 352 | harassment 73.0% [68.1, 77.4] | 498 | 29 | 73 | 1,051 |
+| hxb | `m0_first` | 352 | harassment 73.6% [68.7, 77.9] | 498 | 27 | 72 | 1,051 |
+| hxb | `sorted_lex` | 352 | harassment 73.3% [68.4, 77.6] | 498 | 29 | 74 | 1,051 |
+
+The token count per message is identical across arms of a set, as it has to be: only the order changes.
+
+### The decision, as pre-registered
+
+| contrast | set | with the label? | line | n | first | second | difference, points [Newcombe 95%] | flips b / c | McNemar p | mean score difference | scores up / down |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `m0_first` vs `current` (**primary**) | yt | spam | spam 0.85 | 653 | 34.2% | 26.6% | **+7.5 [+5.3, +9.7]** | 52 / 3 | 1.5e-12 | +0.055 | 462 / 113 |
+| `m0_first` vs `current` (**guard that fired**) | hx | not harassment | harassment 0.50 | 498 | 19.1% | 16.1% | **+3.0 [+1.4, +4.8]** | 16 / 1 | 0.00028 | +0.017 | 241 / 82 |
+
+- **It helps:** +7.5 points of spam recall on a message judged alone, p 1.5e-12. In batches of 25, +8.4 [+6.2,
+  +10.7] (72 / 8).
+- **It hurts:** on the 498 messages not labelled harassment, judged alone, 16 go over 0.50 for harassment with
+  `m0_first` that did not with `current`, and 1 the other way (p 0.00028). At the shipped 0.75 the same direction,
+  +1.0 [-0.3, +2.5], 7 / 2, not significant. Every other guard (27 more checks, all in the runner's output) is quiet:
+  the largest is spam over 0.50 on clean YouTube, +0.8 [-0.0, +1.9], 5 / 0, p 0.06.
+- **So `m0_first` does not ship.** The rule asked for zero harm and there is harm, at the line the rule named.
+
+### What the order does: it moves scores up, it does not separate better
+
+Added after the run, descriptive, not part of the criterion; it explains the verdict rather than making it.
+
+| set | category | AUROC `current` | AUROC `m0_first` | `m0_first` at the line: recall, over it without the label | `current` gets that recall at | there: recall, over it without the label |
+|---|---|---|---|---|---|---|
+| yt | spam | 0.9846 | 0.9822 | 223/653, 1/628 at 0.85 | 0.79 | 228/653, 0/628 |
+| ytb | spam | 0.9941 | 0.9937 | 333/760, 0/675 at 0.85 | 0.81 | 343/760, 0/675 |
+| hx | harassment | 0.9256 | 0.9235 | 272/352, 37/498 at 0.75 | 0.74 | 272/352, 34/498 |
+| hxb | harassment | 0.9286 | 0.9285 | 259/352, 27/498 at 0.75 | 0.74 | 259/352, 29/498 |
+
+- With `m0` first, a lone message's scores go up whatever it is: spam up on 462 spam messages and down on 113,
+  and also up on 402 of 628 clean ones (mean +0.022); harassment up on both sides. The area under the ROC curve
+  does not rise in any set; it falls slightly in all four.
+- **Every recall point it buys is on the current request at a lower line**, with no more false positives on these
+  sets: 0.79 instead of 0.85 for spam alone, 0.81 in batches. Changing the order is changing the threshold by
+  another name, for every category at once and without saying so.
+- **The red-team file shows the cost of that.** Of its 96 judged rows, `m0_first` gets 13 category verdicts wrong
+  against 11 for `current`. The one new false positive is `g9`, a bare `http://bit.ly/3xYzAbC` the file calls clean:
+  spam 0.81 with `current`, 0.85 with `m0_first`, over the line. That is the row that failed JEV-18's red-team gate
+  when a lower spam line was proposed. A lower spam line did not ship then, and this is the same move.
+- `sorted_lex` in batches sits between the two (+5.1 over `current`, -3.3 [-5.4, -1.2] under `m0_first`, p 0.003):
+  key order is a knob on the scores, not a single switch.
+
+### The noise floor
+
+The same request sent twice (`repeat` against `current`) moves spam recall -0.8 [-1.9, +0.4] (4 / 9) and mean
+scores by 0.0000 (225 up, 235 down); harassment +0.3 (3 / 2). Nothing here is caching or chance: `m0_first`'s 52 / 3
+is about ten times what an identical request produces.
+
+### What changes
+
+Nothing in the engine. `Judge._request` keeps sending `m1, ..., mN, m0`, and the npm package, which builds the same
+order, keeps it too, so the two stay in parity. If spam recall is to be bought with a lower line, that is a
+threshold decision with its red-team gate (JEV-18's), not a side effect of the request's key order.
+
+### Limits
+
+- YouTube comments and public moderation sets, not Discord. Scam labels: 27 red-team rows, no power.
+- The harassment negatives mix Civil Comments (clean by a crowd score) and unlabelled OpenAI moderation rows; of the
+  16 that crossed 0.50, 9 are OpenAI and 7 Civil Comments, so the guard does not rest on one source.
+- One run per arm plus one repeat of `current` on the lone sets; the batch sets have no repeat.
+- Why the server's scores depend on key order is not observable from here.

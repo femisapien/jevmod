@@ -341,6 +341,20 @@ def paired(res: dict[tuple[str, str], dict[str, dict[str, Any]]], s: str, first:
             "up": up, "down": down, "p_sign": _mcnemar(up, down)}
 
 
+def _auroc(arm: dict[str, dict[str, Any]], pos: list[str], neg: list[str], cat: str) -> float:
+    """Mann-Whitney: the chance a positive outscores a negative, ties counted half."""
+    ranked = sorted([(arm[i]["scores"][cat], 1) for i in pos] + [(arm[i]["scores"][cat], 0) for i in neg])
+    rank_sum, k = 0.0, 0
+    while k < len(ranked):
+        j = k
+        while j < len(ranked) and ranked[j][0] == ranked[k][0]:
+            j += 1
+        mid = (k + j + 1) / 2  # ranks are 1-based; a tie shares the mean rank of its run
+        rank_sum += mid * sum(flag for _, flag in ranked[k:j])
+        k = j
+    return (rank_sum - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg))
+
+
 def _fmt(c: dict[str, Any]) -> str:
     return (f"{c['n']} | {100 * c['first']:.1f}% | {100 * c['second']:.1f}% | "
             f"{100 * c['delta']:+.1f} [{100 * c['lo']:+.1f}, {100 * c['hi']:+.1f}] | {c['b']} / {c['c']} | "
@@ -458,6 +472,31 @@ def report() -> None:
         if helps and not fired and better_sorted:
             verdict += " (sorted_lex beat it in batches: a follow-up)"
         print(f"- **{verdict}**")
+    # Not pre-registered; added after the run to say what kind of gain the primary is. If the order
+    # separated spam from clean better, the area under the ROC curve would rise; if it moved every score
+    # up, the area stays and the same recall is reached on `current` with a lower line.
+    print("\n## Separation or shift (added after the run, descriptive)\n")
+    print("| set | category | AUROC current | AUROC m0_first | m0_first at the line: recall, over the line "
+          "without the label | `current` reaches that recall at | there: recall, over the line without the label |")
+    print("|---|---|---|---|---|---|---|")
+    for s, cat in (("yt", "spam"), ("ytb", "spam"), ("hx", "harassment"), ("hxb", "harassment")):
+        a_, b_ = res.get((s, "m0_first"), {}), res.get((s, "current"), {})
+        ids = [i for i in a_ if i in b_]
+        if not ids:
+            continue
+        pos = [i for i in ids if cat in a_[i]["labels"]]
+        neg = [i for i in ids if cat not in a_[i]["labels"]]
+        th = LINES[cat][0]
+        ra = sum(a_[i]["scores"][cat] >= th for i in pos)
+        fa = sum(a_[i]["scores"][cat] >= th for i in neg)
+        t = th
+        while t > 0.3 and sum(b_[i]["scores"][cat] >= t for i in pos) < ra:
+            t = round(t - 0.01, 2)
+        rb = sum(b_[i]["scores"][cat] >= t for i in pos)
+        fb = sum(b_[i]["scores"][cat] >= t for i in neg)
+        print(f"| {s} | {cat} | {_auroc(b_, pos, neg, cat):.4f} | {_auroc(a_, pos, neg, cat):.4f} | "
+              f"{ra}/{len(pos)}, {fa}/{len(neg)} at {th} | {t} | {rb}/{len(pos)}, {fb}/{len(neg)} |")
+
     fam = {}
     for s, label in (("yt", "spam"), ("ytb", "spam"), ("hx", "harassment"), ("hxb", "harassment")):
         c2 = paired(res, s, "m0_first", "current", True, label, label, LINES[label][0])
