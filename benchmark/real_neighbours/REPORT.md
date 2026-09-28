@@ -2,8 +2,9 @@
 
 JEV-61. Runner `benchmark/real_neighbours/run.py`, raw rows `results/raw.jsonl`.
 
-**Status: pre-registered, not yet run.** This section is committed and pushed before any paid request, so
-git shows the order. The results are added below it in a later commit and do not edit it.
+**Status: run, decided.** The pre-registration below was committed and pushed in `e5860d3` before any paid
+request, and it is unchanged since: `git diff e5860d3 -- REPORT.md` touches only this status line and adds the
+sections after it. **Verdict by the criterion: padding goes off by default.**
 
 ## Pre-registration (written 2026-09-28, before the run)
 
@@ -75,3 +76,127 @@ message; that is where repetition and raid patterns would show.
   (fifteen minutes) is not applied: every arm has a full window, which is JEV-67's ceiling case.
 - **Harassment and the other categories.** Section 8 of `BATCH_EFFECT.md` found harassment does not
   move with the batch; this run records every category's score but the criterion is spam's.
+
+## Results (added 2026-09-28, after the run)
+
+**The run.** 7,200 rows: a 24-row pilot (three per arm) and the full plan of 7,176, in one resumed file, 0
+unjudged, 46,567,859 billed input tokens, **$1.956** at $0.042 per million. Padding-on arms ran as one pass and
+padding-off arms as a second pass, each shuffled with a fixed seed. `clean_off` against `none`, which straddle
+the two passes and differ only in the `context` field, is +1.0 points [-1.5, +3.6], p 0.58, so the passes do
+not show a drift large enough to matter here. Every table comes from `python -m benchmark.real_neighbours.run
+report` over `results/raw.jsonl`.
+
+### Per arm (spam at 0.85, scam at 0.75, Wilson 95%)
+
+| arm | n spam | spam recall | n clean | spam FPR | mean spam score, spam / clean | scam over line, spam / clean | tokens per judged message |
+|---|---|---|---|---|---|---|---|
+| `natural_on` | 600 | 27.3% [23.9, 31.0] | 600 | 0.0% [0.0, 0.6] | 0.625 / 0.046 | 5.0% / 0.0% | 9,386 |
+| `natural_off` | 600 | 25.8% [22.5, 29.5] | 600 | 0.0% [0.0, 0.6] | 0.628 / 0.045 | 5.7% / 0.0% | 2,432 |
+| `clean_on` | 600 | 21.3% [18.2, 24.8] | 600 | 0.0% [0.0, 0.6] | 0.520 / 0.035 | 6.3% / 0.0% | 9,439 |
+| `clean_off` | 600 | 20.3% [17.3, 23.7] | 600 | 0.0% [0.0, 0.6] | 0.516 / 0.035 | 5.8% / 0.0% | 2,334 |
+| `none` | 300 | 19.0% [15.0, 23.8] | 300 | 0.0% [0.0, 1.3] | 0.518 / 0.034 | 5.0% / 0.0% | 2,106 |
+| `synth_on` | 300 | 28.0% [23.2, 33.3] | 300 | 0.0% [0.0, 1.3] | 0.576 / 0.048 | 6.7% / 0.0% | 9,509 |
+| `spam_on` | 300 | 28.3% [23.5, 33.7] | 300 | 0.0% [0.0, 1.3] | 0.633 / 0.077 | 5.0% / 0.0% | 9,390 |
+| `clean_pos` | 300 | 24.7% [20.1, 29.8] | 300 | 0.0% [0.0, 1.3] | 0.572 / 0.039 | 6.0% / 0.0% | 9,429 |
+
+The absolute recall here is lower than in `BATCH_EFFECT.md` (19.0% for the filler alone against 26.7%
+there): a different sample, drawn from the eligible messages of four streams. Compare arms within this table,
+not across files.
+
+### The decision, as pre-registered
+
+| contrast | side | n | on | off | difference, points [Newcombe 95%] | discordant b / c | McNemar p |
+|---|---|---|---|---|---|---|---|
+| `clean_on` vs `clean_off` (**primary**) | spam | 600 | 21.3% | 20.3% | **+1.0 [-0.2, +2.2]** | 9 / 3 | 0.146 |
+| `clean_on` vs `clean_off` | clean | 600 | 0.0% | 0.0% | +0.0 [-0.6, +0.6] | 0 / 0 | 1 |
+| `natural_on` vs `natural_off` (secondary) | spam | 600 | 27.3% | 25.8% | +1.5 [+0.1, +2.9] | 13 / 4 | 0.049 |
+| `natural_on` vs `natural_off` | clean | 600 | 0.0% | 0.0% | +0.0 [-0.6, +0.6] | 0 / 0 | 1 |
+
+- **Primary: the upper end, +2.2 points, is under 5. Padding goes off by default.** The sample does not
+  grow: the rule grows it only when the interval straddles 5.
+- **Secondary:** significant at p 0.049 but +1.5 points with an upper end of +2.9, also under 5. Padding does
+  not pay even on a channel whose history is mostly spam (for 297 of the 600 spam messages, nine or ten of
+  the ten before it were spam).
+- **The false-positive guard had no power at 0.85.** No clean message crosses the spam line in any arm, 0 of
+  600 on and off, so the guard could not have fired. The mean spam score of clean messages moves +0.001.
+- **Cost:** padding makes a message judged alone 4.0 times the tokens of the same message unpadded here (9,439
+  against 2,334), in line with JEV-67's 4.53x ceiling. Per thousand judged messages at list price that is about
+  $0.40 against $0.10, for one point of recall.
+
+### The mechanism (300 of each side, Holm across the table)
+
+| first vs second | side | n | first | second | difference [Newcombe 95%] | b / c | McNemar p | Holm | mean score difference |
+|---|---|---|---|---|---|---|---|---|---|
+| `synth_on` vs `none` | spam | 300 | 28.0% | 19.0% | +9.0 [+5.7, +12.4] | 27 / 0 | 1.5e-08 | 1.8e-07 | +0.058 |
+| `clean_on` vs `none` | spam | 300 | 21.7% | 19.0% | +2.7 [-0.2, +5.6] | 13 / 5 | 0.096 | 0.77 | -0.006 |
+| `spam_on` vs `clean_on` | spam | 300 | 28.3% | 21.7% | +6.7 [+3.4, +10.1] | 23 / 3 | 8.8e-05 | 0.00088 | +0.121 |
+| `natural_on` vs `clean_on` | spam | 600 | 27.3% | 21.3% | +6.0 [+3.5, +8.6] | 49 / 13 | 4.8e-06 | 5.3e-05 | +0.105 |
+| `clean_pos` vs `clean_on` | spam | 300 | 24.7% | 21.7% | +3.0 [+0.2, +5.9] | 13 / 4 | 0.049 | 0.44 | +0.060 |
+| `clean_off` vs `none` | spam | 300 | 20.0% | 19.0% | +1.0 [-1.5, +3.6] | 8 / 5 | 0.58 | 1 | -0.010 |
+
+On the clean side every one of these is 0 / 0 at 0.85. Mean clean-side spam scores: `spam_on` 0.077,
+`synth_on` 0.048, `clean_on` 0.035, `none` 0.034.
+
+1. **Same kind of neighbour: confirmed, and it is what the issue feared.** Spam history beats clean history
+   by 6.7 points, and the channel's history as it was (mostly spam before a spam message) beats clean history by 6.0. The
+   29.3% that `BATCH_EFFECT.md` section 9 measured with same-pool spam as neighbours does not transfer to a
+   quiet channel: the channel's own clean history buys +2.7 over nothing, not significant.
+2. **Variety: more than confirmed, in a direction the hypothesis did not state.** Ten fixed, varied,
+   off-topic chat lines buy +9.0 points over the filler alone, 27 messages up and none down, more than the
+   channel's own clean history does. Real neighbours are not what buys recall here; neighbours unlike the
+   message might be. This is one set of ten lines on 300 messages, not a decision contrast, and it costs the
+   same 4 to 4.5 times: it is a follow-up, not a change.
+3. **Position: not answered, because the arm is confounded.** The judge builds `messages` with the real
+   messages first and adds `m0` after, so production's JSON reads `m1, m0, m2, ...`. The runner's move
+   rebuilt the dict as `m0, m1, m2, ...`, which changes the key order as well as the index. The rows it
+   left at index 1 are production's request with only the key order changed, and on those 29 spam messages
+   the spam score went up on 22 and down on 3 (sign test p 0.00016, mean +0.064; one recall flip); on the 31
+   clean ones +0.007, 9 up and 4 down. Every index shows about the same +0.05 to +0.10, so what
+   `clean_pos` measured is mostly key order. Exploratory, found after the run, and a follow-up of its own:
+   putting `m0` first costs nothing, unlike padding.
+
+### What the natural history carried (spam messages, `natural_on` against `natural_off`)
+
+| spam among the ten | n | recall off | recall on | mean lift |
+|---|---|---|---|---|
+| 0-2 | 82 | 17.1% | 17.1% | -0.001 |
+| 3-5 | 128 | 32.0% | 33.6% | +0.002 |
+| 6-8 | 93 | 37.6% | 41.9% | -0.002 |
+| 9-10 | 297 | 21.9% | 22.9% | -0.004 |
+
+| nearest neighbour, word overlap | n | recall off | recall on | mean lift |
+|---|---|---|---|---|
+| < 0.2 | 377 | 29.4% | 31.6% | -0.000 |
+| 0.2 to 0.5 | 97 | 29.9% | 26.8% | +0.003 |
+| >= 0.5 | 126 | 11.9% | 15.1% | -0.013 |
+
+Five spam messages share a link with a neighbour, and all five are caught with and without padding. 82 of the
+600 had an exact copy of themselves in the ten, which the service drops. No bucket shows padding moving the
+mean score. Whatever the history holds reaches the model through the `context` field, which padding-off keeps;
+asking the model about the same lines as extra positions adds nothing measurable to that.
+
+### What changes
+
+`JEVMOD_PAD_BATCH` defaults to off in `jevmod/core/service.py`. The filler at `m0` and the window as the
+message's `context` stay; only the padding positions go. A quiet channel's message drops from about 4.5 times
+to about 1.15 times the no-context request (JEV-67). `JEVMOD_PAD_BATCH=1` turns padding back on, and an
+unrecognised value now falls back to the default, off, with the warning it already logged. Neither "pad only
+small batches" (padding already applies only under ten) nor "use real history as neighbours" (that is what
+padding is, and what this run measured) survives the criterion.
+
+### Follow-ups, not pre-registered here and not shipped
+
+- **Key order.** Send `m0` before `m1` in the request JSON. Free in tokens; this run's exploratory +0.064 on
+  29 spam messages needs its own pre-registered, paired run, with a false-positive check that has power (a
+  lower line or scores, since nothing clean crosses 0.85 on these streams).
+- **Varied synthetic neighbours.** +9.0 points at about 4 times the cost; worth measuring with fewer lines
+  (two or three positions) to see how much of it survives at a price near the filler's.
+
+### Limits
+
+- YouTube comments under music videos, median about 50 characters, not Discord chat. Spam recall at one line
+  only; no scam labels, so the scam columns are shares over the line, not recall.
+- One run per arm; no test-retest of identical requests except the accidental one in `clean_pos`, which is not
+  identical in key order.
+- The false-positive guard had no power at 0.85 (above). A lower line was not pre-registered and is not used
+  to decide.
