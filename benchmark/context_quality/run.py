@@ -61,6 +61,7 @@ the commit adding `results/`; `results/raw.jsonl` records the data's sha256):
     python -m benchmark.context_quality.run blind    # free: writes the unlabelled file for the blind labeller
     python -m benchmark.context_quality.run ask      # paid, about $0.30, resumable, prints the running cost
     python -m benchmark.context_quality.run report   # free, every table in REPORT.md
+    python -m benchmark.context_quality.run repeat_probe   # paid, under a cent; added after the run
 """
 
 from __future__ import annotations
@@ -531,9 +532,46 @@ def report(agreed_only: bool) -> None:
     print(f"\nwhole run: {total:,} input tokens, ${total * USD_PER_M / 1e6:.3f}")
 
 
+PROBE = HERE / "results" / "repeat_probe.jsonl"
+
+
+def repeat_probe() -> None:
+    """Added after the run, on a red-team finding, and reported as such. The service drops from the window
+    any line identical to the one being judged (`window_for(exclude=...)`, and the padding filter), so a row
+    whose evidence is that the same offer was already posted word for word is judged with that evidence
+    removed. This judges exactly those rows once more with the repeats left in: `Judge` directly, the whole
+    lead-up as `context` through `assemble`, no padding, two repeats. Compare with the `ctx` arm."""
+    rs = [r for r in rows() if any(m["text"] == r["closing"]["text"] for m in r["lead"])]
+    rec = Recorder()
+    cats = Policy().enabled_categories()
+    with PROBE.open("w", encoding="utf-8") as f:
+        for r in rs:
+            for rep in range(REPEATS):
+                judge = Judge(client=rec, cache_ttl_s=0)  # type: ignore[arg-type]
+                ctx = assemble(tuple(m["text"] for m in r["lead"]))
+                m = Message(r["id"], r["closing"]["text"], channel_topic=r["topic"], context=ctx)
+                v = judge.judge([m], cats)[0]
+                f.write(json.dumps({"id": r["id"], "repeat": rep, "context_kept": len(ctx),
+                                    "scores": {k: round(x, 5) for k, x in v.scores.items()}}) + "\n")
+    _, score, _ = _load(False)
+    by_id = {r["id"]: r for r in rs}
+    got: dict[str, list[float]] = {}
+    for line in PROBE.open(encoding="utf-8"):
+        x = json.loads(line)
+        got.setdefault(x["id"], []).append(x["scores"].get(by_id[x["id"]]["category"], 0.0))
+    print("| row | label | ctx (repeats removed) | repeats kept | threshold |")
+    print("|---|---|---|---|---|")
+    for rid, v in got.items():
+        cat = by_id[rid]["category"]
+        print(f"| {rid} | {by_id[rid]['label']} | {score[(rid, 'ctx')]:.2f} | {statistics.mean(v):.2f} | "
+              f"{DEFAULT_THRESHOLDS[cat]} |")
+    tok = sum(c["input_tokens"] or 0 for c in rec.calls)
+    print(f"\n{len(rec.calls)} requests, {tok:,} input tokens, ${tok * USD_PER_M / 1e6:.4f}")
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=("check", "blind", "ask", "report"))
+    ap.add_argument("cmd", choices=("check", "blind", "ask", "report", "repeat_probe"))
     ap.add_argument("--agreed-only", action="store_true",
                     help="report only the rows the blind labeller agreed with the author on")
     a = ap.parse_args(argv)
@@ -543,6 +581,8 @@ def main(argv: list[str]) -> int:
         blind()
     elif a.cmd == "ask":
         ask()
+    elif a.cmd == "repeat_probe":
+        repeat_probe()
     else:
         report(a.agreed_only)
     return 0
