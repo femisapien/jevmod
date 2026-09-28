@@ -193,11 +193,13 @@ neighbours at all. **That predicts which future questions will be composition-se
 that ask about the author or the world rather than about the message.** `doxxing` and `minors` are
 the two shipped categories closest to that shape, and both are unmeasured.
 
-> **Tested, 2026-09-28 (JEV-62, `batch_doxxing_minors/REPORT.md`), and not borne out where it
-> matters.** At the shipped thresholds no change of composition moves `doxxing` or `minors` recall or
-> false positives by a measurable amount, and no score shift survives correction once the unit is the
-> request; the largest, doxxing positives 0.011 lower among look-alike hard negatives, is p = 0.15 by
-> request. The resolution on `doxxing` decisions is poor, since the set has little near the line.
+> **Tested, 2026-09-28 (JEV-62, `batch_doxxing_minors/REPORT.md`): neither confirmed nor refuted.**
+> At the shipped thresholds no change of composition moves `doxxing` or `minors` recall or false
+> positives by a measurable amount, and no score shift survives correction; the signals are
+> hundredths (doxxing positives 0.011 lower among look-alike hard negatives, p = 0.023 by request,
+> 0.33 after Holm). The resolution is poor: `minors` effects up to about 12 points of recall are not
+> excluded, and the synthetic doxxing set has little near its line. What is excluded is an effect the
+> size of `ai_generated`'s.
 > The paragraph above is left as written; do not design questions from it.
 
 ## 5. What this does not measure, and one claim withdrawn

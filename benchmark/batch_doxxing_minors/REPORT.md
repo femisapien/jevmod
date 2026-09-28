@@ -14,27 +14,30 @@ test.
 
 ## The short answer
 
-**No composition effect survives, on decisions or on scores.** At the shipped thresholds, 0.80 for
-`doxxing` and 0.70 for `minors`, no change of composition moves recall or the false-positive rate by
-an amount this data can tell from zero, and no shift in the scores themselves survives correction
-once the test is run on the unit that was actually randomised, the request. For `minors` the
-decision test has about ±7 points of resolution and does not exclude effects up to roughly 12. For
-`doxxing` it is a weak test, because the synthetic set has almost nothing near the line (section 5).
+**No composition effect survives, on decisions or on scores, and the test is weaker than that
+sentence sounds.** At the shipped thresholds, 0.80 for `doxxing` and 0.70 for `minors`, no change of
+composition moves recall or the false-positive rate by an amount this data can tell from zero, and
+no shift in the scores survives correction once the test runs on the unit that was randomised, the
+request. But with 85 rows per `minors` pool, four to seven requests per batched arm, some rows could
+not have passed whatever the data (section 4.1); the `minors` decision test does not exclude effects
+up to about 12 points of recall; and the doxxing set has almost nothing near its line (section 5).
+What this rules out is an effect the size of `ai_generated`'s, not a small one.
 
-**The largest score shift is a hundredth.** Doxxing positives score **0.011 lower** when half their
-neighbours are look-alike hard negatives: 15 of 16 templates down, but only 9 of 12 requests, which
-is p = 0.15, and Holm 1.000 over the family. It is the direction the rule predicts, and among neutral
-chat, which removes even more doxxing neighbours, the same messages go 0.003 the other way. At a mean
-of 0.95 against a line at 0.80 it would change nothing even if it were real.
+**The composition signals are hundredths.** The most consistent: doxxing positives score **0.011
+lower** when half their neighbours are look-alike hard negatives, 15 of 16 templates and 9 of 12
+requests, p = 0.023 by request and 0.33 after Holm. It is the rule's direction; among neutral chat,
+which removes even more doxxing neighbours, the same messages go 0.003 the other way. The largest in
+magnitude: adult sexual text scores +0.016 on `minors` among neutral chat (0.77 after Holm). At the
+scores these messages sit at, neither would change a decision.
 
 **No production change.** Judging these categories in isolation, which a composition effect would
 have argued for, does not help either: alone, `doxxing` recall falls 5.7 points and false positives
-rise 3.3 (point estimates, not significant after correction, and concentrated in two templates), and
+rise 3.3 (point estimates, 0.14 and 1.00 after correction, concentrated in two templates), and
 `minors` does not move. Nothing here argues for a threshold move either.
 
 **The rule is neither confirmed nor refuted, and should not be designed from.** In the two categories
-it named this data sees no composition effect at all, and the resolution on `doxxing` decisions is
-poor. It stays what JEV-62 called it: a rule invented to
+it named this data sees no composition effect it can distinguish from zero, at a resolution that
+excludes only large ones. It stays what JEV-62 called it: a rule invented to
 explain two data points. Whether a category is composition-sensitive is measured, as this folder does
 for about $0.23, not predicted.
 
@@ -120,53 +123,65 @@ rows. It is a calibration fact about this category on this data, and it does not
 
 ### 4.1 Composition against the reference
 
-Two measures per cell. The sign test on paired scores asks whether the distribution shifts at all,
-the test that found spam's +0.19 in JEV-56. The paired change in the share over the line asks whether
+Two measures per cell. A test on paired scores asks whether the distribution shifts at all, the
+question that found spam's +0.19 in JEV-56. The paired change in the share over the line asks whether
 a shift changes a decision. Holm over all sixteen rows, the membership controls and `single`
 included.
 
 **Two units are correlated here, and the test runs on both.** The doxxing items are 16 templates per
-side with the slots filled, and items from one template behave alike. Every item in one request
-shares that request's draw. So the sign test is run on templates (a `minors` row is its own cluster)
-and on the requests of the changed arm, and the larger of the two p-values is the one corrected.
-Intervals resample templates or rows; they do not model the request, so read them as narrow.
+side with the slots filled, and items from one template behave alike; every item in one request
+shares that request's draw. So the test, a sign-flip permutation on the mean shift, runs on the
+template means (a `minors` row is its own cluster) and on the request means of the changed arm, and
+the larger of the two p-values is the one corrected. The reference arms have request draws of their
+own that neither unit models.
 
-| contrast | templates or rows up/down | requests up/down | larger p | Holm p | mean score shift [95%] | share over the line, change [95%] |
-|---|---|---|---|---|---|---|
-| doxxing positive, membership control | 7/9 | 3/3 | 1.000 | 1.000 | −0.002 [−0.005, +0.001] | −0.7 pts [−2.0, +0.0] |
-| doxxing positive, `mixed_shuffled` | 1/15 | 3/9 | 0.146 | 1.000 | −0.011 [−0.016, −0.007] | +0.3 pts [+0.0, +1.0] |
-| doxxing positive, `diluted` | 12/4 | 21/9 | 0.077 | 1.000 | +0.003 [+0.000, +0.007] | −0.3 pts [−1.0, +0.0] |
-| doxxing positive, `single` | 4/12 | 37/98 | 0.077 | 1.000 | −0.034 [−0.065, −0.010] | −5.7 pts [−16.4, +0.0] |
-| doxxing hard neg., membership control | 4/10 | 3/3 | 1.000 | 1.000 | +0.009 [−0.004, +0.031] | +0.0 pts |
-| doxxing hard neg., `mixed_shuffled` | 11/5 | 5/7 | 0.774 | 1.000 | +0.004 [−0.002, +0.010] | +0.0 pts |
-| doxxing hard neg., `diluted` | 6/10 | 9/21 | 0.455 | 1.000 | −0.004 [−0.011, +0.003] | +0.0 pts |
-| doxxing hard neg., `single` | 5/11 | 44/96 | 0.210 | 1.000 | +0.019 [−0.015, +0.077] | +3.3 pts [+0.0, +10.1] |
-| minors positive, membership control | 37/37 | 1/3 | 1.000 | 1.000 | −0.008 [−0.032, +0.015] | −2.5 pts [−9.9, +3.7] |
-| minors positive, `mixed_shuffled` | 37/40 | 5/2 | 0.820 | 1.000 | +0.008 [−0.013, +0.029] | +1.2 pts [−5.6, +8.0] |
-| minors positive, `diluted` | 43/36 | 10/7 | 0.629 | 1.000 | −0.002 [−0.030, +0.025] | +4.9 pts [−1.9, +12.3] |
-| minors positive, `single` | 47/32 | 47/32 | 0.115 | 1.000 | +0.038 [+0.010, +0.067] | +4.9 pts [−1.2, +11.7] |
-| minors hard neg., membership control | 31/40 | 1/3 | 0.625 | 1.000 | −0.007 [−0.020, +0.006] | −1.2 pts [−3.6, +0.0] |
-| minors hard neg., `mixed_shuffled` | 47/30 | 5/2 | 0.453 | 1.000 | +0.013 [−0.002, +0.027] | −0.6 pts [−1.8, +0.0] |
-| minors hard neg., `diluted` | 43/32 | 10/7 | 0.629 | 1.000 | +0.016 [+0.001, +0.033] | +0.6 pts [−1.2, +3.6] |
-| minors hard neg., `single` | 32/46 | 32/46 | 0.141 | 1.000 | −0.005 [−0.024, +0.014] | +0.6 pts [−1.2, +3.6] |
+**Some rows cannot pass whatever the data.** A permutation over *n* requests cannot return less than
+2/2ⁿ, and the first Holm step here needs about 0.003. With 4 requests (the `minors` membership
+controls) the floor is 0.125, with 7 (`minors` in `mixed_shuffled`) 0.016: those rows are reported,
+and they are not tests. Doxxing `mixed_shuffled` has 12 requests, floor 0.0005, and can pass only if
+nearly every request moves one way. So the `minors` composition question is really asked by `diluted`
+alone, which section 5 says is not a clean composition arm.
+
+| contrast | templates or rows up/down, p | requests up/down, p (floor) | Holm p | mean score shift [95%] | share over the line, change [95%] |
+|---|---|---|---|---|---|
+| doxxing positive, membership control | 7/9, 0.239 | 3/3, 0.500 (0.031) | 1.000 | −0.002 [−0.005, +0.001] | −0.7 pts [−2.0, +0.0] |
+| doxxing positive, `mixed_shuffled` | 1/15, 0.0003 | 3/9, 0.023 (0.0005) | 0.328 | −0.011 [−0.016, −0.007] | +0.3 pts [+0.0, +1.0] |
+| doxxing positive, `diluted` | 12/4, 0.046 | 21/9, 0.085 | 1.000 | +0.003 [+0.000, +0.007] | −0.3 pts [−1.0, +0.0] |
+| doxxing positive, `single` | 4/12, 0.009 | one item each | 0.137 | −0.034 [−0.065, −0.010] | −5.7 pts [−16.4, +0.0] |
+| doxxing hard neg., membership control | 4/10, 0.838 | 3/3, 0.656 (0.031) | 1.000 | +0.009 [−0.004, +0.031] | +0.0 pts |
+| doxxing hard neg., `mixed_shuffled` | 11/5, 0.223 | 5/7, 0.544 (0.0005) | 1.000 | +0.004 [−0.002, +0.010] | +0.0 pts |
+| doxxing hard neg., `diluted` | 6/10, 0.339 | 9/21, 0.234 | 1.000 | −0.004 [−0.011, +0.003] | +0.0 pts |
+| doxxing hard neg., `single` | 5/11, 0.976 | one item each | 1.000 | +0.019 [−0.015, +0.077] | +3.3 pts [+0.0, +10.1] |
+| minors positive, membership control | 37/37, 0.512 | 1/3, 0.625 (0.125) | 1.000 | −0.008 [−0.032, +0.015] | −2.5 pts [−9.9, +3.7] |
+| minors positive, `mixed_shuffled` | 37/40, 0.480 | 5/2, 0.391 (0.016) | 1.000 | +0.008 [−0.013, +0.029] | +1.2 pts [−5.6, +8.0] |
+| minors positive, `diluted` | 43/36, 0.873 | 10/7, 0.946 | 1.000 | −0.002 [−0.030, +0.025] | +4.9 pts [−1.9, +12.3] |
+| minors positive, `single` | 47/32, 0.012 | one item each | 0.178 | +0.038 [+0.010, +0.067] | +4.9 pts [−1.2, +11.7] |
+| minors hard neg., membership control | 31/40, 0.311 | 1/3, 0.375 (0.125) | 1.000 | −0.007 [−0.020, +0.006] | −1.2 pts [−3.6, +0.0] |
+| minors hard neg., `mixed_shuffled` | 47/30, 0.107 | 5/2, 0.109 (0.016) | 1.000 | +0.013 [−0.002, +0.027] | −0.6 pts [−1.8, +0.0] |
+| minors hard neg., `diluted` | 43/32, 0.059 | 10/7, 0.037 | 0.769 | +0.016 [+0.001, +0.033] | +0.6 pts [−1.2, +3.6] |
+| minors hard neg., `single` | 32/46, 0.652 | one item each | 1.000 | −0.005 [−0.024, +0.014] | +0.6 pts [−1.2, +3.6] |
 
 A "+0.0 pts" with no interval is a cell where no item changed side, so every resample gives zero. It
-means no decision changed, not that the change is known to be exactly zero. In `single` every request
-is one item, so the request column repeats the item counts and the template column is the binding one.
+means no decision changed, not that the change is known to be exactly zero.
+
+**The intervals disagree with the tests in five cells, and the tests are the ones to believe.** The
+mean-shift intervals exclude zero for doxxing positives in all three arms, `minors` positives alone,
+and `minors` hard negatives in `diluted`. They resample templates or rows and not requests, so they
+are too narrow by construction; the point estimates are real, and each is under 0.04.
 
 **What the rule predicted, cell by cell:**
 
 - *Doxxing positives among fewer doxxing neighbours score lower.* Among hard negatives the point
-  estimate goes that way, −0.011 and 15 of 16 templates, but 9 of 12 requests is p = 0.15: the
-  templates share those twelve requests, so they are not sixteen pieces of evidence. Among neutral
-  chat, which removes even more doxxing neighbours but also changes the length and register of the
-  request, +0.003. Neither survives.
+  estimate goes that way, −0.011, and it is the strongest composition signal in the data: 15 of 16
+  templates, 9 of 12 requests, p = 0.023 by request, 0.33 after Holm. Among neutral chat, which
+  removes even more doxxing neighbours but also changes the length and register of the request,
+  +0.003. Neither survives, and at 0.95 against a line at 0.80 neither would change a decision.
 - *Doxxing hard negatives among doxxing score higher.* +0.004, 5 of 12 requests up. Nothing.
 - *Minors positives among fewer minors neighbours score lower.* 37 up, 40 down. Nothing.
 - *Adult sexual text among minors content.* The rule can be read either way here: minors neighbours
   are evidence for minors, and adult neighbours are evidence for adults. The data does not have to
-  choose: +0.013 with minors neighbours and +0.016 among neutral chat, neither surviving, and no
-  decision moved.
+  choose: +0.013 with minors neighbours (a row that cannot pass) and +0.016 among neutral chat
+  (p = 0.059, 0.77 after Holm). The largest composition shift in magnitude, and no decision moved.
 
 ### 4.2 Membership, against the noise floor
 
@@ -204,7 +219,7 @@ recall alone before the filler shipped and 9 after.
   is concentrated. Of the nine positives under the line alone, eight are one template, a licence plate
   and the street a person parks on, whose mean falls from 0.90 batched to 0.69 alone. All five false
   positives are one template, "how do people even find someone's address from a username? asking for
-  a privacy talk", whose mean rises from 0.34 to 0.79. Both are the borderline texts of this set:
+  a privacy talk", whose mean is 0.25 to 0.42 batched and 0.79 alone. Both are the borderline texts of this set:
   among neighbours the model is surer the plate is doxxing and the privacy question is not.
 - **`minors` does not move alone** in any way this data can resolve: +0.038 on positives, the wrong
   direction for a context-starved question, and no change in either rate.
@@ -214,12 +229,14 @@ So neither category is better judged alone, which is what isolating them would a
 ## 5. What this does not measure
 
 - **Real doxxing, and most of the doxxing decisions.** The synthetic positives are unambiguous and sit
-  at 0.95; 15 of the 16 hard-negative templates average under 0.15 in every condition. Only two
-  templates of 32 have any mass near 0.80, so four of the eight "no decision changed" cells rest on
-  those two, and a doxxing decision-level effect would have to be enormous to show. The rule's own
+  at 0.95; 15 of the 16 hard-negative templates average under 0.15 in every condition. Three
+  templates of 32 have any mass near 0.80 in any condition, so four of the eight "no decision changed"
+  cells rest on those three, and a doxxing decision-level effect would have to be enormous to show.
+  The scores are compressed as well as the decisions: at 0.95 and 0.08 there is little room to move
+  either way. The rule's own
   mechanism, "is this data real, is this person private", barely applies to text whose data is
-  fictional by construction, and the model may know that 555 numbers are. The score-level tests still
-  speak; the decision-level ones need real labelled doxxing, which is JEV-11. The licence plates follow
+  fictional by construction, and the model may know that 555 numbers are. The score-level tests speak
+  only for texts this easy; the decision-level ones need real labelled doxxing, which is JEV-11. The licence plates follow
   the UK format with random letters and digits; there is no range reserved for fiction, so some may
   match a real plate, attached to a made-up handle and street.
 - **Power on `minors`.** 81 and 84 rows is all the labelled set has, in four requests per side per
@@ -231,6 +248,8 @@ So neither category is better judged alone, which is what isolating them would a
 - **Length and register.** The neutral comments have a median of 38 characters; the `minors`
   positives 1,081 and the adult rows 808; the doxxing texts 85 to 88. `diluted` changes the length and register of the
   request as well as its composition, so it is not a clean composition arm on its own.
+- **Truncation.** The runner cuts every text at 4,000 characters, as `batch_effect.py` does. Nine
+  `minors` rows and six adult rows are longer. It is the same cut in every condition.
 - **Order.** The conditions ran one after another, minutes apart, with no interleaving. `pure2` bounds
   drift between adjacent runs only.
 - **Request size.** With 85 rows per pool, the `minors` reference arms hold a request of ten and
@@ -270,6 +289,19 @@ found, all recomputed here before being accepted:
   was loose (it let any text containing 07700 through) and now fails on any run of four or more digits
   outside the reserved ranges; `run.py` now refuses to resume or analyse rows judged in a request its
   current design no longer builds.
+- **Round three: the request-level test undersold the evidence, and some rows could not pass at all.**
+  The sign test on twelve request means gave the doxxing signal p = 0.15; a sign-flip permutation on
+  the same means, which uses the magnitudes, gives 0.023. It still does not survive Holm, but "0.15"
+  was the headline figure and it was six times too weak. The analysis now uses the permutation on
+  both units and prints each row's floor, which showed that the `minors` membership and
+  `mixed_shuffled` rows cannot pass with four and seven requests. The short answer now says so, and
+  calls these signals hundredths rather than naming the doxxing one the largest, which it was not
+  (+0.016 on `minors` hard negatives among chat is). Smaller: the plate template's hard-negative
+  counterpart is 0.25 to 0.42 batched, not 0.34; three templates, not two, come near 0.80; the
+  4,000-character cut is now stated; a results line cut short by a kill now fails with a message.
+  PLAUSIBLE and recorded: the reference arms' own request draws are not modelled by either unit;
+  the request key does not include the question set, so a resume after `categories.json` changes
+  would not be caught; the design check skips in CI, which has no labelled set.
 
 ## What to do
 

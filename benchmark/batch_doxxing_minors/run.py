@@ -179,7 +179,8 @@ def ask(condition: str, limit: int | None = None) -> float:
     side = _side_of()
     # A batch is asked whole or not at all: dropping the ids already scored would change the
     # composition of the request, which is the variable under test. A batch with every recorded id
-    # present is skipped; a partly present one cannot happen, because a batch is written in one go.
+    # present is skipped. A batch's rows are written together and flushed, which makes a partly
+    # present batch unlikely, not impossible: a kill mid-write can leave one, and this refuses it.
     todo = [b for b in batches(condition) if any(rec and (condition, it["id"]) not in done for it, rec in b)]
     partial = [b for b in todo if any(rec and (condition, it["id"]) in done for it, rec in b)]
     if partial:
@@ -235,7 +236,12 @@ def _rows() -> tuple[dict[str, dict[str, dict[str, float]]], dict[str, dict[str,
     if not OUT.exists():
         return out, reqs
     expected = {c: _expected_req(c) for c in CONDITIONS}
-    for r in map(json.loads, OUT.open(encoding="utf-8")):
+    for n, line in enumerate(OUT.open(encoding="utf-8"), 1):
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            raise SystemExit(f"{OUT.name} line {n} is not JSON, probably a write cut short; "
+                             "remove that request's rows and resume") from None
         c, i = r["condition"], r["id"]
         if i in out[c]:
             raise SystemExit(f"duplicate row {c}/{i}; the results file is damaged")
@@ -292,6 +298,27 @@ def _boot(clusters: list[list], stat, n: int = 4000, seed: int = 62) -> tuple[fl
             vals.append(v)
     vals.sort()
     return vals[int(0.025 * len(vals))], vals[int(0.975 * len(vals)) - 1]
+
+
+def _signflip(means: list[float], seed: int = 62, draws: int = 20000) -> tuple[float, float]:
+    """Two-sided sign-flip permutation test of a mean of zero, and the smallest p it could give.
+
+    It uses the magnitudes, which the sign test throws away, and it is what the second red team
+    found the sign test was underselling: 9 of 12 requests down is p = 0.15 by sign and 0.023 by
+    this. Exact up to sixteen units, Monte Carlo above."""
+    n = len(means)
+    if n == 0:
+        return 1.0, 1.0
+    obs = abs(sum(means))
+    if n <= 16:
+        hits = 0
+        for mask in range(2 ** n):
+            t = sum(-m if mask >> k & 1 else m for k, m in enumerate(means))
+            hits += abs(t) >= obs - 1e-12
+        return hits / 2 ** n, 2 / 2 ** n
+    r = random.Random(seed)
+    hits = sum(abs(sum(m if r.random() < 0.5 else -m for m in means)) >= obs - 1e-12 for _ in range(draws))
+    return (hits + 1) / (draws + 1), 2 / 2 ** n
 
 
 def _cluster_sign(clusters: list[list], diff: dict[str, float]) -> tuple[int, int]:
@@ -423,9 +450,11 @@ def analyse() -> None:
         print("\n## Composition against the mean of `pure` and `reshuffled`, with the membership control\n")
         print("`membership` is `reshuffled` minus `pure`: no composition change at all. `single` is batch")
         print("against none, not composition. All are in one Holm family. Items up/down is descriptive; the")
-        print("sign test runs on clusters (templates for doxxing, rows for minors) and on requests, and the")
-        print("larger p is the one corrected. Intervals resample clusters. `membership` is one draw of the")
-        print("null, descriptive, not a calibration of it.\n")
+        print("test is a sign-flip permutation on the means of clusters (templates for doxxing, rows for")
+        print("minors) and on the means of requests, and the larger p is the one corrected. `floor` is the")
+        print("smallest p the request unit can produce: a row whose floor times sixteen is above 0.05 cannot")
+        print("survive whatever the data. Intervals resample clusters and do not model requests.")
+        print("`membership` is one draw of the null, descriptive, not a calibration of it.\n")
 
         def score_ref(i: str, g: str) -> float:
             return (rows["pure"][i][g] + rows["reshuffled"][i][g]) / 2
@@ -456,22 +485,25 @@ def analyse() -> None:
                     by_req = reqs["reshuffled" if c == "membership" else c]
                     rq = _clusters(ids, by_req)
                     rup, rdown = _cluster_sign(rq, diff)
-                    p_used = max(_binom(cup, cup + cdown), _binom(rup, rup + rdown))
+                    p_cl, _ = _signflip([statistics.mean(diff[i] for i in c_) for c_ in cl])
+                    p_rq, floor = _signflip([statistics.mean(diff[i] for i in r_) for r_ in rq])
+                    p_used = max(p_cl, p_rq)
                     rate = lambda sample, n_h=new_h, o_h=old_h: (  # noqa: E731
                         sum(n_h(i) - o_h(i) for i in sample) / len(sample))
                     lo, hi = _boot(cl, rate)
                     mlo, mhi = _boot(cl, lambda sample, diff=diff: statistics.mean(diff[i] for i in sample))
                     name = f"{g}/{s}/{c}"
                     tests.append((name, p_used))
-                    meta2[name] = (len(ids), len(cl), up, down, cup, cdown, len(rq), rup, rdown,
+                    meta2[name] = (len(ids), len(cl), up, down, cup, cdown, len(rq), rup, rdown, p_cl, p_rq, floor,
                                    statistics.mean(diff.values()), mlo, mhi, rate(ids), lo, hi)
         holm = _holm(tests)
-        print("| contrast | items | items up/down | clusters up/down | requests up/down | larger p | Holm p "
+        print("| contrast | items | items up/down | clusters up/down, p | requests up/down, p (floor) | Holm p "
               "| mean shift [95%] | share over line, change [95%] |")
-        print("|---|---|---|---|---|---|---|---|---|")
-        for name, raw in tests:
-            n, k, up, down, cup, cdown, nr, rup, rdown, m, mlo, mhi, dr, lo, hi = meta2[name]
-            print(f"| {name} | {n} | {up}/{down} | {cup}/{cdown} of {k} | {rup}/{rdown} of {nr} | {raw:.4f} "
+        print("|---|---|---|---|---|---|---|---|")
+        for name, _raw in tests:
+            n, k, up, down, cup, cdown, nr, rup, rdown, p_cl, p_rq, floor, m, mlo, mhi, dr, lo, hi = meta2[name]
+            print(f"| {name} | {n} | {up}/{down} | {cup}/{cdown} of {k}, {p_cl:.4f} "
+                  f"| {rup}/{rdown} of {nr}, {p_rq:.4f} ({floor:.2g}) "
                   f"| {holm[name]:.3f}"
                   f"{' **survives**' if holm[name] < 0.05 else ''} | {m:+.3f} [{mlo:+.3f}, {mhi:+.3f}] | "
                   f"{100 * dr:+.1f} pts [{100 * lo:+.1f}, {100 * hi:+.1f}] |")
