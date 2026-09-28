@@ -14,7 +14,7 @@ of `tests/test_redteam.py`, about a hundred calls, under a cent.
 1. **On rows where the earlier messages decide what the last one means, the window helps five of seven
    categories and the sample cannot tell for the other two.** Pooled over all seven, recall at the shipped
    thresholds goes from 37% to 64% and the false-positive rate from 14% to 6%; 50 rows are right only
-   with the window, 1 only without it (McNemar p < 1e-13). Of 105 pairs whose two halves end on the same
+   with the window, 1 only without it; the bootstrap interval of the pooled gain is +27 to +43 points. Of 105 pairs whose two halves end on the same
    line, no pair is fully right without the window, which is what the design forces, and 48 are with it.
 2. **Helps**, interval of the gain clear of zero: doxxing (+80 points), selfharm (+50), spam (+35), scam
    (+35), minors (+30). **Cannot tell**: harassment (+15, interval from 0 to +32) and nsfw (0: the window
@@ -23,15 +23,18 @@ of `tests/test_redteam.py`, about a hundred calls, under a cent.
    positives flagged in every arm). An innocent line after other people's violations was flagged 0 of 35
    times alone and 1 of 35 with the shipped window. Below the threshold the neighbourhood does leak:
    messages reporting grooming score `minors` 0.01 to 0.04 alone and 0.11 to 0.31 with the window
-   (0.15 to 0.56 without padding). At the shipped 0.70 none crosses; a community that lowers `minors`
-   would see it.
+   (0.15 to 0.56 without padding, which is not what ships). With the shipped window none crosses 0.70,
+   and none would cross 0.50.
 4. **Padding bought nothing here; the context field bought all of it.** The window without padding
-   (`ctx`, 1.05x the tokens of no window) and the shipped window with padding (`ctx_pad`, 3.08x) are right
-   on the same rows to within one. Speaker pseudonyms (`ctx_spk`, not shipped) changed nothing at the
-   threshold either.
+   (`ctx`, 1.05x the tokens of no window) and the shipped window with padding (`ctx_pad`, 3.08x) differ
+   on two rows, both negatives, in opposite directions. Speaker pseudonyms (`ctx_spk`, not shipped) moved
+   three verdicts against `ctx`, two one way and one the other, and none on net in recall.
 5. **No threshold changes.** Spam passed the pre-registered retuning rule (0.85 is too high once the
-   window is on) and then failed the pre-registered red-team check on one row, a bare `bit.ly` link that
-   `redteam.csv` labels clean and `categories.json` calls spam. Section 5 has the numbers and what would
+   window is on, though the pass rests on a single row) and then failed the pre-registered red-team check
+   on one row, a bare `bit.ly` link that `redteam.csv` labels clean and `categories.json` calls spam. Part
+   of what keeps context-decided spam under 0.85 is the engine itself: the window drops any line identical
+   to the one judged, so "the same offer, posted word for word again" reaches the model without its
+   repeats. Section 5 has the numbers and what would
    settle it. `DEFAULT_THRESHOLDS` is untouched, so nothing flows to the site through `sync_product.py`.
 
 ## 1. What was measured, and what the sample is
@@ -68,7 +71,9 @@ kind and reasoning removed and the ids replaced) relabelled all 280 from the con
 (96%): 96 of 105 pair positives, 103 of 105 pair negatives, all 70 controls. Seven of the eleven
 disagreements are nsfw pair positives, so the nsfw set's positives are the weakest labels here.
 `report --agreed-only` recomputes everything on the 269; no verdict in section 2 changes, pooled gain moves
-from +35 to +37 points.
+from +35 to +37 points. The agreement is an upper bound on independence: 105 closing lines appear twice in
+the labeller's file, so it could infer that each pair has one of each. It was started before the paid run
+and finished while it ran, reading only a copy of that file in a separate folder.
 
 **The arms**, every row in all four, two repeats each, arms shuffled per row, cache off:
 
@@ -138,7 +143,10 @@ otherwise the sample cannot tell.
 | minors | +30 | 0 | +30 | +11 to +53 | 6 | 0 | 0.031 | helps |
 | **all** | +27 | -8 | +35 | +27 to +43 | 50 | 1 | 5e-14 | helps |
 
-Seven categories tested at 0.05 is seven chances; minors at p = 0.031 and spam and scam at 0.016 would not
+The McNemar column treats the 280 rows as independent, and they are not: the two halves of a pair share
+their closing line, and without the window their correctness is anticorrelated by construction. Its p
+values are smaller than they should be and are indicative only; the bootstrap over scenarios is the test
+the verdicts use. Seven categories tested at 0.05 is seven chances; minors at p = 0.031 and spam and scam at 0.016 would not
 survive a Bonferroni correction (0.007), selfharm and doxxing would. The bootstrap intervals, which are
 what the verdicts use, are not corrected either. Read the per-category verdicts as directions and the
 pooled row as the measurement.
@@ -174,7 +182,8 @@ gap is the labels.
   (a parent reporting what they found on a child's account, a kid saying they will tell a counsellor, a
   moderator banning the groomer) score `minors` 0.01 to 0.04 alone, 0.11 to 0.31 with the shipped window
   and 0.15 to 0.56 with the window and no padding. The model partly scores the conversation instead of
-  the message. At 0.70 nothing crosses; at 0.50 one would.
+  the message. With the shipped window nothing crosses 0.70, or would cross 0.50; without padding one
+  row reaches 0.56.
 - **Any category on a negative row**, other categories included: 22 of 140 negatives were flagged for
   something alone, 10 with the shipped window. The window removed more false flags than it added.
 
@@ -195,7 +204,8 @@ against behind real channel history, McNemar at 0.05, a 5-point floor): this set
 padding here is the scenario's own lead-up, and a batch of one is the only shape run. It is consistent
 with padding buying nothing and does not decide `JEVMOD_PAD_BATCH`.
 
-**Speaker pseudonyms** (`ctx_spk`) matched the other window arms at the threshold in recall everywhere.
+**Speaker pseudonyms** (`ctx_spk`) moved three verdicts against `ctx` (`spam-p06-pos` flagged,
+`spam-p15-pos` missed, `scam-p13-neg` flagged) and matched it in recall everywhere.
 They raised context-dependent minors positives a little (mean 0.70 against 0.65) and the minors control
 negatives a little too. Nothing here argues for or against building them; the format sent here is one
 guess at JEV-19's.
@@ -217,18 +227,21 @@ checked against `tests/data/redteam.csv` before it ships.
 | doxxing | 0.80 | 0.79 | 0 | 0.80 | 0 | no |
 | minors | 0.70 | 0.52 | +11 | 0.65 | 0 | no |
 
-**Spam passed, then failed the check.** With the window, seven of fifteen context-decided spam positives
+**Spam passed, and only just.** The even half has 9 positives and the odd half 11, so one row is 11.1
+points on one side and 9.1 on the other: spam's +11 on the even half is exactly one row, and nsfw's
++11 and +9 and minors' +11 are the same granularity, not an effect. With the window, seven of fifteen context-decided spam positives
 land between 0.69 and 0.79, just under 0.85, while no spam negative with the window reaches 0.70. At 0.75
 the shipped window's spam recall on these rows is 80% against 60%, false positives still 0. The rule did
-not say which value to try, so the red-team check was run at 0.75, the highest line that clears the
-10-point gain on both halves. Two sources outside this set point the same way and were read, not run,
+not say which value to try. 0.75 and 0.76 both clear the 10-point gain on both halves, 0.77 does not;
+the check was run at 0.75, the round line, and the row that failed it scores 0.78 to 0.79, over both. Two sources outside this set point the same way and were read, not run,
 before the check: on the 476 labelled YouTube comments in `benchmark/results/context_on.jsonl` (window on),
 spam recall is 62% at 0.75 against 34% at 0.85, with no false positive among the 226 non-spam comments at
 either line, nor among the 349 Civil Comments rows; on the 1,157 unlabelled OpenAI-eval prompts, 0.75
 flags 59 for spam against 36 at 0.85, most of the added ones keyword-stuffed web text.
 
-Then `tests/test_redteam.py`, run live with spam at 0.75: nine tests pass, the `length` block fails on one
-false positive, `g9`, the bare link `http://bit.ly/3xYzAbC`, spam 0.79. `redteam.csv` labels it clean;
+Then `tests/test_redteam.py`, run live with spam at 0.75, twice: nine tests pass and the `length` block
+fails on one false positive, `g9`, the bare link `http://bit.ly/3xYzAbC`, spam 0.79 and then 0.78. The
+second run's output is `results/redteam_spam_075.txt`. `redteam.csv` labels it clean;
 `categories.json` lists "bare shortened links with no context" as spam. The check was fixed as a gate, so
 the threshold does not change here, and relabelling `g9` after seeing it block the change would be
 choosing the label after the result. What would settle it, in order: decide what `g9` is, as a labelling
@@ -236,6 +249,23 @@ question on its own; then measure spam at 0.75 against 0.85 on clean chat of the
 sells, which is what the 1,718-message Discord set measured at 0.85 (10 false positives, 0.58%,
 `BENCHMARK.md`) and whose scores are not in the repository. Spam is flag-only by default, so a false
 positive costs a moderator a look.
+
+**The window hides repeats, and that is part of spam's gap.** `ModerationService` drops from the window
+any line identical to the one being judged (`window_for(exclude=...)` and the padding filter), so that a
+message is not shown to itself. Three spam positives (`spam-p01`, `p05`, `p12`) are the same offer posted
+again word for word, and were judged with their own repeats removed. Found by the red-team review, after
+the run; `repeat_probe` judged those three once more with the repeats left in (`results/repeat_probe.jsonl`,
+6 requests, under a cent):
+
+| row | `ctx`, repeats removed | repeats kept | threshold |
+|---|---|---|---|
+| spam-p01-pos | 0.80 | 0.83 | 0.85 |
+| spam-p05-pos | 0.80 | 0.83 | 0.85 |
+| spam-p12-pos | 0.73 | 0.79 | 0.85 |
+
+Seeing the repeats adds 0.03 to 0.06 and none crosses 0.85: the exclusion costs something, not the
+threshold's whole gap. Whether the window should keep a verbatim repeat from a different message is a
+question for the context engine, not for this report.
 
 **nsfw and minors** came within a point of the rule on one half each and nowhere near on the other. With
 the leakage in section 3, lowering minors is the change this data argues most against.
@@ -257,8 +287,8 @@ these lead-ups hold 4 to 9 messages, so a padded request has fewer positions.
 
 - **The `context` field pays for itself where context decides**, at 1.05x alone and 1.22x to 1.35x in a
   batch: pooled, 27 points of recall and 8 points of false-positive rate, on rows built so that it can.
-  How often real traffic has such rows is not measured, so this is the ceiling of the benefit, not its
-  average. `EVAL.md` measured the other end: on rows with no conversation in them the window changed
+  How often real traffic has such rows is not measured, so this is what the window does when context
+  decides, not its average; nor is it a proven upper bound, since other constructed rows could gain more. `EVAL.md` measured the other end: on rows with no conversation in them the window changed
   nothing measurable.
 - **Padding, at three to four and a half times, bought nothing here** beyond the field. That is evidence
   for JEV-19's padding measurement to run, not a substitute for it.

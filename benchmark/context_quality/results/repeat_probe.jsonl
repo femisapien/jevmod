@@ -1,0 +1,6 @@
+{"id": "spam-p01-pos", "repeat": 0, "context_kept": 7, "scores": {"spam": 0.83, "scam": 0.03, "harassment": 0.01, "nsfw": 0.01, "selfharm": 0.01, "doxxing": 0.01, "minors": 0.01}}
+{"id": "spam-p01-pos", "repeat": 1, "context_kept": 7, "scores": {"spam": 0.84, "scam": 0.04, "harassment": 0.01, "nsfw": 0.01, "selfharm": 0.01, "doxxing": 0.01, "minors": 0.01}}
+{"id": "spam-p05-pos", "repeat": 0, "context_kept": 6, "scores": {"spam": 0.84, "scam": 0.03, "harassment": 0.04, "nsfw": 0.01, "selfharm": 0.01, "doxxing": 0.02, "minors": 0.01}}
+{"id": "spam-p05-pos", "repeat": 1, "context_kept": 6, "scores": {"spam": 0.82, "scam": 0.03, "harassment": 0.03, "nsfw": 0.01, "selfharm": 0.01, "doxxing": 0.02, "minors": 0.01}}
+{"id": "spam-p12-pos", "repeat": 0, "context_kept": 6, "scores": {"spam": 0.77, "scam": 0.02, "harassment": 0.04, "nsfw": 0.01, "selfharm": 0.01, "doxxing": 0.01, "minors": 0.01}}
+{"id": "spam-p12-pos", "repeat": 1, "context_kept": 6, "scores": {"spam": 0.81, "scam": 0.02, "harassment": 0.04, "nsfw": 0.01, "selfharm": 0.01, "doxxing": 0.01, "minors": 0.01}}

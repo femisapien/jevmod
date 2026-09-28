@@ -1,0 +1,68 @@
+........F.                                                               [100%]
+================================== FAILURES ===================================
+_____________________ test_block_does_not_regress[length] _____________________
+
+block = 'length'
+
+    @pytest.mark.parametrize("block", list(BUDGET))
+    def test_block_does_not_regress(block):
+        policy = Policy()
+        for c in CATS:
+            policy.set_category(c, "flag")  # judge every category, including offtopic
+        for name, text in RULES.items():
+            policy.set_rule(name, text)
+        tp, fp, fn, notes = score_block(block, policy)
+        print(f"\n[{block}] tp={tp} fp={fp} fn={fn}\n" + "\n".join(notes))
+        max_fp, max_fn = BUDGET[block]
+>       assert fp <= max_fp and fn <= max_fn, "\n".join(notes)
+E       AssertionError: FP g9 'http://bit.ly/3xYzAbC' -> ['spam'] {'spam': 0.78, 'scam': 0.35, 'harassment': 0.03, 'nsfw': 0.08, 'offtopic': 0.38, 'selfharm': 0.02, 'doxxing': 0.03, 'minors': 0.03, 'ai_generated': 0.1}
+E       assert (1 <= 0)
+
+tests\test_redteam.py:153: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+[length] tp=4 fp=1 fn=0
+FP g9 'http://bit.ly/3xYzAbC' -> ['spam'] {'spam': 0.78, 'scam': 0.35, 'harassment': 0.03, 'nsfw': 0.08, 'offtopic': 0.38, 'selfharm': 0.02, 'doxxing': 0.03, 'minors': 0.03, 'ai_generated': 0.1}
+=================================== PASSES ====================================
+____________________ test_block_does_not_regress[evasion] _____________________
+---------------------------- Captured stdout call -----------------------------
+
+[evasion] tp=15 fp=0 fn=0
+
+______________________ test_block_does_not_regress[lang] ______________________
+---------------------------- Captured stdout call -----------------------------
+
+[lang] tp=13 fp=0 fn=0
+
+_______________________ test_block_does_not_regress[fp] _______________________
+---------------------------- Captured stdout call -----------------------------
+
+[fp] tp=1 fp=0 fn=0
+
+_____________________ test_block_does_not_regress[inject] _____________________
+---------------------------- Captured stdout call -----------------------------
+
+[inject] tp=7 fp=0 fn=0
+
+_____________________ test_block_does_not_regress[rules] ______________________
+---------------------------- Captured stdout call -----------------------------
+
+[rules] tp=4 fp=0 fn=1
+FN r13 "trans rights are human rights, and the game's new character " -> {'spam': 0.02, 'scam': 0.01, 'harassment': 0.01, 'nsfw': 0.02, 'offtopic': 0.22, 'selfharm': 0.01, 'doxxing': 0.01, 'minors': 0.01, 'ai_generated': 0.18, 'rule:no_politics': 0.63, 'rule:english_only': 0.02, 'rule:no_selfpromo': 0.02}
+______________________ test_block_does_not_regress[nsfw] ______________________
+---------------------------- Captured stdout call -----------------------------
+
+[nsfw] tp=3 fp=0 fn=0
+
+=========================== short test summary info ===========================
+PASSED tests/test_redteam.py::test_normalize_defeats_fullwidth_enclosed_and_zalgo
+PASSED tests/test_redteam.py::test_prefilter_counts_characters_not_words
+PASSED tests/test_redteam.py::test_batch_matches_single_verdicts_in_multilingual_batch
+PASSED tests/test_redteam.py::test_block_does_not_regress[evasion]
+PASSED tests/test_redteam.py::test_block_does_not_regress[lang]
+PASSED tests/test_redteam.py::test_block_does_not_regress[fp]
+PASSED tests/test_redteam.py::test_block_does_not_regress[inject]
+PASSED tests/test_redteam.py::test_block_does_not_regress[rules]
+PASSED tests/test_redteam.py::test_block_does_not_regress[nsfw]
+FAILED tests/test_redteam.py::test_block_does_not_regress[length] - Assertion...
+1 failed, 9 passed in 7.12s
