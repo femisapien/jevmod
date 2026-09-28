@@ -1,4 +1,5 @@
-"""The judgment core: a batch of messages in, one Jev request, a probability per category per message out.
+"""The judgment core: a batch of messages in, Jev requests of at most 50 messages and a token budget each, a
+probability per category per message out.
 
 Cost controls live here, not in the bot: local pre-filters decide what is worth judging, a cache reuses verdicts
 for repeated text, and only the categories a server enabled are asked.

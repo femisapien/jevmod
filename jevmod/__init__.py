@@ -6,7 +6,8 @@ Developer API, three lines:
     mod = Moderator()                                  # TYPESAFE_API_KEY in the environment
     d = mod.check("FREE NITRO click discord-gifts.ru")  # -> Decision(action="flag", category="scam", probability=0.97)
 
-`check_many([...])` judges a batch in one request. Thresholds and actions come from a `Policy` you can pass in.
+`check_many([...])` judges a batch in as few requests as its length allows. Thresholds and actions come from a
+`Policy` you can pass in.
 """
 
 from __future__ import annotations
