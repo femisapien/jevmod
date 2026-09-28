@@ -195,9 +195,10 @@ the two shipped categories closest to that shape, and both are unmeasured.
 
 > **Tested, 2026-09-28 (JEV-62, `batch_doxxing_minors/REPORT.md`), and not borne out where it
 > matters.** At the shipped thresholds no change of composition moves `doxxing` or `minors` recall or
-> false positives by a measurable amount. One score effect survives: doxxing positives score 0.011
-> lower among look-alike hard negatives, the rule's direction, but +0.003 among neutral chat, which is
-> not. The paragraph above is left as written; do not design questions from it.
+> false positives by a measurable amount, and no score shift survives correction once the unit is the
+> request; the largest, doxxing positives 0.011 lower among look-alike hard negatives, is p = 0.15 by
+> request. The resolution on `doxxing` decisions is poor, since the set has little near the line.
+> The paragraph above is left as written; do not design questions from it.
 
 ## 5. What this does not measure, and one claim withdrawn
 
