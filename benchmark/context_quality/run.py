@@ -13,6 +13,7 @@ decide what the last one means**, labelled before anything was sent to the model
   clearly innocent (`pair_neg`). Scored alone, both halves are the same text, so without the window
   the engine can get at most one of the two right at any threshold, repeat noise aside. This is where
   the window can help, and it is the upper end of what it can buy, not its average on real traffic.
+  (After the run, REPORT.md weakens "upper end": other constructed rows could gain more.)
 * 5 **control_pos** per category: a line that violates on its own after ordinary unrelated chat. Asks
   whether a benign neighbourhood talks the model out of a true positive.
 * 5 **control_neg** per category: an innocent line after other people violating the category. Asks

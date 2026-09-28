@@ -30,9 +30,12 @@ two cents.
    messages reporting grooming score `minors` 0.01 to 0.04 alone and 0.11 to 0.31 with the window
    (0.15 to 0.56 without padding, which is not what ships). With the shipped window none crosses 0.70,
    and none would cross 0.50.
-4. **Padding bought nothing here; the context field bought all of it.** The window without padding
-   (`ctx`, 1.05x the tokens of no window) and the shipped window with padding (`ctx_pad`, 3.08x) differ
-   on two rows, both negatives, in opposite directions. Speaker pseudonyms (`ctx_spk`, not shipped) moved
+4. **At the threshold the context field bought all of it; below it, padding damped the leak.** The
+   window without padding (`ctx`, 1.05x the tokens of no window) and the shipped window with padding
+   (`ctx_pad`, 3.08x) differ on two verdicts, both negatives, in opposite directions. But on the 35
+   innocent lines after other people's violations, 13 scores moved more than 0.01 between the two and all
+   13 went down with padding (mean 0.03); one of them, `selfharm-c06-neg`, is why the shipped arm shows 1
+   of 35 in point 3 and not 2. Pair positives also ran slightly lower with padding (48 rows down, 30 up). Speaker pseudonyms (`ctx_spk`, not shipped) moved
    three verdicts against `ctx`, two one way and one the other, and none on net in recall.
 5. **No threshold changes.** Spam passed the pre-registered retuning rule (0.85 is too high once the
    window is on, though the pass rests on a single row) and then failed the pre-registered red-team check
@@ -58,7 +61,9 @@ fictional names, domains and numbers, non-explicit wording), labelled by their a
 | `control_pos` | 5 | a line that violates on its own, after ordinary unrelated chat. Does a benign neighbourhood talk the model out of a true positive? |
 | `control_neg` | 5 | an innocent line (a report, a defence, a change of subject) after other people's clear violations. Does a bad neighbourhood make an innocent message look guilty? |
 
-Lead-ups are 4 to 9 messages, chat register, English. The label is what a moderator reading the whole
+Lead-ups are 4 to 9 messages, chat register, English. Every arm gets the row's channel topic, and the two halves of a pair
+share theirs; the controls do not: control negatives mostly sit in channels near the category ("crypto
+discussion server", "kids gaming lobby"), control positives in unrelated ones (a book club, cooking). The label is what a moderator reading the whole
 conversation would decide about the closing line under that category's criteria, and the same label
 scores every arm.
 
@@ -76,7 +81,8 @@ kind and reasoning removed and the ids replaced) relabelled all 280 from the con
 (96%): 96 of 105 pair positives, 103 of 105 pair negatives, all 70 controls. Every disagreement gave
 both halves of a pair the same label, so counted in pairs it separated 94 of 105. Seven of the eleven
 disagreements are nsfw pair positives, so the nsfw set's positives are the weakest labels here.
-`report --agreed-only` drops those eleven pairs whole (258 rows, no half left unpaired); no verdict in
+`report --agreed-only` drops those eleven pairs whole (258 rows, no half left unpaired; the pre-registered version dropped the
+eleven rows alone, 269 rows, was changed after the run for that reason, and gives the same +37); no verdict in
 section 2 changes, pooled gain moves from +35 to +37 points (+28 to +46). The agreement is an upper bound on independence: 105 closing lines appear twice in
 the labeller's file, so it could infer that each pair has one of each. It was started before the paid run
 and finished while it ran, reading only a copy of that file in a separate folder. That isolation is the author's account, not a record: the key
@@ -166,7 +172,7 @@ verdict, so the explanation is not supported; three rows right only with the win
 
 **Why nsfw does not move at the threshold.** The window lifts the nsfw positives from a mean of 0.31
 alone to 0.41 (`ctx_pad`) and the ranking from 0.68 to 0.91, but the highest context-dependent one
-reaches 0.59 (0.62 without padding) against a threshold of 0.80. The rows that reach 0.80 are the five that say "nudes" outright, alone
+reaches 0.59 (0.62 without padding) against a threshold of 0.80. The rows that reach 0.80 are the five control positives, which ask for or sell explicit images outright, alone
 or not. The blind labeller also disagreed with seven of the fifteen nsfw pair positives, so part of the
 gap is the labels.
 
@@ -208,10 +214,13 @@ effect in section 2 is 50 rows against 1.
 
 **Padding.** `ctx` and `ctx_pad` differ on two rows, both negatives, in opposite directions: padding
 flagged `scam-p13-neg` (0.76 against 0.71) and cleared `selfharm-c06-neg` (0.38 against 0.53). On these rows padding costs three times the tokens and buys nothing measurable at the
-threshold. This is not the padding measurement JEV-19 fixed (at least 600 spam messages behind the filler
+threshold. Below it, it does something consistent: on the control negatives, 13 of 35 scores move more than
+0.01 between the two arms and all 13 fall with padding (minors `c10` 0.56 to 0.30, selfharm `c08` 0.72 to
+0.59), so padding dilutes how much a bad neighbourhood leaks onto an innocent line; on pair positives it
+lowers 48 and raises 30. The first half of that is a direction worth measuring, not a result. This is not the padding measurement JEV-19 fixed (at least 600 spam messages behind the filler
 against behind real channel history, McNemar at 0.05, a 5-point floor): this set has 40 spam rows, the
 padding here is the scenario's own lead-up, and a batch of one is the only shape run. It is consistent
-with padding buying nothing and does not decide `JEVMOD_PAD_BATCH`.
+with padding buying nothing at the threshold and does not decide `JEVMOD_PAD_BATCH`.
 
 **Speaker pseudonyms** (`ctx_spk`) moved three verdicts against `ctx` (`spam-p06-pos` flagged,
 `spam-p15-pos` missed, `scam-p13-neg` flagged) and matched it in recall everywhere.
@@ -280,7 +289,9 @@ the run; `repeat_probe` judged those three once more with the repeats left in (`
 Against `ctx`, the arm with the same shape, seeing the repeats adds 0.03 to 0.06 and none crosses 0.85:
 the exclusion costs something, not the threshold's whole gap. The probe calls `Judge` directly and ran
 twenty minutes after the main run, so path and time are not controlled; repeat noise in the main run was
-about 0.01. Whether the window should keep a verbatim repeat from a different message is a
+about 0.01. The engine's own repeat rule would not have caught them either: `local.check` counts a line
+repeated by more than `raid_repeats` distinct authors in 60 seconds, and `raid_repeats` is 0, off, by
+default. Whether the window should keep a verbatim repeat from a different message is a
 question for the context engine, not for this report.
 
 **nsfw and minors** came within a point of the rule on one half each and nowhere near on the other. With
@@ -311,7 +322,8 @@ these lead-ups hold 4 to 9 messages, so a padded request has fewer positions.
   decides, not its average; nor is it a proven upper bound, since other constructed rows could gain more.
   `EVAL.md` measured the other end: on rows with no conversation in them the window changed
   nothing measurable.
-- **Padding, at three to four and a half times, bought nothing here** beyond the field. That is evidence
+- **Padding, at three to four and a half times, bought nothing at the threshold here** beyond the field,
+  and lowered the leak onto innocent lines below it (section 4). That is evidence
   for JEV-19's padding measurement to run, not a substitute for it.
 - **JEV-19's rule (1.75x at batches of ten or more) is not in question**: the conversation part is well
   under it, and nothing here asks for more context than the window of ten already sends.
