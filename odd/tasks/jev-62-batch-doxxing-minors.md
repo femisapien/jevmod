@@ -47,12 +47,17 @@ with recall and false-positive movement and intervals, and decide whether produc
 
 - T1 to T3 done. Pilot, one request per condition: $0.0052, no cache hits, no unjudged rows.
 - Full run: 643 requests, 5.40M input tokens, $0.227 including the pilot. 2,820 recorded rows.
-- T4, T5 done. No composition effect on any decision in eight cells. One score effect survives Holm
-  (`minors` on adult sexual text, +0.016 with `minors` neighbours, and +0.019 among neutral chat,
-  which the rule does not predict). Alone, `doxxing` loses 5.3 points of recall and gains 3.3 of false
-  positives, two templates. **No production change**: isolation would make doxxing worse and nothing
-  argues for a threshold move.
+- T4, T5 done. No composition effect on any decision. One score effect survives Holm against an
+  averaged reference and a null membership control: doxxing positives -0.011 among look-alike hard
+  negatives (15/16 templates), but +0.003 among neutral chat. Alone, `doxxing` point estimates -5.7
+  pts recall and +3.3 pts FPR, not significant, two templates. **No production change**.
 - Found on the way and fixed before publishing: the doxxing items are 16 templates per side, so
   item-level tests overstated four cells. The sign test now counts templates and the bootstrap
   resamples them.
 - `BATCH_EFFECT.md` section 4 and the JEV-56 task file point at the result.
+- T6 round 1 (PR #8): CONFIRMED and fixed: the survivor depended on `reshuffled` as reference (now the
+  mean of `pure` and `reshuffled`, plus a membership control row); within-request correlation (control
+  rows as the empirical null); five duplicate `minors` texts (later id dropped); four overstatements in
+  the report (doxxing decision cells near-empty, rule retirement, alone figures, "four cells").
+  PLAUSIBLE, recorded: `pure2` is a flattering floor (no conclusion depends on it); `diluted` changes
+  length as well as composition for `minors`.

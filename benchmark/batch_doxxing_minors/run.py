@@ -58,7 +58,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from benchmark.batch_doxxing_minors import doxxing_items  # noqa: E402
 from jevmod.core.policy import DEFAULT_ACTIONS, DEFAULT_THRESHOLDS  # noqa: E402
-from jevmod.judge import CATEGORIES, Judge, Message, prefilter  # noqa: E402
+from jevmod.judge import CATEGORIES, Judge, Message, normalize, prefilter  # noqa: E402
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 OUT = Path(__file__).parent / "results.jsonl"
@@ -301,8 +301,24 @@ def analyse() -> None:
     cluster_of = {it["id"]: (f"{it['side']}-t{it['template']}" if g == "doxxing" else it["id"])
                   for (g, _), pool in p.items() for it in pool}
 
+    # Five pairs of `minors` rows are the same text once normalised. `Judge` asks identical text once
+    # per request, so where a pair shares a request both ids carry one verdict, and counting both would
+    # count one observation twice. The later id of each pair is left out of every table.
+    first: dict[str, str] = {}
+    dup = set()
+    for (g, _), pool in p.items():
+        for it in pool:
+            key = f"{g}:{normalize(it['text'])}"
+            if key in first:
+                dup.add(it["id"])
+            else:
+                first[key] = it["id"]
+    if dup:
+        print(f"duplicate texts left out: {len(dup)}")
+
     def ids_for(group: str, side: str, conds: list[str]) -> list[str]:
-        return [it["id"] for it in p[(group, side)] if all(it["id"] in rows[c] for c in conds)]
+        return [it["id"] for it in p[(group, side)]
+                if it["id"] not in dup and all(it["id"] in rows[c] for c in conds)]
 
     def hit(c: str, i: str, g: str) -> bool:
         return rows[c][i][g] >= THRESHOLD[g]
@@ -365,39 +381,61 @@ def analyse() -> None:
             print(f"| {name} | {n} | {f} vs {fl} | {raw:.4f} | {holm[name]:.3f}"
                   f"{' **survives**' if holm[name] < 0.05 else ''} |")
 
-    # The tests of the rule. Every contrast is against `reshuffled`, the arm with membership
-    # randomised and composition held, so composition is the only difference. Two measures: the sign
-    # test on paired scores (does the distribution shift at all, the test that found spam's +0.19)
-    # and the paired difference in the share over the line, with a bootstrap interval (does the shift
-    # change a decision).
-    contrasts = [c for c in ("mixed_shuffled", "diluted", "single") if c in have and "reshuffled" in have]
-    if contrasts:
-        print("\n## Composition against `reshuffled`: score shift and decision shift, Holm over the family\n")
-        print("`single` is not a composition contrast but a batch-against-none one; it is in the family so")
-        print("the correction covers it.\n")
+    # The tests of the rule. `pure` and `reshuffled` are the same composition in two independent
+    # random groupings (`pools()` shuffles every pool before `pure` chunks it), so neither is a better
+    # reference than the other, and a contrast against one of them alone inherits that grouping's luck.
+    # The first red team found exactly that: the one cell that survived against `reshuffled` did not
+    # survive against `pure`. So the reference is the mean of the two, and the first row of each cell is
+    # the two against each other: same composition, different membership, which is what this test
+    # reports when composition does nothing. A composition contrast means something only when it is
+    # clearly larger than that row.
+    #
+    # Two measures: the sign test on paired scores (does the distribution shift at all, the test that
+    # found spam's +0.19) and the paired change in the share over the line with a bootstrap interval
+    # (does the shift change a decision). Items judged in one request are correlated, which neither
+    # the sign test nor the bootstrap models; the control row is how large that makes a null look.
+    refs = ("pure", "reshuffled")
+    contrasts = [c for c in ("mixed_shuffled", "diluted", "single") if c in have]
+    if all(r in have for r in refs):
+        print("\n## Composition against the mean of `pure` and `reshuffled`, with the membership control\n")
+        print("`membership` is `reshuffled` minus `pure`: no composition change at all. `single` is batch")
+        print("against none, not composition. All are in one Holm family. Items up/down is descriptive; the")
+        print("sign p is on clusters (templates for doxxing, rows for minors), and intervals resample them.\n")
+
+        def score_ref(i: str, g: str) -> float:
+            return (rows["pure"][i][g] + rows["reshuffled"][i][g]) / 2
+
+        def hit_ref(i: str, g: str) -> float:
+            return (hit("pure", i, g) + hit("reshuffled", i, g)) / 2
+
         tests, meta2 = [], {}
         for g in GROUPS:
             for s in SIDES:
-                for c in contrasts:
-                    ids = ids_for(g, s, ["reshuffled", c])
-                    diff = {i: rows[c][i][g] - rows["reshuffled"][i][g] for i in ids}
+                for c in ("membership", *contrasts):
+                    ids = ids_for(g, s, [*refs, *contrasts])
+                    if c == "membership":
+                        new_s = lambda i, g=g: rows["reshuffled"][i][g]  # noqa: E731
+                        old_s = lambda i, g=g: rows["pure"][i][g]  # noqa: E731
+                        new_h = lambda i, g=g: float(hit("reshuffled", i, g))  # noqa: E731
+                        old_h = lambda i, g=g: float(hit("pure", i, g))  # noqa: E731
+                    else:
+                        new_s = lambda i, c=c, g=g: rows[c][i][g]  # noqa: E731
+                        old_s = lambda i, g=g: score_ref(i, g)  # noqa: E731
+                        new_h = lambda i, c=c, g=g: float(hit(c, i, g))  # noqa: E731
+                        old_h = lambda i, g=g: hit_ref(i, g)  # noqa: E731
+                    diff = {i: new_s(i) - old_s(i) for i in ids}
                     cl = _clusters(ids, cluster_of)
                     up, down = sum(d > 0 for d in diff.values()), sum(d < 0 for d in diff.values())
                     cup, cdown = _cluster_sign(cl, diff)
-                    rate = lambda sample, c=c, g=g: (  # noqa: E731
-                        sum(hit(c, i, g) for i in sample) - sum(hit("reshuffled", i, g) for i in sample)) / len(sample)
+                    rate = lambda sample, n_h=new_h, o_h=old_h: (  # noqa: E731
+                        sum(n_h(i) - o_h(i) for i in sample) / len(sample))
                     lo, hi = _boot(cl, rate)
-                    mlo, mhi = _boot(cl, lambda sample, c=c, g=g: statistics.mean(
-                        rows[c][i][g] - rows["reshuffled"][i][g] for i in sample))
+                    mlo, mhi = _boot(cl, lambda sample, diff=diff: statistics.mean(diff[i] for i in sample))
                     name = f"{g}/{s}/{c}"
-                    # The p-value that enters the family is the one at the independent unit: per
-                    # template for doxxing, per item for minors (where the two are the same).
                     tests.append((name, _binom(cup, cup + cdown)))
                     meta2[name] = (len(ids), len(cl), up, down, cup, cdown, statistics.mean(diff.values()),
                                    mlo, mhi, rate(ids), lo, hi)
         holm = _holm(tests)
-        print("Items up/down is descriptive. The sign p is computed on clusters (templates for doxxing, rows")
-        print("for minors), and intervals resample clusters.\n")
         print("| contrast | items | clusters | items up/down | clusters up/down | sign p | Holm p "
               "| mean shift [95%] | share over line, change [95%] |")
         print("|---|---|---|---|---|---|---|---|---|")
