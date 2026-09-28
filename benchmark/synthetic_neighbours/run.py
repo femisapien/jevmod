@@ -23,7 +23,8 @@ service passes (nothing, with padding off). The request goes out in the key orde
     mechanism arms, the first 300 spam and 100 clean, no channel history
     none        the filler alone (JEV-61's `none`)
     field10     set A's ten lines as the `context` field only
-    pos10       set A's ten lines as padding only (m0 and nine trailing positions)
+    pos10       set A's ten lines as padding only (m0 and eight trailing positions: `PAD_TO`
+                leaves the tenth line out, as it did in JEV-61)
     both10      both, which is JEV-61's `synth_on`
 
     python -m benchmark.synthetic_neighbours.run plan
@@ -47,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from typesafe_sdk import RetryPolicy, TypeSafeClient  # noqa: E402
 
 import jevmod.core.service as service_mod  # noqa: E402
-from benchmark.key_order.run import _auroc  # noqa: E402
+from benchmark.key_order.run import _auroc, auroc_diff_ci  # noqa: E402
 from benchmark.real_neighbours.run import (  # noqa: E402
     SYNTHETIC,
     _holm,
@@ -332,9 +333,9 @@ def report() -> None:
     # Not pre-registered; added after the run. The question JEV-88's report asks of the key order: does
     # the arm separate spam from clean better, or move every score up so the line catches more?
     print("\n## Separation or shift (added after the run, descriptive)\n")
-    print("| arm | against | AUROC arm | AUROC against | arm at 0.85 | `against` reaches that recall at | "
-          "clean over the line, arm / against there |")
-    print("|---|---|---|---|---|---|---|")
+    print("| arm | against | AUROC arm | AUROC against | difference [paired bootstrap 95%] | arm at 0.85 | "
+          "`against` reaches that recall at | clean over the line, arm / against there |")
+    print("|---|---|---|---|---|---|---|---|")
     for base, arms in (("filler", DECISION[1:]), ("none", MECHANISM[1:])):
         b_ = res.get(base, {})
         for a in arms:
@@ -348,8 +349,10 @@ def report() -> None:
             t = 0.85
             while t > 0.3 and sum(b_[i]["scores"]["spam"] >= t for i in pos) < ra:
                 t = round(t - 0.01, 2)
+            lo, hi = auroc_diff_ci(x, b_, pos, neg, "spam")
+            diff = _auroc(x, pos, neg, "spam") - _auroc(b_, pos, neg, "spam")
             print(f"| `{a}` | `{base}` | {_auroc(x, pos, neg, 'spam'):.4f} | {_auroc(b_, pos, neg, 'spam'):.4f} | "
-                  f"{ra}/{len(pos)} | {t} ({sum(b_[i]['scores']['spam'] >= t for i in pos)}) | "
+                  f"{diff:+.4f} [{lo:+.4f}, {hi:+.4f}] | {ra}/{len(pos)} | {t} ({sum(b_[i]['scores']['spam'] >= t for i in pos)}) | "
                   f"{sum(x[i]['scores']['spam'] >= 0.85 for i in neg)} / "
                   f"{sum(b_[i]['scores']['spam'] >= t for i in neg)} |")
 

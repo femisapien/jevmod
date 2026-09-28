@@ -5,8 +5,9 @@ JEV-88. Runner `benchmark/key_order/run.py`, raw rows `results/raw.jsonl`.
 **Status: run, decided.** The pre-registration below was committed and pushed in `74627d0` before any paid
 request and is unchanged since: `git diff 74627d0 -- REPORT.md` touches only this status line and adds the
 sections after it. **Verdict by the criterion: do not ship.** The order raises spam recall by 7.5 points, and a
-guard fires: it also raises harassment scores on messages without that label. What it does is move scores up,
-not separate better; the same recall is on the current request at a line 0.04 to 0.06 lower.
+guard fires: on a message judged alone it also raises harassment scores on messages without that label. What it
+does is move scores up, not separate better; the same spam recall is on the current request at a line 0.04 to 0.06
+lower.
 
 ## Pre-registration (written 2026-09-28, before the run)
 
@@ -124,24 +125,35 @@ The token count per message is identical across arms of a set, as it has to be: 
   +1.0 [-0.3, +2.5], 7 / 2, not significant. Every other guard (27 more checks, all in the runner's output) is quiet:
   the largest is spam over 0.50 on clean YouTube, +0.8 [-0.0, +1.9], 5 / 0, p 0.06.
 - **So `m0_first` does not ship.** The rule asked for zero harm and there is harm, at the line the rule named.
+- **Which messages the guards read.** The pre-registration says "messages without the set's label": the 628 clean
+  YouTube comments for `yt`, the 498 non-harassment rows for `hx`. The runner as committed with it read "without the
+  category's label" for spam and harassment, so it also counted the spam comments as "without harassment" and the
+  harassment rows as "without spam". The first review found the divergence; the runner now reads the text's
+  population, and the verdict is the same both ways: the one guard that fires reads the same 498 rows in both, and
+  no other guard reaches p < 0.05 in either (the lowest is spam over 0.50 on clean YouTube, p 0.06).
+- **The shift is a lone message's.** In batches of 25 spam recall still rises +8.4, but the scores move far less
+  (mean +0.020 on spam, +0.003 on clean) and harassment does not move at all: 98 positives up and 95 down, sign p
+  0.89. Sign tests on the positives' scores, Holm over the four sets: `yt` spam 2e-50, `ytb` spam 4.1e-20, `hx`
+  harassment 0.00038, `hxb` harassment 0.89.
 
 ### What the order does: it moves scores up, it does not separate better
 
 Added after the run, descriptive, not part of the criterion; it explains the verdict rather than making it.
 
-| set | category | AUROC `current` | AUROC `m0_first` | `m0_first` at the line: recall, over it without the label | `current` gets that recall at | there: recall, over it without the label |
-|---|---|---|---|---|---|---|
-| yt | spam | 0.9846 | 0.9822 | 223/653, 1/628 at 0.85 | 0.79 | 228/653, 0/628 |
-| ytb | spam | 0.9941 | 0.9937 | 333/760, 0/675 at 0.85 | 0.81 | 343/760, 0/675 |
-| hx | harassment | 0.9256 | 0.9235 | 272/352, 37/498 at 0.75 | 0.74 | 272/352, 34/498 |
-| hxb | harassment | 0.9286 | 0.9285 | 259/352, 27/498 at 0.75 | 0.74 | 259/352, 29/498 |
+| set | category | AUROC `current` | AUROC `m0_first` | difference [paired bootstrap 95%] | `m0_first` at the line: recall, over it without the label | `current` gets that recall at | there: recall, over it without the label |
+|---|---|---|---|---|---|---|---|
+| yt | spam | 0.9846 | 0.9822 | -0.0024 [-0.0056, +0.0005] | 223/653, 1/628 at 0.85 | 0.79 | 228/653, 0/628 |
+| ytb | spam | 0.9941 | 0.9937 | -0.0004 [-0.0009, +0.0000] | 333/760, 0/675 at 0.85 | 0.81 | 343/760, 0/675 |
+| hx | harassment | 0.9256 | 0.9235 | -0.0022 [-0.0053, +0.0011] | 272/352, 37/498 at 0.75 | 0.74 | 272/352, 34/498 |
+| hxb | harassment | 0.9286 | 0.9285 | -0.0001 [-0.0023, +0.0018] | 259/352, 27/498 at 0.75 | 0.74 | 259/352, 29/498 |
 
 - With `m0` first, a lone message's scores go up whatever it is: spam up on 462 spam messages and down on 113,
   and also up on 402 of 628 clean ones (mean +0.022); harassment up on both sides. The area under the ROC curve
-  does not rise in any set; it falls slightly in all four.
-- **Every recall point it buys is on the current request at a lower line**, with no more false positives on these
-  sets: 0.79 instead of 0.85 for spam alone, 0.81 in batches. Changing the order is changing the threshold by
-  another name, for every category at once and without saying so.
+  falls slightly in all four sets, and the bootstrap interval of the difference rules out a rise above +0.002 in
+  every one of them.
+- **Every recall point it buys is on the current request at a lower line**, with false positives within three
+  messages either way on these sets: 0.79 instead of 0.85 for spam alone, 0.81 in batches. Changing the order is
+  changing the threshold by another name, on a lone message for every category at once, and without saying so.
 - **The red-team file shows the cost of that.** Of its 96 judged rows, `m0_first` gets 13 category verdicts wrong
   against 11 for `current`. The one new false positive is `g9`, a bare `http://bit.ly/3xYzAbC` the file calls clean:
   spam 0.81 with `current`, 0.85 with `m0_first`, over the line. That is the row that failed JEV-18's red-team gate
@@ -152,8 +164,9 @@ Added after the run, descriptive, not part of the criterion; it explains the ver
 ### The noise floor
 
 The same request sent twice (`repeat` against `current`) moves spam recall -0.8 [-1.9, +0.4] (4 / 9) and mean
-scores by 0.0000 (225 up, 235 down); harassment +0.3 (3 / 2). Nothing here is caching or chance: `m0_first`'s 52 / 3
-is about ten times what an identical request produces.
+scores by 0.0000 (225 up, 235 down); harassment +0.3 (3 / 2). An identical request is not answered identically, so
+it was not served from a cache, and its flips go both ways. `m0_first` has four times as many discordant pairs (55
+against 13) and 52 of its 55 go one way.
 
 ### What changes
 

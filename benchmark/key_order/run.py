@@ -245,19 +245,29 @@ def _plan() -> list[tuple[str, str, dict[str, Any]]]:
     return plan
 
 
+def _billed(lines: list[dict[str, Any]]) -> tuple[int, int]:
+    """Billed input tokens and request units over every attempt in the file. A unit's rows are written
+    together and all carry the unit's bill, so it is counted once per attempt: on the unit's first row,
+    which is the same message every time the unit is asked. A retried unit is billed twice, as it was."""
+    first: dict[tuple[str, str, str], str] = {}
+    tokens = attempts = 0
+    for r in lines:
+        key = (r["set"], r["arm"], r["unit"])
+        if first.setdefault(key, r["id"]) == r["id"]:
+            tokens += r["unit_tokens"]
+            attempts += 1
+    return tokens, attempts
+
+
 def _done() -> tuple[set[tuple[str, str, str]], int]:
-    done, spent = set(), 0
-    if OUT.exists():
-        seen_units: set[tuple[str, str, str]] = set()
-        for line in OUT.open(encoding="utf-8"):
-            r = json.loads(line)
-            key = (r["set"], r["arm"], r["unit"])
-            if key not in seen_units:
-                spent += r["unit_tokens"]
-                seen_units.add(key)
-            if r["judged"]:
-                done.add(key)
-    return done, spent
+    """Units with a judged row, and what the file has spent. A batch that came back partly unjudged
+    counts as done: its unjudged rows are the pre-filter's, which a retry would not change."""
+    done: set[tuple[str, str, str]] = set()
+    lines = [json.loads(line) for line in OUT.open(encoding="utf-8")] if OUT.exists() else []
+    for r in lines:
+        if r["judged"]:
+            done.add((r["set"], r["arm"], r["unit"]))
+    return done, _billed(lines)[0]
 
 
 def ask(limit: int | None = None, workers: int = 4) -> None:
@@ -355,6 +365,20 @@ def _auroc(arm: dict[str, dict[str, Any]], pos: list[str], neg: list[str], cat: 
     return (rank_sum - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg))
 
 
+def auroc_diff_ci(first: dict[str, dict[str, Any]], second: dict[str, dict[str, Any]], pos: list[str],
+                  neg: list[str], cat: str, reps: int = 1000) -> tuple[float, float]:
+    """95% interval for AUROC(first) - AUROC(second) on the same messages: a bootstrap that resamples
+    positives and negatives separately and scores both arms on each resample, so the pairing is kept."""
+    rng = random.Random(SEED)
+    diffs = []
+    for _ in range(reps):
+        p = [rng.choice(pos) for _ in pos]
+        n = [rng.choice(neg) for _ in neg]
+        diffs.append(_auroc(first, p, n, cat) - _auroc(second, p, n, cat))
+    diffs.sort()
+    return diffs[int(0.025 * reps)], diffs[int(0.975 * reps) - 1]
+
+
 def _fmt(c: dict[str, Any]) -> str:
     return (f"{c['n']} | {100 * c['first']:.1f}% | {100 * c['second']:.1f}% | "
             f"{100 * c['delta']:+.1f} [{100 * c['lo']:+.1f}, {100 * c['hi']:+.1f}] | {c['b']} / {c['c']} | "
@@ -379,24 +403,25 @@ def guards(res: dict[tuple[str, str], dict[str, dict[str, Any]]], first: str, se
         c = paired(res, s, first, second, True, own, own, th)
         if c and c["p"] < 0.05 and c["delta"] < 0:
             fired.append(f"{s}: {own} recall at {th} falls {100 * c['delta']:+.1f}, p {c['p']:.3g}")
+        # "Messages without the set's label", as the pre-registration says: clean YouTube comments for
+        # `yt`/`ytb`, the 498 non-harassment rows for `hx`/`hxb`. Until the first review this passed the
+        # category's own label for spam and harassment, which also counted spam comments as "without
+        # harassment"; the verdict is the same either way (REPORT.md, "The decision").
         for cat, lines in LINES.items():
             for th in lines:
-                c = paired(res, s, first, second, False, cat if cat != "scam" else own, cat, th)
+                c = paired(res, s, first, second, False, own, cat, th)
                 if c and c["p"] < 0.05 and c["delta"] > 0:
-                    fired.append(f"{s}: {cat} over {th} on messages not labelled "
-                                 f"{cat if cat != 'scam' else own} rises {100 * c['delta']:+.1f}, p {c['p']:.3g}")
+                    fired.append(f"{s}: {cat} over {th} on messages not labelled {own} "
+                                 f"rises {100 * c['delta']:+.1f}, p {c['p']:.3g}")
     return fired
 
 
 def report() -> None:
     all_rows = [json.loads(line) for line in OUT.open(encoding="utf-8")]
-    billed: dict[tuple[str, str, str], int] = {}
-    for r in all_rows:
-        billed.setdefault((r["set"], r["arm"], r["unit"]), r["unit_tokens"])
-    tokens = sum(billed.values())
+    tokens, attempts = _billed(all_rows)
     unjudged = [r for r in all_rows if not r["judged"]]
     orders = {r["arm"]: r["orders"][0] for r in all_rows if r["set"] == "yt" and r["orders"]}
-    print(f"{len(all_rows)} rows over {len(billed)} requests' units, {len(unjudged)} rows unjudged "
+    print(f"{len(all_rows)} rows over {attempts} unit attempts, {len(unjudged)} rows unjudged "
           f"({sorted({r['reason'] for r in unjudged})}), {tokens:,} billed input tokens, "
           f"${tokens * USD_PER_M / 1e6:.3f}")
     print(f"key order on the wire, lone yt: {orders}\n")
@@ -449,7 +474,7 @@ def report() -> None:
     for s, own in (("yt", "spam"), ("ytb", "spam"), ("hx", "harassment"), ("hxb", "harassment")):
         for cat, lines in LINES.items():
             for th in lines:
-                fp.append((s, "m0_first", "current", False, cat if cat != "scam" else own, cat, th))
+                fp.append((s, "m0_first", "current", False, own, cat, th))
     table("False positives: messages without the label, m0_first against current", fp)
     table("The noise floor: the same request twice (`repeat` against `current`)", [
         ("yt", "repeat", "current", True, "spam", "spam", 0.85),
@@ -476,9 +501,10 @@ def report() -> None:
     # separated spam from clean better, the area under the ROC curve would rise; if it moved every score
     # up, the area stays and the same recall is reached on `current` with a lower line.
     print("\n## Separation or shift (added after the run, descriptive)\n")
-    print("| set | category | AUROC current | AUROC m0_first | m0_first at the line: recall, over the line "
-          "without the label | `current` reaches that recall at | there: recall, over the line without the label |")
-    print("|---|---|---|---|---|---|---|")
+    print("| set | category | AUROC current | AUROC m0_first | difference [paired bootstrap 95%] | m0_first at the "
+          "line: recall, over the line without the label | `current` reaches that recall at | there: recall, over "
+          "the line without the label |")
+    print("|---|---|---|---|---|---|---|---|")
     for s, cat in (("yt", "spam"), ("ytb", "spam"), ("hx", "harassment"), ("hxb", "harassment")):
         a_, b_ = res.get((s, "m0_first"), {}), res.get((s, "current"), {})
         ids = [i for i in a_ if i in b_]
@@ -494,7 +520,9 @@ def report() -> None:
             t = round(t - 0.01, 2)
         rb = sum(b_[i]["scores"][cat] >= t for i in pos)
         fb = sum(b_[i]["scores"][cat] >= t for i in neg)
+        lo, hi = auroc_diff_ci(a_, b_, pos, neg, cat)
         print(f"| {s} | {cat} | {_auroc(b_, pos, neg, cat):.4f} | {_auroc(a_, pos, neg, cat):.4f} | "
+              f"{_auroc(a_, pos, neg, cat) - _auroc(b_, pos, neg, cat):+.4f} [{lo:+.4f}, {hi:+.4f}] | "
               f"{ra}/{len(pos)}, {fa}/{len(neg)} at {th} | {t} | {rb}/{len(pos)}, {fb}/{len(neg)} |")
 
     fam = {}
