@@ -295,7 +295,9 @@ def _load(agreed_only: bool) -> tuple[list[dict[str, Any]], dict[tuple[str, str]
     raw = [json.loads(line) for line in OUT.open(encoding="utf-8")]
     if agreed_only:
         agree = _blind_agreement(rs, quiet=True)
-        rs = [r for r in rs if agree.get(r["id"], True)]
+        # A disagreement on one half of a pair drops the whole scenario, so no half is left unpaired.
+        drop = {r["scenario"] for r in rs if not agree.get(r["id"], True)}
+        rs = [r for r in rs if r["scenario"] not in drop]
     cat_of = {r["id"]: r["category"] for r in rs}
     per: dict[tuple[str, str], list[float]] = {}
     for x in raw:
@@ -370,6 +372,12 @@ def _blind_agreement(rs: list[dict[str, Any]], quiet: bool = False) -> dict[str,
         for kind in KINDS:
             ks = [r["id"] for r in rs if r["kind"] == kind and r["id"] in out]
             print(f"  {kind}: {sum(out[i] for i in ks)} of {len(ks)}")
+        pairs: dict[str, list[bool]] = {}
+        for r in rs:
+            if r["kind"].startswith("pair") and r["id"] in out:
+                pairs.setdefault(r["scenario"], []).append(out[r["id"]])
+        both = sum(len(v) == 2 and all(v) for v in pairs.values())
+        print(f"  pairs with both halves agreed: {both} of {len(pairs)}")
         for rid, ok in sorted(out.items()):
             if not ok:
                 print(f"  disagrees: {rid}")
