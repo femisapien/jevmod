@@ -315,8 +315,8 @@ def _rates(rs: list[dict[str, Any]], score: dict[tuple[str, str], float], arm: s
     return (tp / len(pos) if pos else float("nan"), fp / len(neg) if neg else float("nan"), len(pos), len(neg))
 
 
-def _boot(rs: list[dict[str, Any]], fn: Any, seed: int = SEED) -> tuple[float, float]:
-    """Percentile interval of `fn(rows)`, resampling scenarios with replacement."""
+def _boot(rs: list[dict[str, Any]], fn: Any, seed: int = SEED, alpha: float = 0.05) -> tuple[float, float]:
+    """Two-sided (1 - alpha) percentile interval of `fn(rows)`, resampling scenarios with replacement."""
     scn: dict[str, list[dict[str, Any]]] = {}
     for r in rs:
         scn.setdefault(r["scenario"], []).append(r)
@@ -329,7 +329,7 @@ def _boot(rs: list[dict[str, Any]], fn: Any, seed: int = SEED) -> tuple[float, f
         if v == v:  # drop NaN (a resample with no positives or no negatives)
             vals.append(v)
     vals.sort()
-    return vals[int(0.025 * len(vals))], vals[int(0.975 * len(vals)) - 1]
+    return vals[int(alpha / 2 * len(vals))], vals[int((1 - alpha / 2) * len(vals)) - 1]
 
 
 def _mcnemar(b: int, c: int) -> float:
@@ -404,9 +404,9 @@ def report(agreed_only: bool) -> None:
           "McNemar on per-row correctness.\n")
     for other in ("ctx_pad", "ctx", "ctx_spk"):
         print(f"### `{other}` against `off`\n")
-        print("| category | recall change | FPR change | gain | 95% CI of gain | rows right only with | "
-              "only without | McNemar p | verdict |")
-        print("|---|---|---|---|---|---|---|---|---|")
+        print("| category | recall change | FPR change | gain | 95% CI of gain | Bonferroni CI (7 tests) | "
+              "rows right only with | only without | McNemar p | verdict |")
+        print("|---|---|---|---|---|---|---|---|---|---|")
         for name, g in groups:
             def gain(s: list[dict[str, Any]], o: str = other) -> float:
                 r1, f1, _, _ = _rates(s, score, o)
@@ -415,6 +415,7 @@ def report(agreed_only: bool) -> None:
             r1, f1, _, _ = _rates(g, score, other)
             r0, f0, _, _ = _rates(g, score, "off")
             lo, hi = _boot(g, gain)
+            blo, bhi = _boot(g, gain, alpha=0.05 / len(CATS)) if name != "all" else (lo, hi)
 
             def right(r: dict[str, Any], arm: str) -> bool:
                 return (score[(r["id"], arm)] >= DEFAULT_THRESHOLDS[r["category"]]) == r["label"]
@@ -422,7 +423,7 @@ def report(agreed_only: bool) -> None:
             c = sum(right(r, "off") and not right(r, other) for r in g)
             verdict = "helps" if lo > 0 else "hurts" if hi < 0 else "cannot tell"
             print(f"| {name} | {100*(r1-r0):+.0f} | {100*(f1-f0):+.0f} | {100*gain(g):+.0f} | "
-                  f"{100*lo:+.0f} to {100*hi:+.0f} | {b} | {c} | {_mcnemar(b, c):.3g} | {verdict} |")
+                  f"{100*lo:+.0f} to {100*hi:+.0f} | {100*blo:+.0f} to {100*bhi:+.0f} | {b} | {c} | {_mcnemar(b, c):.3g} | {verdict} |")
         print()
 
     print("## By kind of row, pooled over categories (rate at or over the shipped threshold)\n")
@@ -518,8 +519,9 @@ def report(agreed_only: bool) -> None:
         print(f"| {c} | {DEFAULT_THRESHOLDS[c]} | " + " | ".join(cells) + f" | {'yes' if ok else 'no'} |")
 
     print("\n## Cost, billed input tokens per judged message\n")
-    print("| arm | tokens per message | x off | $ per 1K | positions per request | context entries kept |")
-    print("|---|---|---|---|---|---|")
+    print("| arm | tokens per message | x off | $ per 1K | positions per request | context entries kept "
+          "| ms median | ms p95 |")
+    print("|---|---|---|---|---|---|---|---|")
     base = None
     for arm in ARMS:
         xs = [x for x in raw if x["arm"] == arm and x["id"] in by_id]
@@ -527,7 +529,9 @@ def report(agreed_only: bool) -> None:
         base = base or tok
         pos = statistics.mean(x["positions"] / max(1, x["requests"]) for x in xs)
         kept = statistics.mean(x["context_kept"] for x in xs)
-        print(f"| {arm} | {tok:,.0f} | {tok / base:.2f}x | ${tok * USD_PER_M / 1e3:.3f} | {pos:.1f} | {kept:.1f} |")
+        ms = sorted(x["ms"] for x in xs if x["judged"])
+        print(f"| {arm} | {tok:,.0f} | {tok / base:.2f}x | ${tok * USD_PER_M / 1e3:.3f} | {pos:.1f} | {kept:.1f} "
+              f"| {statistics.median(ms):.0f} | {ms[int(0.95 * len(ms))]:.0f} |")
     total = sum(x["input_tokens"] for x in raw)
     print(f"\nwhole run: {total:,} input tokens, ${total * USD_PER_M / 1e6:.3f}")
 
