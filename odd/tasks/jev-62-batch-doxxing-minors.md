@@ -48,8 +48,9 @@ with recall and false-positive movement and intervals, and decide whether produc
 - T1 to T3 done. Pilot, one request per condition: $0.0052, no cache hits, no unjudged rows.
 - Full run: 643 requests, 5.40M input tokens, $0.227 including the pilot. 2,820 recorded rows.
 - T4, T5 done. No composition effect survives, on decisions or on scores, once the sign test runs on
-  requests as well as templates. Largest: doxxing positives -0.011 among hard negatives, 9 of 12
-  requests, p = 0.15. Alone, `doxxing` point estimates -5.7 pts recall and +3.3 pts FPR, not
+  requests as well as templates. Most consistent: doxxing positives -0.011 among hard negatives, 9 of
+  12 requests, permutation p = 0.023, Holm 0.33. Resolution is poor (minors effects up to ~12 pts
+  not excluded; some rows cannot pass with 4-7 requests). Alone, `doxxing` point estimates -5.7 pts recall and +3.3 pts FPR, not
   significant, two templates. **No production change**.
 - Found on the way and fixed before publishing: the doxxing items are 16 templates per side, so
   item-level tests overstated four cells. The sign test now counts templates and the bootstrap
@@ -67,3 +68,11 @@ with recall and false-positive movement and intervals, and decide whether produc
   `run.py` did not check stored requests against the design (now refuses); "15 of 16 at 0.12 or less"
   held only for the averaged reference. PLAUSIBLE, recorded in REPORT section 5: order of conditions,
   request size in `minors`, length/register in `diluted`, plates in real UK format.
+- T6 round 3 (last): CONFIRMED and fixed: rows that cannot pass with 4-7 requests (now a printed floor
+  and said in the short answer); "largest shift" was wrong; the request-level sign test undersold the
+  doxxing signal (permutation 0.023 vs sign 0.15; the analysis now uses sign-flip permutation on both
+  units); the BATCH_EFFECT note said more than the report (aligned to "neither confirmed nor
+  refuted"); intervals excluding zero in five cells now explained; template-8 figures, "three
+  templates", the 4,000-character cut; a truncated results line now fails with a message. PLAUSIBLE
+  left after three rounds: the reference arms' own request draws are not modelled; the request key
+  omits the question set; the design test skips in CI (no labelled set there).
