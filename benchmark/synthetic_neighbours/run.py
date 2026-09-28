@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from typesafe_sdk import RetryPolicy, TypeSafeClient  # noqa: E402
 
 import jevmod.core.service as service_mod  # noqa: E402
+from benchmark.key_order.run import _auroc  # noqa: E402
 from benchmark.real_neighbours.run import (  # noqa: E402
     SYNTHETIC,
     _holm,
@@ -327,6 +328,30 @@ def report() -> None:
             c = contrast(res, f_, s_, side, "spam", 0.85 if side == "spam" else 0.5)
             if c:
                 print(_row(f"`{f_}` vs `{s_}`", side, "spam", 0.85 if side == "spam" else 0.5, c))
+
+    # Not pre-registered; added after the run. The question JEV-88's report asks of the key order: does
+    # the arm separate spam from clean better, or move every score up so the line catches more?
+    print("\n## Separation or shift (added after the run, descriptive)\n")
+    print("| arm | against | AUROC arm | AUROC against | arm at 0.85 | `against` reaches that recall at | "
+          "clean over the line, arm / against there |")
+    print("|---|---|---|---|---|---|---|")
+    for base, arms in (("filler", DECISION[1:]), ("none", MECHANISM[1:])):
+        b_ = res.get(base, {})
+        for a in arms:
+            x = res.get(a, {})
+            ids = [i for i in x if i in b_]
+            pos = [i for i in ids if x[i]["side"] == "spam"]
+            neg = [i for i in ids if x[i]["side"] == "clean"]
+            if not pos or not neg:
+                continue
+            ra = sum(x[i]["scores"]["spam"] >= 0.85 for i in pos)
+            t = 0.85
+            while t > 0.3 and sum(b_[i]["scores"]["spam"] >= t for i in pos) < ra:
+                t = round(t - 0.01, 2)
+            print(f"| `{a}` | `{base}` | {_auroc(x, pos, neg, 'spam'):.4f} | {_auroc(b_, pos, neg, 'spam'):.4f} | "
+                  f"{ra}/{len(pos)} | {t} ({sum(b_[i]['scores']['spam'] >= t for i in pos)}) | "
+                  f"{sum(x[i]['scores']['spam'] >= 0.85 for i in neg)} / "
+                  f"{sum(b_[i]['scores']['spam'] >= t for i in neg)} |")
 
     print("\n## The criterion\n")
     passing = {}
