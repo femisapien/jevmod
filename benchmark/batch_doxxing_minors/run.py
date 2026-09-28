@@ -174,6 +174,7 @@ def _done() -> set[tuple[str, str]]:
 
 def ask(condition: str, limit: int | None = None) -> float:
     """Score one condition; resumable. Returns dollars spent."""
+    _rows()  # refuses to resume on top of rows from a different design
     done = _done()
     side = _side_of()
     # A batch is asked whole or not at all: dropping the ids already scored would change the
@@ -218,15 +219,32 @@ def ask(condition: str, limit: int | None = None) -> float:
     return spent
 
 
-def _rows() -> dict[str, dict[str, dict[str, float]]]:
+def _expected_req(condition: str) -> dict[str, str]:
+    """{id: request key} as `batches()` builds that condition today."""
+    return {it["id"]: f"{condition}:{batch_key(b)}" for b in batches(condition) for it, rec in b if rec}
+
+
+def _rows() -> tuple[dict[str, dict[str, dict[str, float]]], dict[str, dict[str, str]]]:
+    """({condition: {id: scores}}, {condition: {id: request key}}).
+
+    Every row is checked against the request `batches()` builds today. If `doxxing.jsonl`, the
+    labelled set or a seed changed after the run, the stored rows describe requests this code no
+    longer builds, and resuming or analysing on top of them would mix two designs without a word."""
     out: dict[str, dict[str, dict[str, float]]] = {c: {} for c in CONDITIONS}
+    reqs: dict[str, dict[str, str]] = {c: {} for c in CONDITIONS}
     if not OUT.exists():
-        return out
+        return out, reqs
+    expected = {c: _expected_req(c) for c in CONDITIONS}
     for r in map(json.loads, OUT.open(encoding="utf-8")):
-        if r["id"] in out[r["condition"]]:
-            raise SystemExit(f"duplicate row {r['condition']}/{r['id']}; the results file is damaged")
-        out[r["condition"]][r["id"]] = r["scores"]
-    return out
+        c, i = r["condition"], r["id"]
+        if i in out[c]:
+            raise SystemExit(f"duplicate row {c}/{i}; the results file is damaged")
+        if expected[c].get(i) != r["req"]:
+            raise SystemExit(f"{c}/{i} was judged in a request this design no longer builds; "
+                             "the pools or seeds changed since the run")
+        out[c][i] = r["scores"]
+        reqs[c][i] = r["req"]
+    return out, reqs
 
 
 # --- statistics, written out: scipy is not a dependency and a benchmark must not add one ---------
@@ -291,7 +309,7 @@ def _holm(tests: list[tuple[str, float]]) -> dict[str, float]:
 
 
 def analyse() -> None:
-    rows = _rows()
+    rows, reqs = _rows()
     p, _, dropped = pools()
     have = [c for c in CONDITIONS if rows[c]]
     if "pure" not in have:
@@ -392,15 +410,22 @@ def analyse() -> None:
     #
     # Two measures: the sign test on paired scores (does the distribution shift at all, the test that
     # found spam's +0.19) and the paired change in the share over the line with a bootstrap interval
-    # (does the shift change a decision). Items judged in one request are correlated, which neither
-    # the sign test nor the bootstrap models; the control row is how large that makes a null look.
+    # (does the shift change a decision).
+    #
+    # The sign test is run twice, on two units, and the larger p enters the Holm family. Templates:
+    # ten doxxing texts from one template behave alike. Requests: every item in one request shares
+    # that request's draw, and the second red team showed that the 16 templates sharing twelve requests
+    # made a template-level p of 0.0005 into a request-level one of 0.15. Neither unit is fully
+    # independent of the other, so the conservative choice is the one that reports.
     refs = ("pure", "reshuffled")
     contrasts = [c for c in ("mixed_shuffled", "diluted", "single") if c in have]
     if all(r in have for r in refs):
         print("\n## Composition against the mean of `pure` and `reshuffled`, with the membership control\n")
         print("`membership` is `reshuffled` minus `pure`: no composition change at all. `single` is batch")
         print("against none, not composition. All are in one Holm family. Items up/down is descriptive; the")
-        print("sign p is on clusters (templates for doxxing, rows for minors), and intervals resample them.\n")
+        print("sign test runs on clusters (templates for doxxing, rows for minors) and on requests, and the")
+        print("larger p is the one corrected. Intervals resample clusters. `membership` is one draw of the")
+        print("null, descriptive, not a calibration of it.\n")
 
         def score_ref(i: str, g: str) -> float:
             return (rows["pure"][i][g] + rows["reshuffled"][i][g]) / 2
@@ -427,21 +452,27 @@ def analyse() -> None:
                     cl = _clusters(ids, cluster_of)
                     up, down = sum(d > 0 for d in diff.values()), sum(d < 0 for d in diff.values())
                     cup, cdown = _cluster_sign(cl, diff)
+                    # The request each item sat in on the changed side of the contrast.
+                    by_req = reqs["reshuffled" if c == "membership" else c]
+                    rq = _clusters(ids, by_req)
+                    rup, rdown = _cluster_sign(rq, diff)
+                    p_used = max(_binom(cup, cup + cdown), _binom(rup, rup + rdown))
                     rate = lambda sample, n_h=new_h, o_h=old_h: (  # noqa: E731
                         sum(n_h(i) - o_h(i) for i in sample) / len(sample))
                     lo, hi = _boot(cl, rate)
                     mlo, mhi = _boot(cl, lambda sample, diff=diff: statistics.mean(diff[i] for i in sample))
                     name = f"{g}/{s}/{c}"
-                    tests.append((name, _binom(cup, cup + cdown)))
-                    meta2[name] = (len(ids), len(cl), up, down, cup, cdown, statistics.mean(diff.values()),
-                                   mlo, mhi, rate(ids), lo, hi)
+                    tests.append((name, p_used))
+                    meta2[name] = (len(ids), len(cl), up, down, cup, cdown, len(rq), rup, rdown,
+                                   statistics.mean(diff.values()), mlo, mhi, rate(ids), lo, hi)
         holm = _holm(tests)
-        print("| contrast | items | clusters | items up/down | clusters up/down | sign p | Holm p "
+        print("| contrast | items | items up/down | clusters up/down | requests up/down | larger p | Holm p "
               "| mean shift [95%] | share over line, change [95%] |")
         print("|---|---|---|---|---|---|---|---|---|")
         for name, raw in tests:
-            n, k, up, down, cup, cdown, m, mlo, mhi, dr, lo, hi = meta2[name]
-            print(f"| {name} | {n} | {k} | {up}/{down} | {cup}/{cdown} | {raw:.4f} | {holm[name]:.3f}"
+            n, k, up, down, cup, cdown, nr, rup, rdown, m, mlo, mhi, dr, lo, hi = meta2[name]
+            print(f"| {name} | {n} | {up}/{down} | {cup}/{cdown} of {k} | {rup}/{rdown} of {nr} | {raw:.4f} "
+                  f"| {holm[name]:.3f}"
                   f"{' **survives**' if holm[name] < 0.05 else ''} | {m:+.3f} [{mlo:+.3f}, {mhi:+.3f}] | "
                   f"{100 * dr:+.1f} pts [{100 * lo:+.1f}, {100 * hi:+.1f}] |")
 

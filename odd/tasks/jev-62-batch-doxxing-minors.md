@@ -47,10 +47,10 @@ with recall and false-positive movement and intervals, and decide whether produc
 
 - T1 to T3 done. Pilot, one request per condition: $0.0052, no cache hits, no unjudged rows.
 - Full run: 643 requests, 5.40M input tokens, $0.227 including the pilot. 2,820 recorded rows.
-- T4, T5 done. No composition effect on any decision. One score effect survives Holm against an
-  averaged reference and a null membership control: doxxing positives -0.011 among look-alike hard
-  negatives (15/16 templates), but +0.003 among neutral chat. Alone, `doxxing` point estimates -5.7
-  pts recall and +3.3 pts FPR, not significant, two templates. **No production change**.
+- T4, T5 done. No composition effect survives, on decisions or on scores, once the sign test runs on
+  requests as well as templates. Largest: doxxing positives -0.011 among hard negatives, 9 of 12
+  requests, p = 0.15. Alone, `doxxing` point estimates -5.7 pts recall and +3.3 pts FPR, not
+  significant, two templates. **No production change**.
 - Found on the way and fixed before publishing: the doxxing items are 16 templates per side, so
   item-level tests overstated four cells. The sign test now counts templates and the bootstrap
   resamples them.
@@ -61,3 +61,9 @@ with recall and false-positive movement and intervals, and decide whether produc
   the report (doxxing decision cells near-empty, rule retirement, alone figures, "four cells").
   PLAUSIBLE, recorded: `pure2` is a flattering floor (no conclusion depends on it); `diluted` changes
   length as well as composition for `minors`.
+- T6 round 2: CONFIRMED and fixed: the round-1 survivor (doxxing positives, 15/16 templates) was the
+  unit of analysis, 9/12 requests p = 0.15, so the sign test now runs on requests too and the larger p
+  is corrected; the fictional-data test was loose (now: no 4+ digit run outside reserved ranges);
+  `run.py` did not check stored requests against the design (now refuses); "15 of 16 at 0.12 or less"
+  held only for the averaged reference. PLAUSIBLE, recorded in REPORT section 5: order of conditions,
+  request size in `minors`, length/register in `diluted`, plates in real UK format.

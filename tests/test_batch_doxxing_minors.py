@@ -30,10 +30,10 @@ def test_doxxing_set_holds_only_fictional_contact_data():
     assert len(rows) == 2 * doxxing_items.PER_SIDE
     assert len({r["text"] for r in rows}) == len(rows), "identical texts are asked once per request"
     for r in rows:
-        for phone in re.findall(r"\b555-\d{4}\b|\b07700 \d{6}\b", r["text"]):
-            assert re.fullmatch(r"555-01\d\d|07700 900\d{3}", phone), phone
-        for digits in re.findall(r"\d{3}[- ]?\d{4}", r["text"]):
-            assert digits.startswith(("555", "900")) or "07700" in r["text"], r["text"]
+        # Take out the reserved ranges; what is left may hold no phone-length run of digits, whatever
+        # its separators.
+        rest = re.sub(r"\b555-01\d\d\b|\b07700 900\d{3}\b", "", r["text"])
+        assert not re.search(r"\d(?:[\s.-]?\d){3,}", rest), r["text"]
         for domain in re.findall(r"@([\w.-]+\.\w+)", r["text"]):
             assert domain in ("example.com", "example.org"), domain
 
@@ -69,3 +69,14 @@ def test_statistics():
     lo, hi = run._boot([[1.0, 1.0, 1.0], [0.0]], lambda s: sum(s) / len(s), n=500)
     assert 0.0 <= lo <= hi <= 1.0
     assert run._cluster_sign([["a", "b"], ["c"]], {"a": 0.1, "b": -0.05, "c": -0.2}) == (1, 1)
+
+
+def test_every_stored_row_was_judged_in_the_request_the_design_builds():
+    """`_rows()` refuses rows from a design the code no longer builds. It needs the labelled set, which
+    `benchmark/prepare.py` fetches and git ignores, so a clean checkout skips it visibly."""
+    import pytest
+
+    if not (run.DATA / "items.jsonl").exists():
+        pytest.skip("benchmark/data/items.jsonl is absent; run benchmark/prepare.py")
+    rows, reqs = run._rows()
+    assert sum(len(v) for v in rows.values()) == sum(len(v) for v in reqs.values()) > 0
