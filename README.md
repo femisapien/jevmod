@@ -129,7 +129,7 @@ d.scores  # {'spam': 0.98, 'scam': 0.99, 'harassment': 0.02, 'nsfw': 0.01, ...}
 p = Policy()
 p.set_category("scam", "delete", 0.7)
 p.set_rule("no_politics", "No political discussion. Game news is fine.", action="flag", threshold=0.8)
-Moderator(policy=p).check_many(["...", "..."], channel_topic="support")  # one request for the batch
+Moderator(policy=p).check_many(["...", "..."], channel_topic="support")  # batched into as few requests as their length allows
 ```
 
 ### npm
