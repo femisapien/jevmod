@@ -193,6 +193,11 @@ export class Judge {
       // Index zero costs recall and buys no precision. Real padding is preferred over the
       // constant because it is real text and costs nothing extra to have; the constant is the
       // fallback for a caller with no padding to offer.
+      //
+      // Added after the real messages, so it is serialised last (m1, ..., mN, m0), as in the Python
+      // package, and that order is measured: JEV-88 (benchmark/key_order/REPORT.md, Python package)
+      // found m0 first moves every score up, a threshold change by another name. tests/padding.test.ts
+      // pins it.
       stateMessages["m0"] = { text: pad.length > 0 ? (pad.shift() as string) : LEAD_FILLER, channel_topic: topic };
       const trailingCount = Math.max(0, PAD_TO - toJudge.length - 1);
       pad.slice(0, trailingCount).forEach((text, k) => {

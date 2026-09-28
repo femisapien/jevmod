@@ -205,6 +205,11 @@ padding is, and what this run measured) survives the criterion.
 
 ### Follow-ups, not pre-registered here and not shipped
 
+Both were measured on 2026-09-29 in their own pre-registered runs, and neither ships: the key order in
+`benchmark/key_order/REPORT.md` (JEV-88: +7.5 points, and a false-positive guard fired), the synthetic
+neighbours in `benchmark/synthetic_neighbours/REPORT.md` (JEV-89: the best is +5.7 [+3.8, +7.6] at 1.73 times).
+Both move every score up rather than separate better, so what they buy is a lower line.
+
 - **Key order.** Send `m0` before `m1` in the request JSON. Free in tokens; this run's exploratory +0.064 on
   29 spam messages needs its own pre-registered, paired run, with a false-positive check that has power (a
   lower line or scores, since nothing clean crosses 0.85 on these streams).
