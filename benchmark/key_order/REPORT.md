@@ -83,7 +83,8 @@ noise floor, harassment and scam per set, and the red-team rows.
 ## Results (added 2026-09-28, after the run)
 
 **The run.** 13,695 rows: a pilot of two units per set and arm, then the full plan, then one resume, in one file.
-6,886 request units, 23,232,991 billed input tokens, **$0.976** at $0.042 per million (input only, as in every
+6,886 distinct units (6,900 attempts, of which 6,873 sent a request; the other 27 were lone messages the pre-filter
+stops before any request), 23,232,991 billed input tokens, **$0.976** at $0.042 per million (input only, as in every
 benchmark here). One request failed open (`hx`, `current`, `oai882`; the error was not recorded) and was asked again
 by the resume, which is the row used. The other unjudged rows are `too short`, the pre-filter, the same messages in
 every arm (the resume re-lists the lone ones at no cost). Pairs use only rows judged in both arms. Every request's key order
@@ -123,7 +124,8 @@ The token count per message is identical across arms of a set, as it has to be: 
 - **It hurts:** on the 498 messages not labelled harassment, judged alone, 16 go over 0.50 for harassment with
   `m0_first` that did not with `current`, and 1 the other way (p 0.00028). At the shipped 0.75 the same direction,
   +1.0 [-0.3, +2.5], 7 / 2, not significant. Every other guard (27 more checks, all in the runner's output) is quiet:
-  the largest is spam over 0.50 on clean YouTube, +0.8 [-0.0, +1.9], 5 / 0, p 0.06.
+  the one with the lowest p is spam over 0.50 on clean YouTube, +0.8 [-0.0, +1.9], 5 / 0, p 0.06, and the largest
+  change is harassment over 0.75 on `hx`, +1.0 [-0.3, +2.5], p 0.18.
 - **So `m0_first` does not ship.** The rule asked for zero harm and there is harm, at the line the rule named.
 - **Which messages the guards read.** The pre-registration says "messages without the set's label": the 628 clean
   YouTube comments for `yt`, the 498 non-harassment rows for `hx`. The runner as committed with it read "without the
@@ -143,7 +145,7 @@ Added after the run, descriptive, not part of the criterion; it explains the ver
 | set | category | AUROC `current` | AUROC `m0_first` | difference [paired bootstrap 95%] | `m0_first` at the line: recall, over it without the label | `current` gets that recall at | there: recall, over it without the label |
 |---|---|---|---|---|---|---|---|
 | yt | spam | 0.9846 | 0.9822 | -0.0024 [-0.0056, +0.0005] | 223/653, 1/628 at 0.85 | 0.79 | 228/653, 0/628 |
-| ytb | spam | 0.9941 | 0.9937 | -0.0004 [-0.0009, +0.0000] | 333/760, 0/675 at 0.85 | 0.81 | 343/760, 0/675 |
+| ytb | spam | 0.9941 | 0.9937 | -0.0004 [-0.0010, +0.0000] | 333/760, 0/675 at 0.85 | 0.81 | 343/760, 0/675 |
 | hx | harassment | 0.9256 | 0.9235 | -0.0022 [-0.0053, +0.0011] | 272/352, 37/498 at 0.75 | 0.74 | 272/352, 34/498 |
 | hxb | harassment | 0.9286 | 0.9285 | -0.0001 [-0.0023, +0.0018] | 259/352, 27/498 at 0.75 | 0.74 | 259/352, 29/498 |
 

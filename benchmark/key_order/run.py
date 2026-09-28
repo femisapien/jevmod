@@ -328,12 +328,13 @@ def ask(limit: int | None = None, workers: int = 4) -> None:
 # --- the report -----------------------------------------------------------------------------------
 
 def rows() -> dict[tuple[str, str], dict[str, dict[str, Any]]]:
-    """(set, arm) -> id -> the first judged row."""
+    """(set, arm) -> id -> the judged row of the latest attempt. `_done` asks a unit again when its
+    latest attempt failed open, so the latest attempt is the one that is whole."""
     out: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
     for line in OUT.open(encoding="utf-8"):
         r = json.loads(line)
         if r["judged"]:
-            out.setdefault((r["set"], r["arm"]), {}).setdefault(r["id"], r)
+            out.setdefault((r["set"], r["arm"]), {})[r["id"]] = r
     return out
 
 
@@ -383,7 +384,7 @@ def auroc_diff_ci(first: dict[str, dict[str, Any]], second: dict[str, dict[str, 
         n = [rng.choice(neg) for _ in neg]
         diffs.append(_auroc(first, p, n, cat) - _auroc(second, p, n, cat))
     diffs.sort()
-    return diffs[int(0.025 * reps)], diffs[int(0.975 * reps) - 1]
+    return diffs[round(0.025 * reps) - 1], diffs[round(0.975 * reps) - 1]  # the 25th and the 975th of 1,000
 
 
 def _fmt(c: dict[str, Any]) -> str:

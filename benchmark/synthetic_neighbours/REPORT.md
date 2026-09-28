@@ -72,8 +72,9 @@ nothing ships, the report gives the verdict, and JEV-19 records it.
 **The run.** 6,100 rows, the whole plan: a pilot of two per arm, then the other 6,082, 0 unjudged, 25,207,557 billed input
 tokens, **$1.059** at $0.042 per million (input only). All arms interleaved in one seeded order. The judge sent
 its keys as it does in production (`m1, m0, ...`, JEV-88 changed nothing), and each row records the order and what
-sat at `m0`. The decision arms carry the ten comments before each message as its `context`, less the exact copies
-of the message the service drops: 798 of the 900 messages keep all ten, 102 fewer, the same in every arm. Tables come
+sat at `m0`. The decision arms carry the ten comments before each message as its `context`, less what the service
+leaves out (exact copies of the message, and lines past the window's token budget): 798 of the 900 messages keep
+all ten, 102 fewer, the same in every arm. Tables come
 from `python -m benchmark.synthetic_neighbours.run report`.
 
 ### Per arm (spam at 0.85, Wilson 95%)
@@ -105,8 +106,9 @@ from `python -m benchmark.synthetic_neighbours.run report`.
 - **The lines matter more than their number.** Set A's first three buy +5.7, set B's first three +2.0, with the
   same count and the same cost. Whatever the gain is, it is a property of particular lines, which is what the
   two-set rule was there to catch.
-- **No guard came near firing.** On the 300 clean messages nothing crosses spam 0.85 or 0.50, scam 0.75 or 0.50 in
-  any arm, and harassment moves by one message at most.
+- **No guard came near firing.** On the 300 clean messages no arm puts a new message over spam 0.85 or 0.50 or
+  scam 0.75 or 0.50 (the one clean message over spam 0.50 is over it in every arm, `filler` included), and harassment
+  moves by one message at most.
 - **Cost:** two lines are 1.37 times the filler request, three 1.73 times, in line with JEV-67's 930 tokens a
   position.
 
@@ -137,7 +139,7 @@ Added after the run, descriptive, not part of the criterion. The same check JEV-
 | `s3a` | `filler` | 0.9831 | 0.9853 | -0.0022 [-0.0042, -0.0002] | 196/600 | 0.80 (201) | 0 / 0 |
 | `s2b` | `filler` | 0.9844 | 0.9853 | -0.0009 [-0.0026, +0.0008] | 174/600 | 0.83 (178) | 0 / 0 |
 | `s3b` | `filler` | 0.9831 | 0.9853 | -0.0022 [-0.0043, -0.0001] | 174/600 | 0.83 (178) | 0 / 0 |
-| `field10` | `none` | 0.9809 | 0.9808 | +0.0001 [-0.0024, +0.0029] | 68/300 | 0.81 (70) | 0 / 0 |
+| `field10` | `none` | 0.9809 | 0.9808 | +0.0001 [-0.0025, +0.0029] | 68/300 | 0.81 (70) | 0 / 0 |
 | `pos10` | `none` | 0.9812 | 0.9808 | +0.0005 [-0.0025, +0.0036] | 65/300 | 0.82 (66) | 0 / 0 |
 | `both10` | `none` | 0.9802 | 0.9808 | -0.0006 [-0.0033, +0.0022] | 81/300 | 0.77 (81) | 0 / 0 |
 
@@ -149,7 +151,7 @@ with no more clean messages over it on these sets; JEV-61's ten lines are worth 
 same finding as JEV-88's key order: what neighbours and order change is where the scores sit, not how well they
 rank. Buying that with tokens or with request shape is buying a lower threshold, and a lower spam line is a
 threshold decision with its own red-team gate (JEV-18's: a bare shortened link the red-team file calls clean scores
-0.78 to 0.81 and would cross).
+0.78 to 0.81 and would cross a line at 0.78 or below, the lower end of the range above).
 
 ### What changes
 
@@ -158,8 +160,9 @@ pre-registered run to buy five points at a multiplier near the filler's") did no
 
 ### Limits
 
-- YouTube comments under music videos, spam labels only; the clean side is 300 (decision) and 100 (mechanism), and
-  nothing clean crossed a line in any arm, so the guards had little to find.
+- YouTube comments under music videos, spam labels only; the clean side is 300 (decision) and 100 (mechanism). The
+  same clean messages sit over the lines in every arm (13 over harassment 0.75, 17 over 0.50, 1 over spam 0.50 of
+  the 300) and no arm moves them, so the guards had little to find.
 - Two sets of lines, their first two or three in written order; a search over lines might find a set that clears
   five points, and by the table above it would be finding a lower line.
 - The mechanism arms have no channel history, a case production meets only on a channel's first message or after
