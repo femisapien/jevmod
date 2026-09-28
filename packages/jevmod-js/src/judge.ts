@@ -123,9 +123,11 @@ export class Judge {
    * questions, and whose answers are discarded. It exists because the size of the batch changes
    * the answers: the same spam message reaches 17.3% recall judged alone and 38.7% in a batch of
    * ten (jevmod/benchmark/BATCH_EFFECT.md section 7). Without padding, a caller that judges one
-   * message at a time gets worse moderation than one that batches, and nobody is told. This
-   * package has no conversation buffer to fill `padding` automatically — the Python package does,
-   * via `core.context.ConversationBuffer` — so the caller supplies it.
+   * message at a time gets worse moderation than one that batches. Most of that gap was position
+   * m0, which is always a filler here, and JEV-61 measured what padding with real channel history
+   * adds over the filler: about one point of spam recall for about four times the tokens
+   * (jevmod/benchmark/real_neighbours/REPORT.md). This package has no conversation buffer, and the
+   * Python package no longer pads by default (`JEVMOD_PAD_BATCH`), so the caller supplies it or not.
    *
    * The discard lives here on purpose, not in the caller: an invariant kept by whoever remembers
    * to keep it is one that eventually is not kept, so no padded text can reach a verdict or the

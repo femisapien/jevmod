@@ -45,7 +45,8 @@ MAX_BATCH = max(1, int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100))
 # messages, paired, the criterion JEV-19 fixed before the run. With the channel's ten most recent clean
 # messages as the history, the case of a quiet channel, recall goes from 20.3% to 21.3%, +1.0 points
 # [-0.2, +2.2], McNemar p 0.15; with the channel's history as it was, +1.5 [+0.1, +2.9]. JEV-19 keeps padding
-# only if the lower end of that interval reaches 5 points and turns it off if the upper end is under 5.
+# only if the gain is significant and the lower end of that interval reaches 5 points, and turns it off
+# if the upper end is under 5.
 # What it costs: 4.5 times the model spend of every padded message, $0.41 per thousand judged messages
 # against $0.09 with the filler alone (`benchmark/context_cost/REPORT.md`, JEV-67).
 #

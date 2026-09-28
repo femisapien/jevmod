@@ -7,8 +7,8 @@ score, so REPORT3's numbers are a premise until they are measured through `Judge
 This script does that and nothing else. It loads the same 1047 texts REPORT3 used (`slop.load_items`),
 shuffles them with REPORT3's seed so every batch of 25 holds the same texts `slop ask-mixed` grouped
 together (about 25% AI), and hands each batch to `Judge.judge` with all nine categories. What reaches Jev:
-no padding, `m0` the lead filler, topic "general chat", no conversation context. Production pads a batch
-with the channel's recent messages, attaches the conversation before each message and sends the channel's
+no padding, `m0` the lead filler, topic "general chat", no conversation context. Production (padding off by
+default since JEV-61) attaches the conversation before each message and sends the channel's
 own topic; none of the three is measured here. The pre-filter
 runs as it does in production, so a text under eight letters is not judged and cannot fire.
 
