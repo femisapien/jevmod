@@ -371,6 +371,26 @@ def test_no_real_message_ever_sits_at_position_zero():
     assert real == {f"a real message number {i}" for i in range(4)}
 
 
+def test_m0_goes_on_the_wire_last():
+    """The order of the keys is part of what Jev scores, not a formatting detail. JEV-88 sent the same
+    requests with `m0` first: spam recall at 0.85 rose 7.5 points alone and 8.4 in batches, and harassment
+    over 0.50 rose 3.0 points on messages without that label, because every score moves up and the area
+    under the ROC curve does not (`benchmark/key_order/REPORT.md`). That is a lower threshold by another
+    name, so the order stays as measured. Changing it is a scoring change and needs its own run."""
+    from typesafe_sdk._core.json import serialize
+
+    c = _Capture()
+    Judge(client=c, cache_ttl_s=0).judge([Message("1", "the one real message here")], ["spam"])
+    assert list(c.state["messages"]) == ["m1", "m0"]
+    c2 = _Capture()
+    Judge(client=c2, cache_ttl_s=0).judge([Message(str(i), f"a real message number {i}") for i in range(3)],
+                                          ["spam"])
+    assert list(c2.state["messages"]) == ["m1", "m2", "m3", "m0"]
+    # And the SDK keeps that order when it encodes the request.
+    wire = serialize(c2.state).decode()
+    assert wire.index('"m3"') < wire.index('"m0"') < wire.index('"custom_rules"')
+
+
 def test_the_lead_filler_never_reaches_a_verdict_or_the_cache():
     from jevmod.judge import LEAD_FILLER
 

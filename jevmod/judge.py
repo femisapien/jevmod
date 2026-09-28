@@ -506,6 +506,12 @@ class Judge:
         # Recent history is preferred over the constant because it is real text from this
         # channel and costs nothing extra to have; the constant is the fallback for a channel
         # with no history yet.
+        #
+        # Added after the real messages, so it goes on the wire last (`m1, ..., mN, m0`), and that order
+        # is measured, not incidental. JEV-88 sent the same requests with `m0` first: every score moved
+        # up, spam recall at 0.85 by 7.5 points and harassment over 0.50 by 3.0 points on messages
+        # without that label, with no better separation (`benchmark/key_order/REPORT.md`). Reordering
+        # these keys is a threshold change; `tests/test_context.py` pins the order.
         state["messages"]["m0"] = {"text": pad.pop(0) if pad else LEAD_FILLER, "channel_topic": topic}
         for k, text in enumerate(pad[: max(0, PAD_TO - len(chunk) - 1)]):
             state["messages"][f"m{len(chunk) + 1 + k}"] = {"text": text, "channel_topic": topic}
