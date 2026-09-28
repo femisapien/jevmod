@@ -373,10 +373,10 @@ def test_no_real_message_ever_sits_at_position_zero():
 
 def test_m0_goes_on_the_wire_last():
     """The order of the keys is part of what Jev scores, not a formatting detail. JEV-88 sent the same
-    requests with `m0` first: spam recall at 0.85 rose 7.5 points alone and 8.4 in batches, and harassment
-    over 0.50 rose 3.0 points on messages without that label, because every score moves up and the area
-    under the ROC curve does not (`benchmark/key_order/REPORT.md`). That is a lower threshold by another
-    name, so the order stays as measured. Changing it is a scoring change and needs its own run."""
+    requests with `m0` first: spam recall at 0.85 rose 7.5 points on a message alone and 8.4 in batches,
+    and on a message alone harassment over 0.50 rose 3.0 points on messages without that label, because
+    the scores move up and the area under the ROC curve does not (`benchmark/key_order/REPORT.md`). That
+    is a lower threshold by another name, so the order stays as measured, padding or not."""
     from typesafe_sdk._core.json import serialize
 
     c = _Capture()
@@ -389,6 +389,13 @@ def test_m0_goes_on_the_wire_last():
     # And the SDK keeps that order when it encodes the request.
     wire = serialize(c2.state).decode()
     assert wire.index('"m3"') < wire.index('"m0"') < wire.index('"custom_rules"')
+    # With padding (`JEVMOD_PAD_BATCH=1`): the oldest line takes m0, still after the message, and the
+    # rest trail behind it.
+    c3 = _Capture()
+    Judge(client=c3, cache_ttl_s=0).judge([Message("1", "the one real message here")], ["spam"],
+                                          padding=("an earlier line one", "an earlier line two",
+                                                   "an earlier line three"))
+    assert list(c3.state["messages"]) == ["m1", "m0", "m2", "m3"]
 
 
 def test_the_lead_filler_never_reaches_a_verdict_or_the_cache():

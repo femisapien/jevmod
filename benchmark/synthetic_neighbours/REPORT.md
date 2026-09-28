@@ -118,7 +118,7 @@ sat at `m0`. Tables come from `python -m benchmark.synthetic_neighbours.run repo
 | `both10` vs `pos10` | 300 | 27.0% | 21.7% | +5.3 [+2.7, +8.1] | 16 / 0 | 3.1e-05 | 1.02x |
 | `both10` vs `field10` | 300 | 27.0% | 22.7% | +4.3 [+1.9, +6.9] | 13 / 0 | 0.00024 | 4.19x |
 
-- **JEV-61's +9.0 replicates** (+10.3 on a different draw of 300).
+- **JEV-61's +9.0 replicates** (+10.3 on a draw of 300 that shares 140 of its spam messages with JEV-61's 300).
 - **The two channels add up.** The lines as the `context` field alone buy +6.0 at 1.07 times the tokens; as
   positions alone +5.0 at 4.4 times; both together about the sum. JEV-61's arm could not tell them apart. On this
   YouTube data the field alone is where the cheap part of the gain is.
@@ -129,18 +129,20 @@ sat at `m0`. Tables come from `python -m benchmark.synthetic_neighbours.run repo
 
 Added after the run, descriptive, not part of the criterion. The same check JEV-88's report makes of the key order.
 
-| arm | against | AUROC arm | AUROC against | arm at 0.85 | `against` reaches that recall at | clean over the line, arm / against there |
-|---|---|---|---|---|---|---|
-| `s2a` | `filler` | 0.9848 | 0.9853 | 188/600 | 0.81 (193) | 0 / 0 |
-| `s3a` | `filler` | 0.9831 | 0.9853 | 196/600 | 0.80 (201) | 0 / 0 |
-| `s2b` | `filler` | 0.9844 | 0.9853 | 174/600 | 0.83 (178) | 0 / 0 |
-| `s3b` | `filler` | 0.9831 | 0.9853 | 174/600 | 0.83 (178) | 0 / 0 |
-| `field10` | `none` | 0.9809 | 0.9808 | 68/300 | 0.81 (70) | 0 / 0 |
-| `pos10` | `none` | 0.9812 | 0.9808 | 65/300 | 0.82 (66) | 0 / 0 |
-| `both10` | `none` | 0.9802 | 0.9808 | 81/300 | 0.77 (81) | 0 / 0 |
+| arm | against | AUROC arm | AUROC against | difference [paired bootstrap 95%] | arm at 0.85 | `against` reaches that recall at | clean over the line, arm / against there |
+|---|---|---|---|---|---|---|---|
+| `s2a` | `filler` | 0.9848 | 0.9853 | -0.0005 [-0.0023, +0.0011] | 188/600 | 0.81 (193) | 0 / 0 |
+| `s3a` | `filler` | 0.9831 | 0.9853 | -0.0022 [-0.0042, -0.0002] | 196/600 | 0.80 (201) | 0 / 0 |
+| `s2b` | `filler` | 0.9844 | 0.9853 | -0.0009 [-0.0026, +0.0008] | 174/600 | 0.83 (178) | 0 / 0 |
+| `s3b` | `filler` | 0.9831 | 0.9853 | -0.0022 [-0.0043, -0.0001] | 174/600 | 0.83 (178) | 0 / 0 |
+| `field10` | `none` | 0.9809 | 0.9808 | +0.0001 [-0.0024, +0.0029] | 68/300 | 0.81 (70) | 0 / 0 |
+| `pos10` | `none` | 0.9812 | 0.9808 | +0.0005 [-0.0025, +0.0036] | 65/300 | 0.82 (66) | 0 / 0 |
+| `both10` | `none` | 0.9802 | 0.9808 | -0.0006 [-0.0033, +0.0022] | 81/300 | 0.77 (81) | 0 / 0 |
 
-No arm separates spam from clean better than its baseline: the area under the ROC curve is flat or slightly lower
-in all seven. Every recall point an arm buys at 0.85 is on the baseline request at a lower line, 0.77 to 0.83,
+No arm separates spam from clean better than its baseline: every AUROC is within 0.0022 of its baseline's, two are
+significantly lower (`s3a`, `s3b`), and no interval allows a rise above +0.004. The clean side is small (300 and
+100) and nothing clean crosses the lower lines either, so "no more false positives there" has little power; the
+AUROC intervals are the stronger half of the argument. Every recall point an arm buys at 0.85 is on the baseline request at a lower line, 0.77 to 0.83,
 with no more clean messages over it on these sets; JEV-61's ten lines are worth a spam line of 0.77. That is the
 same finding as JEV-88's key order: what neighbours and order change is where the scores sit, not how well they
 rank. Buying that with tokens or with request shape is buying a lower threshold, and a lower spam line is a

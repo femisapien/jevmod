@@ -157,14 +157,21 @@ describe("Moderator passes the window through", () => {
 
   it("sends m0 last, in the same key order as the Python package", async () => {
     // The key order is part of what Jev scores. JEV-88 (benchmark/key_order/REPORT.md, Python package)
-    // sent m0 first: every score moved up, spam recall at 0.85 rose 7.5 points and harassment over 0.50
-    // rose 3.0 on messages without that label, with no better separation. The order stays as measured.
+    // sent m0 first: a lone message's scores moved up, spam recall at 0.85 by 7.5 points and harassment
+    // over 0.50 by 3.0 on messages without that label, with no better separation. The order stays as
+    // measured, with padding too.
     const { calls, client } = fakeClient();
     const j = new Judge({ client });
     await j.judge([msg("a", "this is a perfectly ordinary sentence")], ["spam"]);
     await j.judge([msg("b", "a real message number one"), msg("c", "a real message number two")], ["spam"]);
     expect(Object.keys((calls[0] as Call).state.messages)).toEqual(["m1", "m0"]);
     expect(Object.keys((calls[1] as Call).state.messages)).toEqual(["m1", "m2", "m0"]);
+    await j.judge([msg("d", "the one real message here")], ["spam"], {}, [
+      "an earlier line one",
+      "an earlier line two",
+      "an earlier line three",
+    ]);
+    expect(Object.keys((calls[2] as Call).state.messages)).toEqual(["m1", "m0", "m2", "m3"]);
     expect(JSON.stringify((calls[1] as Call).state).indexOf('"m0"')).toBeGreaterThan(
       JSON.stringify((calls[1] as Call).state).indexOf('"m2"'),
     );
