@@ -6,18 +6,23 @@ tokens), the blind relabelling in `results/blind_labels.jsonl`. Every table here
 `python -m benchmark.context_quality.run report`.
 
 **The run cost $0.30**: 7,227,276 input tokens at $42 per billion (the list price every benchmark here
-uses), 2,240 judgements. The pre-registered red-team check of a spam threshold (section 5) added one pass
-of `tests/test_redteam.py`, about a hundred calls, under a cent.
+uses), 2,240 judgements. The pre-registered red-team check of a spam threshold (section 5) added two passes
+of `tests/test_redteam.py`, about a hundred calls each, and the repeat probe six requests; together under
+two cents.
 
 ## The short answer
 
-1. **On rows where the earlier messages decide what the last one means, the window helps five of seven
-   categories and the sample cannot tell for the other two.** Pooled over all seven, recall at the shipped
-   thresholds goes from 37% to 64% and the false-positive rate from 14% to 6%; 50 rows are right only
-   with the window, 1 only without it; the bootstrap interval of the pooled gain is +27 to +43 points. Of 105 pairs whose two halves end on the same
-   line, no pair is fully right without the window, which is what the design forces, and 48 are with it.
-2. **Helps**, interval of the gain clear of zero: doxxing (+80 points), selfharm (+50), spam (+35), scam
-   (+35), minors (+30). **Cannot tell**: harassment (+15, interval from 0 to +32) and nsfw (0: the window
+1. **On rows where the earlier messages decide what the last one means, the window helps.** Pooled over
+   all seven categories, recall at the shipped thresholds goes from 37% to 64% and the false-positive
+   rate from 14% to 6%; 50 rows are right only with the window, 1 only without it; the bootstrap interval
+   of the pooled gain is +27 to +43 points. Of 105 pairs whose two halves end on the same line, no pair is
+   fully right without the window, which is what the design forces, and 48 are with it. The 14% is a
+   property of this set, not a base rate: 19 of its 20 false positives are innocent halves built to be
+   ambiguous alone.
+2. **Per category, as directions** (seven tests, uncorrected): the interval of the gain clears zero for
+   doxxing (+80 points), selfharm (+50), spam (+35), scam (+35) and minors (+30); only doxxing and
+   selfharm would survive a Bonferroni correction. Part of the minors and selfharm gain may be the model
+   scoring the neighbourhood rather than the message (point 3). **Cannot tell**: harassment (+15, interval from 0 to +32) and nsfw (0: the window
    lifts nsfw's ranking from AUROC 0.68 to 0.91 but no context-dependent positive reaches 0.80).
 3. **Where it can hurt, it barely does at the threshold.** No true positive was lost (35 of 35 control
    positives flagged in every arm). An innocent line after other people's violations was flagged 0 of 35
@@ -206,7 +211,7 @@ with padding buying nothing and does not decide `JEVMOD_PAD_BATCH`.
 
 **Speaker pseudonyms** (`ctx_spk`) moved three verdicts against `ctx` (`spam-p06-pos` flagged,
 `spam-p15-pos` missed, `scam-p13-neg` flagged) and matched it in recall everywhere.
-They raised context-dependent minors positives a little (mean 0.70 against 0.65) and the minors control
+They raised context-dependent minors positives (the pair positives, mean 0.63 against 0.55) and the minors control
 negatives a little too. Nothing here argues for or against building them; the format sent here is one
 guess at JEV-19's.
 
@@ -241,7 +246,8 @@ flags 59 for spam against 36 at 0.85, most of the added ones keyword-stuffed web
 
 Then `tests/test_redteam.py`, run live with spam at 0.75, twice: nine tests pass and the `length` block
 fails on one false positive, `g9`, the bare link `http://bit.ly/3xYzAbC`, spam 0.79 and then 0.78. The
-second run's output is `results/redteam_spam_075.txt`. `redteam.csv` labels it clean;
+second run's output is `results/redteam_spam_075.txt`; the first run's was read in the terminal and
+not saved. `redteam.csv` labels it clean;
 `categories.json` lists "bare shortened links with no context" as spam. The check was fixed as a gate, so
 the threshold does not change here, and relabelling `g9` after seeing it block the change would be
 choosing the label after the result. What would settle it, in order: decide what `g9` is, as a labelling
@@ -257,14 +263,16 @@ again word for word, and were judged with their own repeats removed. Found by th
 the run; `repeat_probe` judged those three once more with the repeats left in (`results/repeat_probe.jsonl`,
 6 requests, under a cent):
 
-| row | `ctx`, repeats removed | repeats kept | threshold |
-|---|---|---|---|
-| spam-p01-pos | 0.80 | 0.83 | 0.85 |
-| spam-p05-pos | 0.80 | 0.83 | 0.85 |
-| spam-p12-pos | 0.73 | 0.79 | 0.85 |
+| row | `ctx_pad` (shipped), repeats removed | `ctx`, repeats removed | repeats kept, no padding | threshold |
+|---|---|---|---|---|
+| spam-p01-pos | 0.77 | 0.80 | 0.83 | 0.85 |
+| spam-p05-pos | 0.73 | 0.80 | 0.83 | 0.85 |
+| spam-p12-pos | 0.69 | 0.73 | 0.79 | 0.85 |
 
-Seeing the repeats adds 0.03 to 0.06 and none crosses 0.85: the exclusion costs something, not the
-threshold's whole gap. Whether the window should keep a verbatim repeat from a different message is a
+Against `ctx`, the arm with the same shape, seeing the repeats adds 0.03 to 0.06 and none crosses 0.85:
+the exclusion costs something, not the threshold's whole gap. The probe calls `Judge` directly and ran
+twenty minutes after the main run, so path and time are not controlled; repeat noise in the main run was
+about 0.01. Whether the window should keep a verbatim repeat from a different message is a
 question for the context engine, not for this report.
 
 **nsfw and minors** came within a point of the rule on one half each and nowhere near on the other. With
@@ -285,10 +293,12 @@ JEV-67 measured the shipped window at 1.22x to 1.35x in batches of 10 to 50 and 
 alone with a full window of ten (`benchmark/context_cost/REPORT.md`). The 3.08x here is lower because
 these lead-ups hold 4 to 9 messages, so a padded request has fewer positions.
 
-- **The `context` field pays for itself where context decides**, at 1.05x alone and 1.22x to 1.35x in a
-  batch: pooled, 27 points of recall and 8 points of false-positive rate, on rows built so that it can.
+- **The `context` field pays for itself where context decides**, at 1.05x for a message alone (quality
+  was measured only on messages alone; the 1.22x to 1.35x of a batch is JEV-67's cost, not measured for
+  quality here): pooled, 27 points of recall and 8 points of false-positive rate, on rows built so that it can.
   How often real traffic has such rows is not measured, so this is what the window does when context
-  decides, not its average; nor is it a proven upper bound, since other constructed rows could gain more. `EVAL.md` measured the other end: on rows with no conversation in them the window changed
+  decides, not its average; nor is it a proven upper bound, since other constructed rows could gain more.
+  `EVAL.md` measured the other end: on rows with no conversation in them the window changed
   nothing measurable.
 - **Padding, at three to four and a half times, bought nothing here** beyond the field. That is evidence
   for JEV-19's padding measurement to run, not a substitute for it.
