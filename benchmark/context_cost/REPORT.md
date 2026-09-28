@@ -18,7 +18,7 @@ bills it is not observable from here.
 1. **The window is cheap on a busy channel and expensive on a quiet one, and the difference is
    padding, not context.** With the shipped window of ten and a real channel topic, a judged message
    costs 1.29 times the no-window request in batches of 25 and 1.35 times in batches of 10. A message
-   judged alone costs **4.53 times**, because the service pads a batch under ten with the window's
+   judged alone costs **4.53 times**, because the service padded a batch under ten (on by default until JEV-61, off since) with the window's
    messages and asks every category about each of them. Padding is 92% to 96% of what the window
    costs a message judged alone; the `context` field itself costs that message 15%.
 2. **What drives the bill is positions, not text.** On window-0 requests, tokens fit

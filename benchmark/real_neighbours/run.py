@@ -353,7 +353,7 @@ def ask(limit_per_arm: int | None = None, workers: int = 4) -> None:
 
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 list(pool.map(work, todo))
-    service_mod.PAD_BATCH = True
+    service_mod.PAD_BATCH = False  # the shipped default since this run
     print(f"done: {state['n']} rows this run, {state['spent']:,} input tokens in the file, "
           f"${state['spent'] * USD_PER_M / 1e6:.4f}" + ("  STOPPED AT BUDGET" if state["stop"] else ""))
 

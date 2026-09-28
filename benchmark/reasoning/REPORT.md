@@ -81,9 +81,9 @@ Output tokens are free (docs.typesafe.ai/models), so only input is priced.
 With 15 requests per judge arm the p95 is the slowest request, and A and A2, the same request, differ by
 25 ms at the median; B's +52 ms over A is therefore "small", not a measured cost.
 
-Arm A is the cheapest a judgment gets: nine real messages sharing one request. Production pads a quiet
-channel's small batch to ten positions (`jevmod/core/service.py`), so a message judged alone pays for a whole
-ten-position request: 9,775 tokens, the mean of arm A's 14 complete requests. The share each option adds is
+Arm A is the cheapest a judgment gets: nine real messages sharing one request. Production padded a quiet
+channel's small batch to ten positions until JEV-61 turned it off by default (`jevmod/core/service.py`); with
+padding on, a message judged alone pays for a whole ten-position request: 9,775 tokens, the mean of arm A's 14 complete requests. The share each option adds is
 therefore a range, from a full batch to a message padded alone:
 
 | flag rate | companion, top category | companion, every flagged category | inline Choice |

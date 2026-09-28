@@ -369,8 +369,8 @@ class Judge:
             if len(chunks) == 1:
                 parts = self._ask(chunks[0], cats, custom_rules, pad, topic)
             else:
-                # Padding goes to an unsplit request only. The service pads a batch smaller than
-                # PAD_TO, and a batch that small is split only when its messages are thousands of
+                # Padding goes to an unsplit request only. The service pads, when `JEVMOD_PAD_BATCH`
+                # is on, only a batch smaller than PAD_TO, and a batch that small is split only when its messages are thousands of
                 # characters long, where the padding would itself be what overflows the request.
                 with ThreadPoolExecutor(max_workers=min(len(chunks), self.max_inflight)) as pool:
                     futures = [pool.submit(self._ask, c, cats, custom_rules, [], topic) for c in chunks]

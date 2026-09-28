@@ -485,8 +485,8 @@ def report() -> None:
     a_msg = per_msg["judge A"]
     inl = per_msg["judge B"] - per_msg["judge A"]
     s_in, x_in = per_msg["companion single"], per_msg["companion single, every flagged category"]
-    # Arm A is the cheapest judgment there is: nine real messages sharing one request. Production pads a quiet
-    # channel's small batch to ten positions (jevmod/core/service.py), so a message judged alone pays for a whole
+    # Arm A is the cheapest judgment there is: nine real messages sharing one request. With padding on (off by
+    # default since JEV-61, jevmod/core/service.py), a message judged alone pays for a whole
     # ten-position request, which arm A's full requests measure. Both are shown, so the share is a range.
     full = {b for b in {r["batch"] for r in J} if all(r["judged"] for r in J if r["arm"] == "A" and r["batch"] == b)}
     pad = statistics.mean(r["req_in"] for r in reqs["judge A"] if r["batch"] in full)
