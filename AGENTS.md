@@ -143,8 +143,8 @@ red-team suite calls Jev about a hundred times; expect a minute and a few cents.
   whole of the "batch size" effect. Shipping the filler took recall from 17.3% to 29.3%.
 - **`m0` goes on the wire after the real messages** (`m1, ..., mN, m0`, then any trailing padding), in both
   packages, and the order is measured (`benchmark/key_order/REPORT.md`, JEV-88, padding off): with `m0` first a
-  message judged alone scored higher on everything, +7.5 points of spam recall at 0.85 and +3.0 points of
-  harassment over 0.50 on messages without that label; in batches of 25, +8.4 points of spam recall and no
+  message judged alone scored higher on spam, scam and harassment, +7.5 points of spam recall at 0.85 and +3.0
+  points of harassment over 0.50 on messages without that label; in batches of 25, +8.4 points of spam recall and no
   harassment change. The area under the ROC curve did not rise anywhere, so it is a lower threshold by another
   name. A reordering of the request's keys is a scoring change and needs its own run.
 - The Jev state is a dict keyed by position (`messages.m3.text`), never a list. Lists leaked

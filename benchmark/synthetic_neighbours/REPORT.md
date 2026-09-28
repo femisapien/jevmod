@@ -69,10 +69,12 @@ nothing ships, the report gives the verdict, and JEV-19 records it.
 
 ## Results (added 2026-09-29, after the run)
 
-**The run.** 6,100 rows: a pilot of two per arm and the full plan of 6,082, 0 unjudged, 25,207,557 billed input
+**The run.** 6,100 rows, the whole plan: a pilot of two per arm, then the other 6,082, 0 unjudged, 25,207,557 billed input
 tokens, **$1.059** at $0.042 per million (input only). All arms interleaved in one seeded order. The judge sent
 its keys as it does in production (`m1, m0, ...`, JEV-88 changed nothing), and each row records the order and what
-sat at `m0`. Tables come from `python -m benchmark.synthetic_neighbours.run report`.
+sat at `m0`. The decision arms carry the ten comments before each message as its `context`, less the exact copies
+of the message the service drops: 798 of the 900 messages keep all ten, 102 fewer, the same in every arm. Tables come
+from `python -m benchmark.synthetic_neighbours.run report`.
 
 ### Per arm (spam at 0.85, Wilson 95%)
 

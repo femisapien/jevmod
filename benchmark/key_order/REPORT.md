@@ -154,10 +154,13 @@ Added after the run, descriptive, not part of the criterion; it explains the ver
 - **Every recall point it buys is on the current request at a lower line**, with false positives within three
   messages either way on these sets: 0.79 instead of 0.85 for spam alone, 0.81 in batches. Changing the order is
   changing the threshold by another name, on a lone message for every category at once, and without saying so.
-- **The red-team file shows the cost of that.** Of its 96 judged rows, `m0_first` gets 13 category verdicts wrong
-  against 11 for `current`. The one new false positive is `g9`, a bare `http://bit.ly/3xYzAbC` the file calls clean:
-  spam 0.81 with `current`, 0.85 with `m0_first`, over the line. That is the row that failed JEV-18's red-team gate
-  when a lower spam line was proposed. A lower spam line did not ship then, and this is the same move.
+- **On the red-team file** (96 rows judged in both arms) the order changes four verdicts at the shipped lines, all
+  in the direction of the shift but one: `g9`, a bare `http://bit.ly/3xYzAbC` the file labels clean, goes from spam
+  0.81 to 0.85 and crosses; `l7` and `i4`, labelled scam, cross spam as well (0.73 to 0.87, 0.83 to 0.88); `f20`,
+  labelled clean, falls under the harassment line (0.81 to 0.68). On clean rows that is one false alarm gained and
+  one lost. `g9` is the row JEV-18's red-team gate stopped a lower spam line on, and its label is itself disputed
+  (`benchmark/context_quality/REPORT.md` notes that `categories.json` would call it spam), so it shows the same
+  move rather than a cost. The runner prints these four.
 - `sorted_lex` in batches sits between the two (+5.1 over `current`, -3.3 [-5.4, -1.2] under `m0_first`, p 0.003):
   key order is a knob on the scores, not a single switch.
 

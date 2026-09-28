@@ -509,10 +509,11 @@ class Judge:
         #
         # Added after the real messages, so it goes on the wire after them (`m1, ..., mN, m0`, then any
         # trailing padding), and that order is measured, not incidental. JEV-88 sent the same requests
-        # with `m0` first: a message judged alone scored higher on everything (spam recall at 0.85 +7.5
-        # points, harassment over 0.50 +3.0 points on messages without that label), a batch of 25 gained
-        # spam recall only, and the area under the ROC curve rose nowhere (`benchmark/key_order/REPORT.md`).
-        # Reordering these keys is a threshold change; `tests/test_context.py` pins the order.
+        # with `m0` first: a message judged alone scored higher on spam, scam and harassment (spam recall
+        # at 0.85 +7.5 points, harassment over 0.50 +3.0 points on messages without that label), a batch
+        # of 25 gained spam recall only, and the area under the ROC curve rose nowhere
+        # (`benchmark/key_order/REPORT.md`). Reordering these keys is a threshold change;
+        # `tests/test_context.py` pins the order.
         state["messages"]["m0"] = {"text": pad.pop(0) if pad else LEAD_FILLER, "channel_topic": topic}
         for k, text in enumerate(pad[: max(0, PAD_TO - len(chunk) - 1)]):
             state["messages"][f"m{len(chunk) + 1 + k}"] = {"text": text, "channel_topic": topic}

@@ -197,8 +197,8 @@ export class Judge {
       // Added after the real messages, so it is serialised after them (m1, ..., mN, m0, then any
       // trailing padding), as in the Python package, and that order is measured: JEV-88
       // (benchmark/key_order/REPORT.md, Python package) found that m0 first raises a lone message's
-      // scores without separating better, a threshold change by another name. tests/padding.test.ts
-      // pins it.
+      // spam, scam and harassment scores without separating better, a threshold change by another
+      // name. tests/padding.test.ts pins it.
       stateMessages["m0"] = { text: pad.length > 0 ? (pad.shift() as string) : LEAD_FILLER, channel_topic: topic };
       const trailingCount = Math.max(0, PAD_TO - toJudge.length - 1);
       pad.slice(0, trailingCount).forEach((text, k) => {

@@ -21,7 +21,7 @@ answers are untouched, so nothing has to be mapped back.
 
 **The sets.**
 
-    yt    lone   the eligible messages of JEV-61's four dated YouTube streams (653 spam, 629 clean),
+    yt    lone   the eligible messages of JEV-61's four dated YouTube streams (653 spam, 628 clean),
                  each judged alone with the ten comments before it as its `context` field, which is
                  production's request for a quiet channel with padding off
     hx    lone   harassment: every `openai_moderation` row labelled harassment and every Civil Comments
@@ -61,6 +61,7 @@ from typesafe_sdk._core.json import serialize  # noqa: E402
 import jevmod.core.service as service_mod  # noqa: E402
 from benchmark.real_neighbours.run import _holm, _mcnemar, _newcombe, _wilson, eligible, streams  # noqa: E402
 from jevmod.core.context import ConversationBuffer  # noqa: E402
+from jevmod.core.policy import Policy  # noqa: E402
 from jevmod.core.service import ModerationService  # noqa: E402
 from jevmod.core.store import Store  # noqa: E402
 from jevmod.judge import Judge, Message  # noqa: E402
@@ -260,13 +261,19 @@ def _billed(lines: list[dict[str, Any]]) -> tuple[int, int]:
 
 
 def _done() -> tuple[set[tuple[str, str, str]], int]:
-    """Units with a judged row, and what the file has spent. A batch that came back partly unjudged
-    counts as done: its unjudged rows are the pre-filter's, which a retry would not change."""
-    done: set[tuple[str, str, str]] = set()
+    """Units whose latest attempt judged something and failed nowhere, and what the file has spent. A
+    batch split into several requests can fail open in one of them; such a unit is asked again rather
+    than left with rows missing from the pairs. Rows the pre-filter skipped are not failures."""
     lines = [json.loads(line) for line in OUT.open(encoding="utf-8")] if OUT.exists() else []
+    first: dict[tuple[str, str, str], str] = {}
+    latest: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for r in lines:
-        if r["judged"]:
-            done.add((r["set"], r["arm"], r["unit"]))
+        key = (r["set"], r["arm"], r["unit"])
+        if first.setdefault(key, r["id"]) == r["id"]:
+            latest[key] = []
+        latest[key].append(r)
+    done = {k for k, rs in latest.items()
+            if any(r["judged"] for r in rs) and not any(r["reason"] == "error_open" for r in rs)}
     return done, _billed(lines)[0]
 
 
@@ -524,6 +531,19 @@ def report() -> None:
         print(f"| {s} | {cat} | {_auroc(b_, pos, neg, cat):.4f} | {_auroc(a_, pos, neg, cat):.4f} | "
               f"{_auroc(a_, pos, neg, cat) - _auroc(b_, pos, neg, cat):+.4f} [{lo:+.4f}, {hi:+.4f}] | "
               f"{ra}/{len(pos)}, {fa}/{len(neg)} at {th} | {t} | {rb}/{len(pos)}, {fb}/{len(neg)} |")
+
+    # The red-team file at the shipped lines: every category verdict the order changes, with its label.
+    a_, b_ = res.get(("rt", "m0_first"), {}), res.get(("rt", "current"), {})
+    th_all = Policy().thresholds
+    flips = []
+    for i in sorted(set(a_) & set(b_)):
+        for cat in sorted(a_[i]["scores"]):
+            x, y = a_[i]["scores"][cat] >= th_all[cat], b_[i]["scores"][cat] >= th_all[cat]
+            if x != y:
+                flips.append(f"`{i}` ({'/'.join(a_[i]['labels'])}) {cat} {b_[i]['scores'][cat]:.2f} -> "
+                             f"{a_[i]['scores'][cat]:.2f}, {'crosses' if x else 'falls under'} {th_all[cat]}")
+    if a_:
+        print(f"\nRed-team rows, {len(set(a_) & set(b_))} judged in both: " + ("; ".join(flips) or "no verdict changes"))
 
     fam = {}
     for s, label in (("yt", "spam"), ("ytb", "spam"), ("hx", "harassment"), ("hxb", "harassment")):
