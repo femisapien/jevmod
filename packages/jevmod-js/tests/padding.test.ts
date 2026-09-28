@@ -157,9 +157,9 @@ describe("Moderator passes the window through", () => {
 
   it("sends m0 last, in the same key order as the Python package", async () => {
     // The key order is part of what Jev scores. JEV-88 (benchmark/key_order/REPORT.md, Python package)
-    // sent m0 first: a lone message's scores moved up, spam recall at 0.85 by 7.5 points and harassment
-    // over 0.50 by 3.0 on messages without that label, with no better separation. The order stays as
-    // measured, with padding too.
+    // sent m0 first: a lone message's spam, scam and harassment scores moved up, spam recall at 0.85
+    // by 7.5 points and harassment over 0.50 by 3.0 on messages without that label, with no better
+    // separation. The order stays as measured, with padding too.
     const { calls, client } = fakeClient();
     const j = new Judge({ client });
     await j.judge([msg("a", "this is a perfectly ordinary sentence")], ["spam"]);
