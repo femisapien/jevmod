@@ -144,6 +144,8 @@ Pools, from `benchmark/data/items.jsonl` (2,531 labelled: 1,658 clean, 319 haras
       **That predicts which categories will be composition-sensitive**: the ones asking about the
       author or the world. `doxxing` and `minors` are the two shipped categories closest to that
       shape and both are unmeasured. Written into both reports.
+      **Tested in JEV-62 (`benchmark/batch_doxxing_minors/REPORT.md`) and not borne out** at the
+      decision level for either category.
 - [x] T6d. The reaction nudge. It needed its own look and the look found worse than imprecision.
       `benchmark/nudge_loop.py`, free, no API calls, section 6 of the report. The loop's equilibrium
       is where precision is 0.60, set by the ratio 0.03 to 0.02 and nothing else. At a 2% or 5% spam

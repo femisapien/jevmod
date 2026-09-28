@@ -193,6 +193,12 @@ neighbours at all. **That predicts which future questions will be composition-se
 that ask about the author or the world rather than about the message.** `doxxing` and `minors` are
 the two shipped categories closest to that shape, and both are unmeasured.
 
+> **Tested and not borne out, 2026-09-28 (JEV-62, `batch_doxxing_minors/REPORT.md`).** At the
+> shipped thresholds no change of composition moves `doxxing` or `minors` recall or false positives
+> by a measurable amount. The one surviving score effect, +0.016 on `minors` for adult sexual text
+> among `minors` rows, appears as strongly among neutral chat, which the rule does not predict. The
+> paragraph above is left as written; do not design questions from it.
+
 ## 5. What this does not measure, and one claim withdrawn
 
 **The direction of failure is not established.** The first draft of this report said the dominant
