@@ -77,8 +77,9 @@ in `plugin/` or `claude mcp add jevmod -- jevmod mcp`; in Cursor or Codex, add
 npm (`packages/jevmod-js/`, TypeScript): same questions (`jevmod/categories.json`), same policy,
 same `m0` discipline (no real message ever sits at `messages.m0`; a constant filler or the caller's
 own padding does), the same cache key down to the byte, `check`, `checkMany`, and an HTTP client for
-a deployed API. It differs from the Python package in one place: Python fills the padding around
-`m0` automatically from a per-channel conversation buffer (`jevmod/core/context.py`); the npm
+a deployed API. It differs from the Python package in one place: Python can fill the padding around
+`m0` automatically from a per-channel conversation buffer (`jevmod/core/context.py`) when
+`JEVMOD_PAD_BATCH=1`, off by default since JEV-61 (`benchmark/real_neighbours/REPORT.md`); the npm
 package has no buffer, so `padding` is an explicit argument to `Judge.judge` and an option on
 `check` and `checkMany`, and the caller keeps the window. The cache key sameness is checked rather
 than asserted: `packages/jevmod-js/tests/normalize.test.ts` runs the Python `_key` and compares, and

@@ -119,11 +119,24 @@ not across files.
   the ten before it were spam).
 - **The false-positive guard had no power at 0.85.** No clean message crosses the spam line in any arm, 0 of
   600 on and off, so the guard could not have fired. The mean spam score of clean messages moves +0.001.
+- **The 600 are 497 distinct texts.** Targets are distinct comment ids, and these streams repeat spam verbatim
+  ("Check out this video on YouTube:" alone many times), so the pairs are not all independent. Collapsed to one
+  message per text the primary is +1.2 points (8 / 2, p 0.11), and a bootstrap that resamples texts gives
+  [-0.3, +2.4]; the secondary gives [+0.2, +3.1]. Both upper ends stay under 5, so the verdict does not move.
+- **What the one point is.** All 12 discordant pairs of the primary have both scores between 0.80 and 0.89, and
+  the mean score difference is +0.005: messages sitting on the line and tipping either way, not a small shift
+  of the distribution.
 - **Cost:** padding makes a message judged alone 4.0 times the tokens of the same message unpadded here (9,439
   against 2,334), in line with JEV-67's 4.53x ceiling. Per thousand judged messages at list price that is about
   $0.40 against $0.10, for one point of recall.
 
-### The mechanism (300 of each side, Holm across the table)
+### The mechanism (300 of each side)
+
+The Holm column corrects over every row of `run.py`'s table, twelve contrasts on both sides, which is wider
+than the family the pre-registration names: three contrasts, spam side. Both were written before the run and
+they disagree; over the registered three, Holm gives `synth_on` vs `none` 4.5e-08, `spam_on` vs `clean_on`
+0.00018 and `clean_pos` vs `clean_on` 0.049 (printed by `run.py report`). The last is significant in the
+registered family, and item 3 below explains why it does not measure position anyway.
 
 | first vs second | side | n | first | second | difference [Newcombe 95%] | b / c | McNemar p | Holm | mean score difference |
 |---|---|---|---|---|---|---|---|---|---|
@@ -144,15 +157,17 @@ On the clean side every one of these is 0 / 0 at 0.85. Mean clean-side spam scor
 2. **Variety: more than confirmed, in a direction the hypothesis did not state.** Ten fixed, varied,
    off-topic chat lines buy +9.0 points over the filler alone, 27 messages up and none down, more than the
    channel's own clean history does. Real neighbours are not what buys recall here; neighbours unlike the
-   message might be. This is one set of ten lines on 300 messages, not a decision contrast, and it costs the
+   message might be. The arm cannot say through which channel: the ten lines are in the buffer, so they are
+   also every message's `context`, and there is no `synth_off` to separate the field from the positions. It is
+   also one fixed set in one order. This is one set of ten lines on 300 messages, not a decision contrast, and it costs the
    same 4 to 4.5 times: it is a follow-up, not a change.
 3. **Position: not answered, because the arm is confounded.** The judge builds `messages` with the real
    messages first and adds `m0` after, so production's JSON reads `m1, m0, m2, ...`. The runner's move
    rebuilt the dict as `m0, m1, m2, ...`, which changes the key order as well as the index. The rows it
    left at index 1 are production's request with only the key order changed, and on those 29 spam messages
    the spam score went up on 22 and down on 3 (sign test p 0.00016, mean +0.064; one recall flip); on the 31
-   clean ones +0.007, 9 up and 4 down. Every index shows about the same +0.05 to +0.10, so what
-   `clean_pos` measured is mostly key order. Exploratory, found after the run, and a follow-up of its own:
+   clean ones +0.007, 9 up and 4 down. Every index but one shows about the same +0.05 to +0.10 (index 4,
+   n 36, shows +0.004), so what `clean_pos` measured is mostly key order. Exploratory, found after the run, and a follow-up of its own:
    putting `m0` first costs nothing, unlike padding.
 
 ### What the natural history carried (spam messages, `natural_on` against `natural_off`)
@@ -196,6 +211,11 @@ padding is, and what this run measured) survives the criterion.
 
 - YouTube comments under music videos, median about 50 characters, not Discord chat. Spam recall at one line
   only; no scam labels, so the scam columns are shares over the line, not recall.
+- Padding-on arms ran in one pass and padding-off arms in the next, minutes apart, so the primary contrast
+  crosses passes. The drift check above (`clean_off` vs `none`) also changes the `context` field, so a drift
+  cancelled by a context effect would not show; nothing in the run points to one, and the passes were close.
+- The key-order reading assumes the service does not reorder keys; the client keeps insertion order and
+  what the server does with it is not observable from here.
 - One run per arm; no test-retest of identical requests except the accidental one in `clean_pos`, which is not
   identical in key order.
 - The false-positive guard had no power at 0.85 (above). A lower line was not pre-registered and is not used
