@@ -294,7 +294,10 @@ class Judge:
         answers are thrown away. It exists because the size of the batch changes the answers: the
         same spam message reaches 17.3% recall judged alone and 38.7% in a batch of ten, measured in
         `benchmark/BATCH_EFFECT.md` section 7, and `Batcher` sizes a batch by how busy the server is.
-        Without padding a quiet channel is moderated worse than a busy one and nobody is told.
+        Most of that gap turned out to be position `m0`, now always a filler, and JEV-61 measured what
+        padding with the channel's history adds over the filler on production's path: +1.0 points
+        [-0.2, +2.2] for about four times the tokens (`benchmark/real_neighbours/REPORT.md`). The
+        service no longer pads by default (`JEVMOD_PAD_BATCH`); this argument stays for callers who do.
 
         The padding has to be *asked about* and not merely present: neighbours in the state with no
         question pointed at them recover only 23% of the gap (`benchmark/batch_context.py`). That is

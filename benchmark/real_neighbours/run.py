@@ -493,6 +493,17 @@ def report() -> None:
           [("synth_on", "none"), ("clean_on", "none"), ("spam_on", "clean_on"), ("natural_on", "clean_on"),
            ("clean_pos", "clean_on"), ("clean_off", "none")], True)
 
+    # The table above corrects over every row, both sides. The pre-registration names three contrasts,
+    # spam side, as one family; this is that family, so the report can cite what it registered.
+    fam = {}
+    for f_, s_ in (("synth_on", "none"), ("spam_on", "clean_on"), ("clean_pos", "clean_on")):
+        c = contrast(res, f_, s_, "spam", "spam", th_spam)
+        if c:
+            fam[f"`{f_}` vs `{s_}`"] = c["p"]
+    if fam:
+        print("\nHolm over the pre-registered family of three (spam): "
+              + ", ".join(f"{k} {v:.2g}" for k, v in _holm(fam).items()))
+
     # The criterion, applied mechanically. Written in REPORT.md before the paid run.
     print("\n## The criterion\n")
     for f_, s_ in (("clean_on", "clean_off"), ("natural_on", "natural_off")):
@@ -509,6 +520,39 @@ def report() -> None:
         print(f"- `{f_}` vs `{s_}`: recall {100 * rc['delta']:+.1f} [{100 * rc['lo']:+.1f}, {100 * rc['hi']:+.1f}], "
               f"p {rc['p']:.3g}; FPR {100 * fc['delta']:+.1f} [{100 * fc['lo']:+.1f}, {100 * fc['hi']:+.1f}], "
               f"p {fc['p']:.3g} -> **{verdict}**")
+
+    # Targets are distinct comment ids, not distinct texts: the streams repeat spam verbatim, so the paired
+    # tests' independence is checked here by collapsing to one message per text and by a bootstrap that
+    # resamples texts, not messages. Also where the primary's discordant pairs sit.
+    data = streams()
+    text = {r["id"]: r["text"] for v in data.values() for r in v}
+    print("\n## Repeated texts and the decision contrasts (spam)\n")
+    for f_, s_ in (("clean_on", "clean_off"), ("natural_on", "natural_off")):
+        a_, b_ = res.get(f_, {}), res.get(s_, {})
+        ids = sorted(i for i in set(a_) & set(b_) if a_[i]["side"] == "spam")
+        if not ids:
+            continue
+        hit = {i: (a_[i]["scores"]["spam"] >= th_spam, b_[i]["scores"]["spam"] >= th_spam) for i in ids}
+        groups: dict[str, list[str]] = {}
+        for i in ids:
+            groups.setdefault(text[i], []).append(i)
+        firsts = [g[0] for g in groups.values()]
+        b1 = sum(x and not y for x, y in (hit[i] for i in firsts))
+        c1 = sum(y and not x for x, y in (hit[i] for i in firsts))
+        rng = random.Random(SEED)
+        keys = list(groups)
+        boots = []
+        for _ in range(4000):
+            pick = [i for k in (rng.choice(keys) for _ in keys) for i in groups[k]]
+            boots.append(sum(hit[i][0] - hit[i][1] for i in pick) / len(pick))
+        boots.sort()
+        disc = [(a_[i]["scores"]["spam"], b_[i]["scores"]["spam"]) for i in ids if hit[i][0] != hit[i][1]]
+        lo_s = min(min(d) for d in disc) if disc else 0.0
+        hi_s = max(max(d) for d in disc) if disc else 0.0
+        print(f"- `{f_}` vs `{s_}`: {len(ids)} messages, {len(groups)} distinct texts; one per text "
+              f"{100 * (b1 - c1) / len(groups):+.1f} points ({b1} / {c1}, McNemar p {_mcnemar(b1, c1):.3g}); "
+              f"bootstrap over texts 95% [{100 * boots[100]:+.1f}, {100 * boots[3899]:+.1f}]; "
+              f"{len(disc)} discordant pairs, every score in [{lo_s:.2f}, {hi_s:.2f}]")
 
     # What real neighbours carry: the natural arm's lift over its own padding-off pair, by how many
     # of the ten history lines were spam, and by how close the nearest neighbour was to the message.
