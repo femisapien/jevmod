@@ -195,3 +195,11 @@ leaving it on *because nobody looked*, which is where it was until today.
 
 Whichever way it goes, the dependency is the same one three issues have now hit: labelled data with
 conversations in it. JEV-11 and JEV-7 own that.
+
+**Measured on constructed conversations, 2026-09-28 (JEV-18).** `context_quality/REPORT.md` built 280
+labelled rows where the earlier messages decide what the last one means, plus controls where they should
+not matter, and judged each with and without the window. Pooled over seven categories, recall at the
+shipped thresholds goes from 37% to 64% and the false-positive rate from 14% to 6% (50 rows right only with
+the window, 1 only without); five categories improve, harassment and nsfw cannot be told apart. That is the
+ceiling of what the window buys when context decides, on rows written for the purpose; how often real
+traffic looks like that is still the question labelled conversations would answer.

@@ -84,7 +84,7 @@ from jevmod.core.context import ConversationBuffer, assemble  # noqa: E402
 from jevmod.core.policy import DEFAULT_THRESHOLDS, Policy  # noqa: E402
 from jevmod.core.service import ModerationService  # noqa: E402
 from jevmod.core.store import Store  # noqa: E402
-from jevmod.judge import Judge, Message  # noqa: E402
+from jevmod.judge import Judge, Message, prefilter  # noqa: E402
 from jevmod.keys import get_api_key  # noqa: E402
 
 HERE = Path(__file__).parent
@@ -135,8 +135,12 @@ def check() -> int:
             bad.append(f"{r['id']}: label does not match kind")
         if not 4 <= len(r["lead"]) <= 9:
             bad.append(f"{r['id']}: lead has {len(r['lead'])} messages")
-        if len(r["closing"]["text"]) < 8:
-            bad.append(f"{r['id']}: closing under the pre-filter's 8 characters")
+        # A note, not a failure: the check used to count characters with `len`, which let "Get out."
+        # (six letters) through while the engine's pre-filter skips it. The rows were frozen before that
+        # was noticed, so they stay, and the pre-filter's verdict is what every arm got.
+        skip = prefilter(Message(r["id"], r["closing"]["text"]))
+        if skip:
+            print(f"NOTE {r['id']}: the pre-filter skips the closing ({skip}); every arm scores it 0")
     for scn, rr in by_scn.items():
         if rr[0]["kind"].startswith("pair"):
             if sorted(r["kind"] for r in rr) != ["pair_neg", "pair_pos"]:
