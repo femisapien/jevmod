@@ -17,11 +17,11 @@ two cents.
    rate from 14% to 6%; 50 rows are right only with the window, 1 only without it; the bootstrap interval
    of the pooled gain is +27 to +43 points. Of 105 pairs whose two halves end on the same line, no pair is
    fully right without the window, which is what the design forces, and 48 are with it. The 14% is a
-   property of this set, not a base rate: 19 of its 20 false positives are innocent halves built to be
+   property of this set, not a base rate: all 19 of its false positives are innocent halves built to be
    ambiguous alone.
-2. **Per category, as directions** (seven tests, uncorrected): the interval of the gain clears zero for
-   doxxing (+80 points), selfharm (+50), spam (+35), scam (+35) and minors (+30); only doxxing and
-   selfharm would survive a Bonferroni correction. Part of the minors and selfharm gain may be the model
+2. **Per category**: the interval of the gain clears zero for doxxing (+80 points), selfharm (+50),
+   spam (+35), scam (+35) and minors (+30), and all five still clear it with the bootstrap widened for
+   seven tests (Bonferroni, lower ends +48, +15, +11, +10 and +5). Part of the minors gain may be the model
    scoring the neighbourhood rather than the message (point 3). **Cannot tell**: harassment (+15, interval from 0 to +32) and nsfw (0: the window
    lifts nsfw's ranking from AUROC 0.68 to 0.91 but no context-dependent positive reaches 0.80).
 3. **Where it can hurt, it barely does at the threshold.** No true positive was lost (35 of 35 control
@@ -78,7 +78,8 @@ disagreements are nsfw pair positives, so the nsfw set's positives are the weake
 `report --agreed-only` recomputes everything on the 269; no verdict in section 2 changes, pooled gain moves
 from +35 to +37 points. The agreement is an upper bound on independence: 105 closing lines appear twice in
 the labeller's file, so it could infer that each pair has one of each. It was started before the paid run
-and finished while it ran, reading only a copy of that file in a separate folder.
+and finished while it ran, reading only a copy of that file in a separate folder. That isolation is the author's account, not a record: the key
+(`results/blind_key.json`) was committed beside the input, and the labeller's prompt and folder were not kept.
 
 **The arms**, every row in all four, two repeats each, arms shuffled per row, cache off:
 
@@ -151,10 +152,10 @@ otherwise the sample cannot tell.
 The McNemar column treats the 280 rows as independent, and they are not: the two halves of a pair share
 their closing line, and without the window their correctness is anticorrelated by construction. Its p
 values are smaller than they should be and are indicative only; the bootstrap over scenarios is the test
-the verdicts use. Seven categories tested at 0.05 is seven chances; minors at p = 0.031 and spam and scam at 0.016 would not
-survive a Bonferroni correction (0.007), selfharm and doxxing would. The bootstrap intervals, which are
-what the verdicts use, are not corrected either. Read the per-category verdicts as directions and the
-pooled row as the measurement.
+the verdicts use. Seven categories tested at 0.05 is seven chances, so `report` also prints the bootstrap
+at 0.05 / 7 (a 99.3% interval, same resamples and seed); every "helps" keeps a lower end above zero there:
+spam +11, scam +10, selfharm +15, doxxing +48, minors +5. With 2,000 resamples that tail rests on seven
+of them, so minors' +5 is the least firm. The pooled row is still the measurement.
 
 **Why harassment moves least is not known.** The window the engine sends is message text with no
 speakers (`core/context.py` cannot hold an author), and harassment on these rows is mostly about who is
@@ -188,7 +189,9 @@ gap is the labels.
   moderator banning the groomer) score `minors` 0.01 to 0.04 alone, 0.11 to 0.31 with the shipped window
   and 0.15 to 0.56 with the window and no padding. The model partly scores the conversation instead of
   the message. With the shipped window nothing crosses 0.70, or would cross 0.50; without padding one
-  row reaches 0.56.
+  row reaches 0.56. The same check on the other categories' control negatives: selfharm's mean rises
+  0.02 with the shipped window and 0.11 without padding; the other five move 0.03 or less, harassment's
+  down.
 - **Any category on a negative row**, other categories included: 22 of 140 negatives were flagged for
   something alone, 10 with the shipped window. The window removed more false flags than it added.
 
@@ -238,11 +241,15 @@ points on one side and 9.1 on the other: spam's +11 on the even half is exactly 
 land between 0.69 and 0.79, just under 0.85, while no spam negative with the window reaches 0.70. At 0.75
 the shipped window's spam recall on these rows is 80% against 60%, false positives still 0. The rule did
 not say which value to try. 0.75 and 0.76 both clear the 10-point gain on both halves, 0.77 does not;
-the check was run at 0.75, the round line, and the row that failed it scores 0.78 to 0.79, over both. Two sources outside this set point the same way and were read, not run,
+the check was run at 0.75, the round line, and the row that failed it scores 0.78 to 0.79, over both and
+over the 0.73 and 0.69 the two halves chose, so any of them fails it the same way. Two sources outside this set point the same way and were read, not run,
 before the check: on the 476 labelled YouTube comments in `benchmark/results/context_on.jsonl` (window on),
 spam recall is 62% at 0.75 against 34% at 0.85, with no false positive among the 226 non-spam comments at
-either line, nor among the 349 Civil Comments rows; on the 1,157 unlabelled OpenAI-eval prompts, 0.75
-flags 59 for spam against 36 at 0.85, most of the added ones keyword-stuffed web text.
+either line, nor among the 349 Civil Comments rows. The OpenAI moderation eval points the other way: none of
+its 1,679 prompts is labelled spam, and 0.75 flags 169 of them for spam against 124 at 0.85 (59 against 36
+of the 1,157 with no label, most of the added ones keyword-stuffed web text; 110 against 88 of the 522
+labelled with some other harm). Those scores are in `benchmark/results/context_on.jsonl`; the texts and
+labels are in `benchmark/data/items.jsonl`, which is not committed and is rebuilt by `benchmark/prepare.py`.
 
 Then `tests/test_redteam.py`, run live with spam at 0.75, twice: nine tests pass and the `length` block
 fails on one false positive, `g9`, the bare link `http://bit.ly/3xYzAbC`, spam 0.79 and then 0.78. The
@@ -282,12 +289,15 @@ the leakage in section 3, lowering minors is the change this data argues most ag
 
 Billed input tokens per judged message, this run, one message per request:
 
-| arm | tokens | multiplier | $ per 1K | positions | context entries kept |
-|---|---|---|---|---|---|
-| off | 2,087 | 1.00x | $0.088 | 2.0 | 0.0 |
-| ctx | 2,192 | **1.05x** | $0.092 | 2.0 | 5.7 |
-| ctx_pad | 6,421 | **3.08x** | $0.270 | 6.6 | 5.7 |
-| ctx_spk | 2,206 | 1.06x | $0.093 | 2.0 | 5.7 |
+| arm | tokens | multiplier | $ per 1K | positions | context entries kept | ms, median | ms, p95 |
+|---|---|---|---|---|---|---|---|
+| off | 2,087 | 1.00x | $0.088 | 2.0 | 0.0 | 240 | 330 |
+| ctx | 2,192 | **1.05x** | $0.092 | 2.0 | 5.7 | 245 | 344 |
+| ctx_pad | 6,421 | **3.08x** | $0.270 | 6.6 | 5.7 | 261 | 362 |
+| ctx_spk | 2,206 | 1.06x | $0.093 | 2.0 | 5.7 | 242 | 302 |
+
+Latency is per request, measured from one machine in Spain in one run: the shipped window adds about
+20 ms at the median, the field alone about 5.
 
 JEV-67 measured the shipped window at 1.22x to 1.35x in batches of 10 to 50 and 4.53x for a message
 alone with a full window of ten (`benchmark/context_cost/REPORT.md`). The 3.08x here is lower because
