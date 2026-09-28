@@ -179,8 +179,9 @@ red-team suite calls Jev about a hundred times; expect a minute and a few cents.
        handle(d)  # d.category, d.probability, d.scores
    ```
 
-   Batches: `mod.check_many(texts, ...)` sets no cap; the judge splits a large batch into requests by
-   estimated tokens. Not Python: `POST /v1/moderate`, up to 50 messages a request (`api.limits.MAX_MESSAGES`).
+   Batches: `mod.check_many(texts, ...)` sets no cap; the judge splits a large batch into model requests by
+   estimated tokens and at most 50 messages each (`judge.MAX_REQUEST_MESSAGES`).
+   Not Python: `POST /v1/moderate`, up to 50 messages a request (`api.limits.MAX_MESSAGES`).
 3. Wrap the call in `try/except typesafe_sdk.TypeSafeError` and choose fail-open or fail-closed on
    purpose.
 4. Add a test that skips without the key and uses the samples in `tests/test_judge.py` (scam,
