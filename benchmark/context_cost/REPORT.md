@@ -279,7 +279,8 @@ is 1.3, 3.6 or 4.5.
   for a recall gain over the filler alone that no run has isolated (section 3). Dropping the padding
   and keeping the filler puts a quiet channel at 1.15x. Whether that trade is worth it needs one
   run: the same spam messages judged behind the filler alone and behind production's real-history
-  padding. Until then `JEVMOD_PAD_BATCH` stays as shipped.
+  padding. **Run in JEV-61** (`benchmark/real_neighbours/REPORT.md`): +1.0 points of spam recall
+  [-0.2, +2.2] for a quiet channel, under JEV-19's five, so `JEVMOD_PAD_BATCH` is off by default since then.
 - **Price on the batch-size distribution, which is unmeasured.** Until it is measured, with padding
   as shipped, price a small server between the worked example and the ceiling, 3.6x to 4.5x, and a
   busy one on the batch-of-25 row, 1.3x.

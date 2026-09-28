@@ -274,6 +274,8 @@ def test_a_padded_verdict_is_not_cached_under_the_padding(tmp_path):
 
 
 def test_the_service_pads_a_small_batch_and_leaves_a_full_one_alone(tmp_path, monkeypatch):
+    """With `JEVMOD_PAD_BATCH=1`. Off by default since JEV-61; the behaviour it turns on is kept."""
+    monkeypatch.setattr("jevmod.core.service.PAD_BATCH", True)
     svc = _service(tmp_path)
     seen: list[tuple] = []
 
@@ -297,6 +299,7 @@ def test_the_service_pads_a_small_batch_and_leaves_a_full_one_alone(tmp_path, mo
 def test_the_service_does_not_pad_across_channels(tmp_path, monkeypatch):
     """A Discord guild's two seconds can hold #general and #support. Padding that from one of them
     is picking a channel arbitrarily and calling it context."""
+    monkeypatch.setattr("jevmod.core.service.PAD_BATCH", True)
     svc = _service(tmp_path)
     seen: list[tuple] = []
     monkeypatch.setattr(svc.judge, "judge",
@@ -308,18 +311,38 @@ def test_the_service_does_not_pad_across_channels(tmp_path, monkeypatch):
     assert seen[-1] == ()
 
 
-def test_the_switch_turns_padding_off(tmp_path, monkeypatch):
-    """`JEVMOD_PAD_BATCH=0` buys back the cheaper, worse version. The number it trades away is
-    twenty-one points of spam recall, written next to the switch."""
-    monkeypatch.setattr("jevmod.core.service.PAD_BATCH", False)
-    svc = _service(tmp_path)
-    seen: list[tuple] = []
-    monkeypatch.setattr(svc.judge, "judge",
-                        lambda msgs, cats, rules=None, padding=(): (seen.append(padding), _skipped(msgs))[1])
-    t = "discord:1"
-    svc.moderate(t, [Message("a", "an earlier message in general", channel="general")])
-    svc.moderate(t, [Message("b", "the message under test here", channel="general")])
-    assert seen[-1] == ()
+def test_a_quiet_channel_is_not_padded_by_default(tmp_path):
+    """JEV-61 measured what padding buys over the filler on production's path: +1.0 points of spam recall
+    [-0.2, +2.2] on 600 spam messages for a quiet channel, at 4.5 times the model spend of the padded
+    message. JEV-19's criterion turns it off below 5 points (`benchmark/real_neighbours/REPORT.md`).
+
+    Through the real `Judge`: the message still has its window as context, and `m0` is the filler, so
+    the request is two positions and never position zero for a real message."""
+    import importlib
+    import os
+
+    import jevmod.core.service as service_mod
+    from jevmod.judge import LEAD_FILLER
+
+    saved = os.environ.pop("JEVMOD_PAD_BATCH", None)
+    try:
+        assert importlib.reload(service_mod).PAD_BATCH is False, "the shipped default is off"
+        c = _Capture()
+        store = Store(tmp_path / "t.db")
+        store.set_plan("discord:1", "unlimited")
+        svc = service_mod.ModerationService(store, judge=Judge(client=c, cache_ttl_s=0))
+        t = "discord:1"
+        svc.moderate(t, [Message("a", "an earlier message in general", channel="general")])
+        svc.moderate(t, [Message("b", "the message under test here", channel="general")])
+        msgs = c.state["messages"]
+        assert sorted(msgs) == ["m0", "m1"]
+        assert msgs["m0"]["text"] == LEAD_FILLER
+        assert msgs["m1"]["text"] == "the message under test here"
+        assert list(msgs["m1"]["context"].values()) == ["an earlier message in general"]
+    finally:
+        if saved is not None:
+            os.environ["JEVMOD_PAD_BATCH"] = saved
+        importlib.reload(service_mod)
 
 
 def test_no_real_message_ever_sits_at_position_zero():
@@ -435,8 +458,10 @@ def test_the_padding_switch_understands_off():
 
     import jevmod.core.service as svc
 
+    # An unrecognised value falls back to the default, which is off since JEV-61: a typo never turns
+    # on 4.5 times the model spend.
     for value, expected in (("off", False), ("0", False), ("no", False), ("", False),
-                            ("1", True), ("on", True), ("banana", True)):
+                            ("1", True), ("on", True), (" YES ", True), ("banana", False)):
         os.environ["JEVMOD_PAD_BATCH"] = value
         assert importlib.reload(svc).PAD_BATCH is expected, value
     os.environ.pop("JEVMOD_PAD_BATCH", None)

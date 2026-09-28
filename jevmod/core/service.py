@@ -33,31 +33,34 @@ JEV_USD_PER_M_INPUT = 0.042
 # after it, so a batch bigger than this is a ceiling overshot by exactly that much.
 MAX_BATCH = max(1, int(os.environ.get("JEVMOD_MAX_BATCH", "100") or 100))
 
-# Pad a small batch with recent messages from the same channel so a quiet server is not moderated
-# worse than a busy one. On by default, and the reason is that the alternative is not moderation:
-# spam recall at the shipped threshold is 17.3% when a message is judged alone at `m0` and 38.7% in
-# a request of ten (`benchmark/BATCH_EFFECT.md` section 7). Section 9 of the same file found most of
-# that gap was position `m0`, now always a filler: the filler alone measured 26.7%. What padding
-# with the channel's own history adds over the filler has not been isolated.
+# Pad a small batch with recent messages from the same channel. **Off by default since JEV-61**, because
+# measured on production's path it does not buy what it costs.
 #
-# It costs up to 4.5 times the model spend for the messages that get padded, and only those: a busy
-# channel already fills its own request and pays nothing extra. At $0.042/M input that is $0.41 per
-# thousand judged messages against $0.09 with the filler alone (`benchmark/context_cost/REPORT.md`,
-# JEV-67, measured on 48-character comments with a full window; longer text costs more).
+# What it was for: spam recall at the shipped threshold is 17.3% when a message is judged alone at `m0`
+# and 38.7% in a request of ten (`benchmark/BATCH_EFFECT.md` section 7). Section 9 found most of that gap
+# was position `m0`, which is now always a filler (`LEAD_FILLER` in `judge.py`), and the filler stays
+# whatever this switch says.
 #
-# `JEVMOD_PAD_BATCH=0` buys the cheaper version back and keeps the filler. What it trades away is
-# the recall padding adds over the filler, which is written here next to the switch rather than in
-# a changelog nobody reads, and which JEV-19 asks to be measured before the default changes.
-# Explicit about every spelling it accepts, and loud about one it does not. The first version
-# treated anything outside {0, false, no} as on, so `JEVMOD_PAD_BATCH=off` left padding running and
-# said nothing: an operator who believed they had turned off 4.5 times the model spend had not.
+# What padding adds over the filler, measured in `benchmark/real_neighbours/REPORT.md` (JEV-61): 600 spam
+# messages, paired, the criterion JEV-19 fixed before the run. With the channel's ten most recent clean
+# messages as the history, the case of a quiet channel, recall goes from 20.3% to 21.3%, +1.0 points
+# [-0.2, +2.2], McNemar p 0.15; with the channel's history as it was, +1.5 [+0.1, +2.9]. JEV-19 keeps padding
+# only if the lower end of that interval reaches 5 points and turns it off if the upper end is under 5.
+# What it costs: 4.5 times the model spend of every padded message, $0.41 per thousand judged messages
+# against $0.09 with the filler alone (`benchmark/context_cost/REPORT.md`, JEV-67).
+#
+# `JEVMOD_PAD_BATCH=1` turns it back on. Explicit about every spelling it accepts, and loud about one it
+# does not, which falls back to the default: the first version treated anything outside {0, false, no} as
+# on, so `JEVMOD_PAD_BATCH=off` left padding running and said nothing.
 _PAD_RAW = os.environ.get("JEVMOD_PAD_BATCH")
 _PAD_FALSE = {"0", "false", "no", "off", "n", ""}
 _PAD_TRUE = {"1", "true", "yes", "on", "y"}
+_PAD_DEFAULT = False
 if _PAD_RAW is not None and _PAD_RAW.strip().lower() not in _PAD_FALSE | _PAD_TRUE:
     log.warning({"event": "pad_batch_unrecognised", "value": _PAD_RAW[:20],
-                 "using": "on", "accepts": sorted(_PAD_FALSE | _PAD_TRUE)})
-PAD_BATCH = _PAD_RAW is None or _PAD_RAW.strip().lower() not in _PAD_FALSE
+                 "using": "on" if _PAD_DEFAULT else "off", "accepts": sorted(_PAD_FALSE | _PAD_TRUE)})
+_PAD_VALUE = None if _PAD_RAW is None else _PAD_RAW.strip().lower()
+PAD_BATCH = _PAD_VALUE in _PAD_TRUE if _PAD_VALUE in _PAD_FALSE | _PAD_TRUE else _PAD_DEFAULT
 # Whether plans mean anything here, and the plan a tenant sits on when nothing is paying for it. Both are
 # defined in `store` so that the gate and the quota that enforce them cannot drift apart.
 

@@ -206,6 +206,10 @@ class Recorder:
             self.local.moved_to = move_to
             order.remove(1)
             order.insert(move_to, 1)
+            # Known confound, found after the run and kept so the rows stay reproducible: the judge
+            # sends its keys as m1, m0, m2, ... (real messages first, m0 added after), and this rebuilds
+            # them as m0, m1, m2, ..., so the arm changes the key order as well as the index. See the
+            # position item in REPORT.md.
             state = {**state, "messages": {f"m{new}": msgs[f"m{old}"] for new, old in enumerate(order)}}
         resp = self.inner.system_one(state=state, questions=questions)
         answers = resp.answers
