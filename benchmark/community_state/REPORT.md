@@ -41,7 +41,7 @@ two repeats), none unjudged. The criterion was fixed in the runner's docstring a
    pairs do not isolate what the state adds, and on the agreed rows harassment has only its 5 controls.
    Telling the model the addressee "got 8 msgs from 5 users/5min" moved 2 of 20 incident halves over 0.75.
 6. **Cost: +41 billed tokens a message alone, 1.019x.** The line is 96 characters on average, 151 at most (38
-   estimated tokens), inside the 50 JEV-19 gives it. Latency is unchanged (median 256 ms in every arm).
+   estimated tokens), inside the 50 JEV-19 gives it. Latency is unchanged (median 256 to 257 ms in every arm).
 
 ## The data
 
@@ -227,8 +227,12 @@ estimated tokens (`STATE_TOKENS`), sent as `community_state` on the judged messa
 | `copies_60s`, `copies_accounts` | `this message: 16 copies by 11 accounts/60s` | JEV-28's similarity signal, for this line |
 | `target_5m`, `target_users` | `its target got 8 msgs from 5 users/5min` | JEV-28's targeting signal, for this line's addressee |
 
-When the budget binds, parts are dropped in reverse order of worth (newcomers first, then flags, rate, target,
-copies, event). It is on by default under `JEVMOD_FULL_CONTEXT` (off sends nothing and computes every cache key
+Parts are admitted greedily in order of worth (event, copies, target, rate, flags, newcomers): a part that does
+not fit is skipped and a later, shorter one may still enter. At 50 tokens the budget never binds today: every
+field at its largest gives 189 characters, under 200; `tests/test_community_state.py` exercises the cut with a
+smaller budget. Identical lines in one batch are one position whatever their states (each copy of a wave carries
+its own count), asked with the state of the latest copy, and the verdict is cached under every copy's own key;
+a count that is not a finite number prints as 0 or `999+` and fails nothing. It is on by default under `JEVMOD_FULL_CONTEXT` (off sends nothing and computes every cache key
 as before); a message whose caller gives no `community` goes out byte for byte as before, which is every caller
 today. The npm package has no per-message context field, so it carries no state and needs no change; its cache
 key is unchanged because the line is appended to the key only when there is one.
@@ -240,6 +244,9 @@ key is unchanged because the line is appended to the key only when there is one.
   set, when it lands, is the first place to re-run this.
 - **The detectors.** The state here is written by hand and correct by construction. In production it comes from
   JEV-26, JEV-27 and JEV-70, and a wrong copy count reaches the model exactly as a right one does.
+- **The bystander guard on the message part is thin.** After the edit that zeroed the bystanders' own counts,
+  only 6 of the 30 `event_neg` rows (`harassment-e04`, `e11` to `e15`) carry a message part, so on the other 24
+  `full` sends what `chan` sends. On those 6 no verdict moved and the largest rise was 0.04.
 - **Harassment.** The harassment pairs were not ambiguous to the blind labeller, so whether the target counts
   help against a pile-on is open (+8 points, interval from 0).
 - **The hype-chant drift.** A copy count lifts innocent chants by up to 0.24 spam. None came near 0.85 here,

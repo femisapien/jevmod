@@ -331,6 +331,7 @@ class Judge:
         out: dict[int, Verdict] = {}
         to_judge: list[tuple[Message, str]] = []
         where: list[int] = []
+        full_key: dict[int, str] = {}
         now = time.time()
         for idx, m in enumerate(messages):
             why = prefilter(m)
@@ -343,6 +344,7 @@ class Judge:
             if hit and now - hit[0] < self.cache_ttl:
                 out[idx] = Verdict(m.id, dict(hit[1]), True, "cache", dict(hit[2]))
                 continue
+            full_key[idx] = key
             to_judge.append((m, text))
             where.append(idx)
 
@@ -351,13 +353,19 @@ class Judge:
             # of the same line inside one window, and every message in a batch reads the same window,
             # so the copies share a key: they cost one position instead of forty, and they cannot get
             # forty different answers either. Measured need in `benchmark/throughput_stream/REPORT.md`.
+            #
+            # The community-state line is left out of this grouping on purpose (JEV-30). Each copy in a
+            # wave carries its own copy count, so grouping by the full key sent a wave of sixty copies as
+            # sixty positions, and `within_cap`, which counts distinct texts, no longer bounded it. The
+            # copies are asked once, with the state of the latest of them (the most copies seen), and
+            # the answer is cached under every copy's own key.
             groups: dict[str, list[int]] = {}
-            first: dict[str, tuple[Message, str]] = {}
+            latest: dict[str, tuple[Message, str]] = {}
             for idx, (m, text) in zip(where, to_judge, strict=True):
-                key = _key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))
-                groups.setdefault(key, []).append(idx)
-                first.setdefault(key, (m, text))
-            unique = list(first.values())
+                gkey = _key(text, m.channel_topic, cats, custom_rules, m.context)
+                groups.setdefault(gkey, []).append(idx)
+                latest[gkey] = (m, text)
+            unique = list(latest.values())
             topic = unique[0][0].channel_topic or "general chat"
             # Padding, deduplicated, normalised so it cannot smuggle in text the pre-filter would
             # have cleaned, and with anything already being judged removed: the buffer holds the
@@ -405,7 +413,7 @@ class Judge:
                     # normalisation than a request may hold. It gets its own unjudged verdict; failing
                     # the batch for it let one such line per window switch moderation off.
                     m, text = chunk[0]
-                    for idx in groups[_key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))]:
+                    for idx in groups[_key(text, m.channel_topic, cats, custom_rules, m.context)]:
                         out[idx] = Verdict(messages[idx].id, {}, False, "too long")
                     continue
                 if isinstance(result, BaseException):
@@ -423,9 +431,8 @@ class Judge:
                 for i, (m, text) in enumerate(chunk, start=1):
                     scores = {c: _p(answers[f"{c}_{i}"]) for c in cats}
                     custom = {name: _p(answers[f"custom__{name}_{i}"]) for name in custom_rules}
-                    key = _key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))
-                    self.cache[key] = (now, scores, custom)
-                    for idx in groups[key]:
+                    for idx in groups[_key(text, m.channel_topic, cats, custom_rules, m.context)]:
+                        self.cache[full_key[idx]] = (now, scores, custom)
                         out[idx] = Verdict(messages[idx].id, dict(scores), True, "jev", dict(custom))
             if failure is not None:
                 # The contract is unchanged: a request that failed raises, and the caller decides

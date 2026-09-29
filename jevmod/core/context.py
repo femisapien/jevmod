@@ -195,8 +195,10 @@ def _flag(name: str, default: bool) -> bool:
     """An on/off environment switch that says so when it does not understand a value, the way
     `JEVMOD_PAD_BATCH` does in `service.py` (`off` once meant on there)."""
     raw = os.environ.get(name)
-    no, yes = {"0", "false", "no", "off", "n", ""}, {"1", "true", "yes", "on", "y"}
-    if raw is None:
+    no, yes = {"0", "false", "no", "off", "n"}, {"1", "true", "yes", "on", "y"}
+    # Empty is unset: a compose file's `${JEVMOD_FULL_CONTEXT}` with nothing behind it must not switch the
+    # feature off without a word.
+    if raw is None or not raw.strip():
         return default
     v = raw.strip().lower()
     if v not in no | yes:
@@ -228,9 +230,32 @@ class CommunityState:
     target_users: int = 0  # from how many users
 
 
-def _n(x: int) -> str:
-    x = max(0, int(x))
-    return f"{_COUNT_CAP}+" if x > _COUNT_CAP else str(x)
+def _n(x: object) -> str:
+    """A count as printed. Anything that is not a finite number (NaN, infinity, a string from JSON) is 0 or
+    the cap, never an exception: one malformed state must not fail a batch `moderate` would otherwise judge."""
+    v = _num(x)
+    return f"{_COUNT_CAP}+" if v > _COUNT_CAP else str(int(v))
+
+
+def _num(x: object) -> float:
+    """`x` as a non-negative number, 0 when it is not one (NaN included). Infinity stays infinite."""
+    try:
+        v = float(x)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return v if v > 0 else 0.0
+
+
+def _canon(value: object, allowed: tuple[str, ...]) -> str:
+    """The allowed word equal to `value`, taken from `allowed` itself, or "". What is printed is always one of
+    our own constants, never the caller's object, so a `str` subclass with its own `__format__` or `replace`
+    cannot write into the line."""
+    if type(value) is not str:
+        return ""
+    for a in allowed:
+        if type(a) is str and value == a:
+            return a
+    return ""
 
 
 def render_state(state: CommunityState | None, known_categories: tuple[str, ...] = (),
@@ -249,22 +274,28 @@ def render_state(state: CommunityState | None, known_categories: tuple[str, ...]
         message_part = STATE_MESSAGE_PART
     chan: dict[str, str] = {}
     msg: dict[str, str] = {}
-    if state.event in EVENT_TYPES and state.event_level in EVENT_LEVELS:
-        chan["event"] = f"open event {state.event.replace('_', ' ')} {state.event_level}"
-    elif state.rate_x > 0:
+    rate = min(_num(state.rate_x), 999.0)
+    event, level = _canon(state.event, EVENT_TYPES), _canon(state.event_level, EVENT_LEVELS)
+    if event and level:
+        chan["event"] = f"open event {event.replace('_', ' ')} {level}"
+    elif rate > 0:
         chan["event"] = "no open event"
-    if message_part and state.copies_60s > 0:
-        msg["copies"] = f"{_n(state.copies_60s)} copies by {_n(max(1, state.copies_accounts))} accounts/60s"
-    if message_part and state.target_5m > 0:
-        msg["target"] = f"its target got {_n(state.target_5m)} msgs from {_n(max(1, state.target_users))} users/5min"
-    if state.rate_x > 0:
-        r = min(state.rate_x, 999.0)
-        chan["rate"] = f"{r:.1f}x usual rate" if r < 10 else f"{r:.0f}x usual rate"
-    flags = sorted(((c, k) for c, k in state.flagged_5m if c in known_categories and k > 0),
-                   key=lambda ck: (-ck[1], ck[0]))[:2]
+    if message_part and _num(state.copies_60s) >= 1:
+        msg["copies"] = f"{_n(state.copies_60s)} copies by {_n(max(1.0, _num(state.copies_accounts)))} accounts/60s"
+    if message_part and _num(state.target_5m) >= 1:
+        msg["target"] = (f"its target got {_n(state.target_5m)} msgs from "
+                         f"{_n(max(1.0, _num(state.target_users)))} users/5min")
+    if rate > 0:
+        chan["rate"] = f"{rate:.1f}x usual rate" if rate < 10 else f"{rate:.0f}x usual rate"
+    flagged: list[tuple[str, float]] = []
+    for cat, cnt in state.flagged_5m:
+        name = _canon(cat, known_categories)
+        if name and _num(cnt) >= 1:
+            flagged.append((name, _num(cnt)))
+    flags = sorted(flagged, key=lambda nc: (-nc[1], nc[0]))[:2]
     if flags:
-        chan["flagged"] = "flagged/5min " + " ".join(f"{c} {_n(k)}" for c, k in flags)
-    if state.newcomers_5m > 0:
+        chan["flagged"] = "flagged/5min " + " ".join(f"{name} {_n(cnt)}" for name, cnt in flags)
+    if _num(state.newcomers_5m) >= 1:
         chan["newcomers"] = f"{_n(state.newcomers_5m)} new accounts/5min"
 
     budget = max_tokens * CHARS_PER_TOKEN
