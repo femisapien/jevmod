@@ -41,11 +41,14 @@ most severe action whose threshold is crossed, ties to the higher probability.
 
 Lower level: `Judge(client=None, cache_ttl_s=86400, timeout_s=20.0).judge(messages: list[Message],
 categories: list[str], custom_rules: dict[str, str] | None = None) -> list[Verdict]`;
-`Message(id, text, author="", channel_topic="", author_trusted=False, channel="", context=())`;
+`Message(id, text, author="", channel_topic="", author_trusted=False, channel="", context=(), community=None)`;
 `Verdict(message_id, scores, judged, reason, custom)`. `context` is what was said in this channel
 just before, oldest first, filled by `ModerationService` from `core/context.py` so every adapter
 gets it unchanged; `channel` only matters on Discord, where one tenant has many conversations.
-Both are local, like `author`: neither reaches Jev. Errors surface as `typesafe_sdk.TypeSafeError` after 3 retries
+`channel` and `author` are local: neither reaches Jev. `community` is a `core.context.CommunityState` of counts
+(rate against the usual rate, newcomers, flags, an open event, this line's copies and its target's load), rendered
+into one `community_state` line of at most 50 estimated tokens (`benchmark/community_state/REPORT.md`, JEV-30);
+the caller that computes it fills it, `None` sends nothing, `JEVMOD_FULL_CONTEXT=0` stops it. Errors surface as `typesafe_sdk.TypeSafeError` after 3 retries
 (429/5xx, backoff, Retry-After) and a 20 s timeout. `Moderator` does not catch them.
 
 CLI: `jevmod check [text | -] [--topic T] [--rule R]... [--threshold X] [--json]`; exit 0 clean,
@@ -95,7 +98,7 @@ exports; it is developed in parallel with this file.
 | `jevmod/categories.json` | the questions and criteria every implementation asks Jev; the only place they are defined |
 | `jevmod/core/policy.py` | `Policy`, `Decision`, `decide`, defaults |
 | `jevmod/core/service.py` | `ModerationService` (tenant policy, quota, audit log, fail-open, `MAX_BATCH` counted in distinct texts) and `Batcher` (per-adapter window, counted from the oldest waiting message). Throughput limits: `benchmark/throughput_stream/REPORT.md` |
-| `jevmod/core/context.py` | the conversation window: a bounded rolling buffer per channel and the assembler that trims it to a token budget |
+| `jevmod/core/context.py` | the conversation window: a bounded rolling buffer per channel and the assembler that trims it to a token budget; the community-state line and the `JEVMOD_FULL_CONTEXT` switch |
 | `jevmod/core/store.py` | SQLite store: tenants, hashed API keys, usage, decisions (30-day retention) |
 | `jevmod/keys.py` | key lookup: `TYPESAFE_API_KEY`, then the OS keyring (extra `keyring`, in `[all]`), then `.env`; `jevmod init`, `jevmod init --forget` |
 | `jevmod/cli.py`, `jevmod/__main__.py` | `jevmod check` and the role runner |
@@ -164,9 +167,11 @@ red-team suite calls Jev about a hundred times; expect a minute and a few cents.
   disk is a retention question the privacy notice does not answer; JEV-20 to JEV-22 own it. Erasure
   still has to reach the window: `ModerationService.forget_context` exists because deleting rows
   does not.
-- Only message text and `channel_topic` go to TypeSafe. No author names, ids or emails. This is enforced
-  at `jevmod/judge.py:141`, promised in the privacy notice and stated on the home page. A decision exists
-  to change it, gated on a rewritten privacy notice and a DPA: **do not change the code first.**
+- What goes to TypeSafe: message text, `channel_topic`, the conversation window as text (`context`) and,
+  when a caller gives one, the community-state line, which is numbers and fixed words only. No author names,
+  ids or emails. Full context is on by default under `JEVMOD_FULL_CONTEXT` (Omar's rule of 2026-09-27; the
+  legal side is his, and the privacy notice lists what leaves in the deploy that sends it). Anything beyond
+  these, such as user history, is added only with the privacy notice updated in the same deploy.
 - Never write a key into a file. `.env` is git-ignored. Nothing prints or logs the key.
 - Every external call has a timeout and a defined failure behaviour. Fail open, log once per batch.
 - Plain English in code and docs. No marketing adjectives, no emoji. Numbers only when measured.
