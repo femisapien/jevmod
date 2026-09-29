@@ -22,9 +22,12 @@ to this buffer would quietly break that promise, which is why the buffer physica
 
 from __future__ import annotations
 
+import logging
+import os
 import threading
 import time
 from collections import OrderedDict, deque
+from dataclasses import dataclass
 
 # Measured, see the module docstring. A server may ask for less; it cannot ask for more without
 # changing this number and re-running benchmark/batch_effect.py to justify it.
@@ -162,3 +165,119 @@ def assemble(window: tuple[str, ...], max_tokens: int = MAX_CONTEXT_TOKENS) -> t
         out.append(text)
         spent += cost
     return tuple(reversed(out))
+
+
+# ---------------------------------------------------------------- community state (JEV-30)
+#
+# What is happening in the channel right now, as one short line beside the conversation window: the rate
+# against the channel's usual rate, newcomers, what was flagged, any open incident (JEV-28's events), and
+# for the message itself how many near-identical copies of it were just posted and how much its target
+# has just received. The window cannot carry these: it drops any line identical to the one judged, so a
+# spam wave reaches the model with its copies removed, and it has no authors, so six people telling one
+# person to leave reads like one friend teasing another.
+#
+# Numbers and fixed words only. Every field is a count, a ratio, a known category or a known event type;
+# nothing a user typed can reach the line, so it cannot carry text past the pre-filter or the privacy
+# promise, and it cannot be used to write instructions to the model.
+#
+# The budget is JEV-19's: 50 estimated tokens (characters / 4, the unit `assemble` enforces), out of the
+# 550 a judged message may add. Measured in `benchmark/community_state/REPORT.md`.
+STATE_TOKENS = 50
+EVENT_TYPES = ("raid", "spam_wave", "pile_on", "escalation", "conflict")
+EVENT_LEVELS = ("E1", "E2", "E3")
+_COUNT_CAP = 999
+# Whether the line carries the message's own part (its copies and its target) as well as the channel's.
+# Decided by the measurement in `benchmark/community_state/REPORT.md`, which compares the two.
+STATE_MESSAGE_PART = True
+
+
+def _flag(name: str, default: bool) -> bool:
+    """An on/off environment switch that says so when it does not understand a value, the way
+    `JEVMOD_PAD_BATCH` does in `service.py` (`off` once meant on there)."""
+    raw = os.environ.get(name)
+    no, yes = {"0", "false", "no", "off", "n", ""}, {"1", "true", "yes", "on", "y"}
+    if raw is None:
+        return default
+    v = raw.strip().lower()
+    if v not in no | yes:
+        logging.getLogger("jevmod").warning({"event": "flag_unrecognised", "flag": name, "value": raw[:20],
+                                             "using": "on" if default else "off"})
+        return default
+    return v in yes
+
+
+# JEV-19's switch for everything beyond the conversation window. On by default (Omar's rule of 2026-09-27
+# night: full context is built on, with a flag to turn it off); off, a message goes out with the window only,
+# byte for byte what it was before this existed.
+FULL_CONTEXT = _flag("JEVMOD_FULL_CONTEXT", True)
+
+
+@dataclass(frozen=True)
+class CommunityState:
+    """The channel's state when a message arrived, filled by whoever computes it (the hosted service's event
+    detectors, JEV-26, JEV-27, JEV-70). Every field defaults to "nothing to say"."""
+
+    rate_x: float = 0.0  # messages per minute now, divided by the channel's usual rate; 0 = unknown
+    newcomers_5m: int = 0  # messages in the last 5 min from accounts under 7 days or new to the channel
+    flagged_5m: tuple[tuple[str, int], ...] = ()  # (category, messages flagged in the last 5 min)
+    event: str = ""  # an open incident, one of EVENT_TYPES, or ""
+    event_level: str = ""  # one of EVENT_LEVELS
+    copies_60s: int = 0  # near-identical copies of this message in the last 60 s
+    copies_accounts: int = 0  # posted by how many accounts
+    target_5m: int = 0  # messages the person this one addresses received in the last 5 min
+    target_users: int = 0  # from how many users
+
+
+def _n(x: int) -> str:
+    x = max(0, int(x))
+    return f"{_COUNT_CAP}+" if x > _COUNT_CAP else str(x)
+
+
+def render_state(state: CommunityState | None, known_categories: tuple[str, ...] = (),
+                 message_part: bool | None = None, max_tokens: int = STATE_TOKENS) -> str:
+    """The line the model reads, or "" when there is nothing to send.
+
+    Parts are admitted in order of what they are worth (the open event, the message's own copies and its
+    target, then the rate, the flags, the newcomers) while they fit the budget, and printed in a fixed order.
+    A category outside `known_categories` is dropped rather than printed, so a caller cannot put words in
+    the line through a category name; with no list given, only the event types' fixed words and numbers
+    appear.
+    """
+    if state is None:
+        return ""
+    if message_part is None:
+        message_part = STATE_MESSAGE_PART
+    chan: dict[str, str] = {}
+    msg: dict[str, str] = {}
+    if state.event in EVENT_TYPES and state.event_level in EVENT_LEVELS:
+        chan["event"] = f"open event {state.event.replace('_', ' ')} {state.event_level}"
+    elif state.rate_x > 0:
+        chan["event"] = "no open event"
+    if message_part and state.copies_60s > 0:
+        msg["copies"] = f"{_n(state.copies_60s)} copies by {_n(max(1, state.copies_accounts))} accounts/60s"
+    if message_part and state.target_5m > 0:
+        msg["target"] = f"its target got {_n(state.target_5m)} msgs from {_n(max(1, state.target_users))} users/5min"
+    if state.rate_x > 0:
+        r = min(state.rate_x, 999.0)
+        chan["rate"] = f"{r:.1f}x usual rate" if r < 10 else f"{r:.0f}x usual rate"
+    flags = sorted(((c, k) for c, k in state.flagged_5m if c in known_categories and k > 0),
+                   key=lambda ck: (-ck[1], ck[0]))[:2]
+    if flags:
+        chan["flagged"] = "flagged/5min " + " ".join(f"{c} {_n(k)}" for c, k in flags)
+    if state.newcomers_5m > 0:
+        chan["newcomers"] = f"{_n(state.newcomers_5m)} new accounts/5min"
+
+    budget = max_tokens * CHARS_PER_TOKEN
+    kept: set[str] = set()
+
+    def line() -> str:
+        c = ", ".join(chan[k] for k in ("rate", "newcomers", "flagged", "event") if k in kept and k in chan)
+        m = ", ".join(msg[k] for k in ("copies", "target") if k in kept and k in msg)
+        return "; ".join(p for p in (f"channel: {c}" if c else "", f"this message: {m}" if m else "") if p)
+
+    for k in ("event", "copies", "target", "rate", "flagged", "newcomers"):
+        if k in chan or k in msg:
+            kept.add(k)
+            if len(line()) > budget:
+                kept.discard(k)
+    return line()

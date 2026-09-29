@@ -36,7 +36,8 @@ from typing import Any
 
 from typesafe_sdk import Noul, NoulAnswer, RetryPolicy, TypeSafeAPIError, TypeSafeClient
 
-from .core.context import MAX_CONTEXT_TOKENS, assemble
+from .core import context as _ctx
+from .core.context import MAX_CONTEXT_TOKENS, CommunityState, assemble, render_state
 from .keys import get_api_key
 
 # The questions live in categories.json so every implementation (Python, npm, MCP) asks Jev exactly the same thing.
@@ -148,8 +149,10 @@ def split_for_request(
 def _position_cost(m: Message, text: str, cats: list[str], rules: dict[str, str]) -> int:
     # The context as it is sent, normalised: NFKC turns one character such as U+FDFA into eighteen,
     # and an estimate of the raw text was a tenth of what was billed.
-    return estimate_tokens(text, tuple(normalize(c) for c in m.context), len(cats), rules,
-                           m.channel_topic or "general chat")
+    # The community-state line is counted like one more context entry, which is what it costs on the wire.
+    state = state_line(m)
+    sent = tuple(normalize(c) for c in m.context) + ((state,) if state else ())
+    return estimate_tokens(text, sent, len(cats), rules, m.channel_topic or "general chat")
 
 
 def request_cost(items: list[tuple[Message, str]], cats: list[str], rules: dict[str, str]) -> int:
@@ -196,6 +199,19 @@ class Message:
     # only: an author name here would break the promise in AGENTS.md and the privacy notice, and
     # the buffer that fills it cannot hold one.
     context: tuple[str, ...] = ()
+    # What is happening in the channel right now (JEV-30): rate, newcomers, flags, an open event, and this
+    # message's own copies and target, as numbers. Rendered by `core.context.render_state` into one line of at
+    # most 50 estimated tokens, sent as `community_state` beside `context`, and part of the cache key. Filled by
+    # the caller that computes it; None sends nothing. `JEVMOD_FULL_CONTEXT=0` stops it being sent.
+    community: CommunityState | None = None
+
+
+def state_line(m: Message) -> str:
+    """The community-state line this message carries on the wire, or "" (none given, or the switch off).
+    One function, so the request, the cache key and the token estimate cannot disagree about it."""
+    if not _ctx.FULL_CONTEXT or m.community is None:
+        return ""
+    return render_state(m.community, tuple(CATEGORIES))
 
 
 @dataclass
@@ -273,7 +289,8 @@ class Judge:
         cats = [c for c in categories if c in CATEGORIES]
         if prefilter(m) or not (cats or custom_rules):
             return False
-        hit = self.cache.get(_key(normalize(m.text), m.channel_topic, cats, custom_rules or {}, m.context))
+        key = _key(normalize(m.text), m.channel_topic, cats, custom_rules or {}, m.context, state_line(m))
+        hit = self.cache.get(key)
         return not (hit and time.time() - hit[0] < self.cache_ttl)
 
     def judge(
@@ -321,7 +338,7 @@ class Judge:
                 out[idx] = Verdict(m.id, {}, False, why)
                 continue
             text = normalize(m.text)
-            key = _key(text, m.channel_topic, cats, custom_rules, m.context)
+            key = _key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))
             hit = self.cache.get(key)
             if hit and now - hit[0] < self.cache_ttl:
                 out[idx] = Verdict(m.id, dict(hit[1]), True, "cache", dict(hit[2]))
@@ -337,7 +354,7 @@ class Judge:
             groups: dict[str, list[int]] = {}
             first: dict[str, tuple[Message, str]] = {}
             for idx, (m, text) in zip(where, to_judge, strict=True):
-                key = _key(text, m.channel_topic, cats, custom_rules, m.context)
+                key = _key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))
                 groups.setdefault(key, []).append(idx)
                 first.setdefault(key, (m, text))
             unique = list(first.values())
@@ -388,7 +405,7 @@ class Judge:
                     # normalisation than a request may hold. It gets its own unjudged verdict; failing
                     # the batch for it let one such line per window switch moderation off.
                     m, text = chunk[0]
-                    for idx in groups[_key(text, m.channel_topic, cats, custom_rules, m.context)]:
+                    for idx in groups[_key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))]:
                         out[idx] = Verdict(messages[idx].id, {}, False, "too long")
                     continue
                 if isinstance(result, BaseException):
@@ -406,7 +423,7 @@ class Judge:
                 for i, (m, text) in enumerate(chunk, start=1):
                     scores = {c: _p(answers[f"{c}_{i}"]) for c in cats}
                     custom = {name: _p(answers[f"custom__{name}_{i}"]) for name in custom_rules}
-                    key = _key(text, m.channel_topic, cats, custom_rules, m.context)
+                    key = _key(text, m.channel_topic, cats, custom_rules, m.context, state_line(m))
                     self.cache[key] = (now, scores, custom)
                     for idx in groups[key]:
                         out[idx] = Verdict(messages[idx].id, dict(scores), True, "jev", dict(custom))
@@ -489,6 +506,9 @@ class Judge:
                     # and enclosed alphanumerics were reaching Jev raw through this field.
                     **({"context": {f"c{k}": normalize(c) for k, c in enumerate(m.context)}}
                        if m.context else {}),
+                    # One line of numbers and fixed words (JEV-30, `benchmark/community_state/REPORT.md`).
+                    # Omitted when empty, so a message without it goes out exactly as before.
+                    **({"community_state": state_line(m)} if state_line(m) else {}),
                 }
                 # Real messages start at m1. m0 is filled below and is never one of them.
                 for i, (m, text) in enumerate(chunk, start=1)
@@ -556,7 +576,8 @@ def dedupe_text(text: str) -> str:
     return normalize(text).lower()
 
 
-def _key(text: str, topic: str, cats: list[str], rules: dict[str, str], context: tuple[str, ...] = ()) -> str:
+def _key(text: str, topic: str, cats: list[str], rules: dict[str, str], context: tuple[str, ...] = (),
+         state: str = "") -> str:
     """The cache key. The context is part of it, and that costs hit rate on purpose.
 
     Without it, a verdict computed while one conversation was happening is handed back during
@@ -575,6 +596,11 @@ def _key(text: str, topic: str, cats: list[str], rules: dict[str, str], context:
     # stores raw text, so a message containing it collapsed two different windows into one key and
     # a verdict from one conversation was served to another. That was demonstrated, not theorised.
     # JSON quotes and escapes, so no field can impersonate a delimiter.
-    payload = json.dumps([text.lower(), topic, sorted(cats), sorted(rules.items()), list(context)],
-                         ensure_ascii=False, sort_keys=True)
+    # The community-state line is appended only when there is one, so every key without it is byte for byte
+    # the key it was before, and the npm package, which has no state, computes the same key
+    # (`packages/jevmod-js/tests/normalize.test.ts`).
+    fields: list[Any] = [text.lower(), topic, sorted(cats), sorted(rules.items()), list(context)]
+    if state:
+        fields.append(state)
+    payload = json.dumps(fields, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()[:32]
